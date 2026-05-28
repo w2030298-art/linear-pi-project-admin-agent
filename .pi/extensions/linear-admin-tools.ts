@@ -6,7 +6,7 @@ function text(content: unknown) {
 }
 
 export default function (pi: ExtensionAPI) {
-  const callLinear = async (signal: AbortSignal, args: string[]) => {
+  const callLinear = async (signal: AbortSignal | undefined, args: string[]) => {
     const result = await pi.exec("node", ["scripts/linear-cli.mjs", ...args], { signal, timeout: 120000 });
     return text(result.stdout || result.stderr || { code: result.code });
   };

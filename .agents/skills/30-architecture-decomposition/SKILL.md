@@ -1,3 +1,8 @@
+---
+name: architecture-decomposition
+description: 将产品计划拆解为技术架构、模块、接口、数据流、部署、安全、可观测性和演进策略。用于架构级项目规划和评审。
+---
+
 # Architecture Decomposition
 
 ## 目的

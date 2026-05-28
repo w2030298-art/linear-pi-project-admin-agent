@@ -1,22 +1,72 @@
 {
   "version": 1,
-  "lastSyncedAt": null,
+  "lastSyncedAt": "2026-05-28T11:53:28.931Z",
   "workspace": {
-    "name": "CHANGE_ME",
-    "defaultTeamKey": "ENG",
+    "name": "WENTAOXU-personal-workplace",
+    "defaultTeamKey": "WEN",
     "language": "zh-CN"
   },
-  "teams": [],
-  "members": [],
+  "teams": [
+    {
+      "id": "57eb6535-1f0d-4d8b-b1c2-518719c691c8",
+      "key": "WEN",
+      "name": "WENTAOXU-personal-workplace"
+    }
+  ],
+  "members": [
+    {
+      "id": "8ed7f0ee-a98c-43cd-9fde-9b718604cb67",
+      "name": "Codex",
+      "active": true,
+      "admin": false
+    },
+    {
+      "id": "1ee581a9-9bcf-4795-82c6-173454304458",
+      "name": "local-dispacher",
+      "active": true,
+      "admin": false
+    },
+    {
+      "id": "365b9a11-eb46-4248-bb38-4a344403504e",
+      "name": "Cursor",
+      "active": true,
+      "admin": false
+    },
+    {
+      "id": "2187686e-42ad-4bc8-bf40-a83757619597",
+      "name": "Linear",
+      "active": true,
+      "admin": false
+    },
+    {
+      "id": "a1e266e5-a872-4993-9436-17029a8f605b",
+      "name": "Wentao",
+      "active": true,
+      "admin": true
+    }
+  ],
   "labels": {
     "difficulty": {
       "required": true,
       "exactlyOne": true,
-      "allowed": ["High-difficulty", "Medium-difficulty", "Low-difficulty"]
+      "allowed": [
+        "High-difficulty",
+        "Medium-difficulty",
+        "Low-difficulty"
+      ]
     },
     "area": {
       "required": false,
-      "allowed": ["Backend", "Frontend", "Infra", "Research", "Product", "AI", "Data"]
+      "allowed": [
+        "Backend",
+        "Frontend",
+        "Full-stack",
+        "Infra",
+        "Research",
+        "Product",
+        "AI",
+        "Data"
+      ]
     },
     "agentTrigger": {
       "allowed": [
@@ -29,16 +79,71 @@
         "Agent:HygieneCheck",
         "Agent:SyncWorkspace"
       ]
+    },
+    "type": {
+      "required": false,
+      "allowed": [
+        "Bug",
+        "Feature",
+        "Improvement",
+        "Docs",
+        "Chore",
+        "Refactor",
+        "Test",
+        "Type"
+      ]
+    },
+    "repo": {
+      "required": false,
+      "allowed": [
+        "Repo",
+        "repo:linear-bridge",
+        "repo:multica"
+      ]
+    },
+    "dispatch": {
+      "required": false,
+      "allowed": [
+        "dispatch:local"
+      ]
+    },
+    "meta": {
+      "required": false,
+      "allowed": [
+        "Area",
+        "Complexity"
+      ]
     }
   },
   "workflowStates": {
-    "backlog": ["Backlog", "积压"],
-    "ready": ["Ready", "准备开始"],
-    "inProgress": ["In Progress", "进行中"],
-    "blocked": ["Blocked", "阻塞"],
-    "review": ["In Review", "审核中"],
-    "done": ["Done", "完成"],
-    "canceled": ["Canceled", "取消"]
+    "backlog": [
+      "Backlog",
+      "积压"
+    ],
+    "ready": [
+      "Ready",
+      "准备开始"
+    ],
+    "inProgress": [
+      "In Progress",
+      "进行中"
+    ],
+    "blocked": [
+      "Blocked",
+      "阻塞"
+    ],
+    "review": [
+      "In Review",
+      "审核中"
+    ],
+    "done": [
+      "Done",
+      "完成"
+    ],
+    "canceled": [
+      "Canceled",
+      "取消"
+    ]
   },
   "orchestrationPolicy": {
     "maxActiveProjects": 3,

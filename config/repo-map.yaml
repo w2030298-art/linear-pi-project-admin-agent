@@ -1,15 +1,15 @@
 version: 1
 repos:
-  - key: example
-    owner: CHANGE_ME
-    repo: CHANGE_ME
-    defaultBranch: main
-    localPath: ./repos/CHANGE_ME
-    linearProjectPrefix: "example｜"
+  - key: linear-pi-project-admin-agent
+    owner: w2030298-art
+    repo: linear-pi-project-admin-agent
+    defaultBranch: master
+    localPath: .
+    linearProjectPrefix: "linear-pi-project-admin-agent｜"
     docs:
       - README.md
       - docs/
-      - architecture/
+      - .agents/references/
       - package.json
-      - pyproject.toml
+      - tsconfig.json
     evidenceWeight: high

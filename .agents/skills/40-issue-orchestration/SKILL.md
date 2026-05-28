@@ -1,3 +1,8 @@
+---
+name: issue-orchestration
+description: 将 Project、Milestone 和架构计划转成原子化、可执行、可验收的 Linear Issues、依赖关系、labels 和 Cycle 建议。
+---
+
 # Issue Orchestration
 
 ## 目的

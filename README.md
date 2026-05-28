@@ -73,7 +73,7 @@ npm run bridge:dev
 
 ## 重要限制
 
-- `scripts/linear-cli.mjs apply` 目前是安全 scaffold：默认只 dry-run，不会真实写入 Linear。上线前需要按你的 Linear schema 和写入策略补齐 mutation。
+- `scripts/linear-cli.mjs apply` 已实现真实写入，但默认仍是 dry-run。真实写入必须同时满足 `LINEAR_WRITE_MODE=confirmed-only`、`ALLOW_LINEAR_WRITES=true`、write plan `dryRun=false`、`confirmedByUser=true` 和 CLI `--confirmed`。
 - GitHub MCP 的配置文件已提供；Pi 是否能直接作为 MCP host 取决于你的 Pi/MCP 插件安装情况。本项目同时提供 GitHub REST fallback。
 - Web search 需要 `TAVILY_API_KEY` 或 `BRAVE_SEARCH_API_KEY`。
 - 不要把 `.env`、token、secret 写入 Linear 或提交到 GitHub。

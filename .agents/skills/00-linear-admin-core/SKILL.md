@@ -1,3 +1,8 @@
+---
+name: linear-admin-core
+description: 定义 Linear Project Admin Runtime 的核心协议：事实先行、Fact Pack、dry-run 写入、回读校验和审计。任何 Linear 项目管理员任务都应使用。
+---
+
 # Linear Admin Core
 
 ## 目的

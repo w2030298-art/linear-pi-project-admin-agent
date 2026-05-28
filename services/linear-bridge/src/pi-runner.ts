@@ -22,8 +22,7 @@ ${task.prompt}
     stdio: ["pipe", "pipe", "pipe"],
     env: process.env
   });
-  child.stdin.write(JSON.stringify({ type: "user_message", content: task.prompt }) + "
-");
+  child.stdin.write(JSON.stringify({ type: "prompt", message: task.prompt }) + "\n");
   child.stdin.end();
   child.stdout.on("data", d => fs.appendFileSync(`state/pi-queue/${id}.out.log`, d));
   child.stderr.on("data", d => fs.appendFileSync(`state/pi-queue/${id}.err.log`, d));

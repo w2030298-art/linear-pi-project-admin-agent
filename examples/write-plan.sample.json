@@ -4,20 +4,35 @@
   "confirmedByUser": false,
   "operations": [
     {
+      "key": "project",
       "type": "project.create",
       "level": "L2",
       "input": {
         "name": "example｜示例项目",
-        "description": "示例 Project。"
+        "description": "示例 Project。",
+        "teamKey": "WEN"
       }
     },
     {
+      "key": "m0",
+      "type": "projectMilestone.create",
+      "level": "L2",
+      "input": {
+        "projectRef": "project",
+        "name": "M0｜事实基线"
+      }
+    },
+    {
+      "key": "fact-pack-issue",
       "type": "issue.create",
       "level": "L2",
       "input": {
+        "projectRef": "project",
+        "projectMilestoneRef": "m0",
+        "teamKey": "WEN",
         "title": "建立 Fact Pack",
         "description": "收集 Linear、GitHub、本地和 Web 事实。",
-        "labels": ["Medium-difficulty", "Research"]
+        "labels": ["Medium-difficulty", "Feature"]
       }
     }
   ],

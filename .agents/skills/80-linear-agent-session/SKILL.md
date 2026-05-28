@@ -1,3 +1,8 @@
+---
+name: linear-agent-session
+description: 处理 Linear @mention、delegate issue、Agent:* label trigger 和 webhook 事件，将 Linear-native 唤醒转化为 Pi 任务队列。
+---
+
 # Linear Agent Session
 
 ## 目的

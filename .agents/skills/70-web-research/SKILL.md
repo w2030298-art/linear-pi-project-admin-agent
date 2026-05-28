@@ -1,3 +1,8 @@
+---
+name: web-research
+description: 在需要最新外部资料、官方文档、API 变更、依赖库行为、标准或竞品信息时执行受控联网搜索并记录来源。
+---
+
 # Web Research
 
 ## 目的

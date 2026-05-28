@@ -1,3 +1,8 @@
+---
+name: project-planning
+description: 将需求转化为 PRD、范围、成功指标、路线图和 Linear Project 草案。用于新建或扩展 Linear 项目前的结构化规划。
+---
+
 # Project Planning
 
 ## 目的

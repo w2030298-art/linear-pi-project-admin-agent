@@ -1,3 +1,8 @@
+---
+name: fact-ingestion
+description: 从 Linear、GitHub、本地 repo、本地文档和联网搜索构造 Fact Pack。用于项目规划、扩展、报告、Cycle 规划和派发前的事实核验。
+---
+
 # Fact Ingestion
 
 ## 目的

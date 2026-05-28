@@ -23,6 +23,5 @@ export function markSeen(deliveryId: string) {
 
 export function appendEvent(event: unknown) {
   ensure();
-  fs.appendFileSync(eventLog, JSON.stringify({ ts: new Date().toISOString(), event }) + "
-");
+  fs.appendFileSync(eventLog, JSON.stringify({ ts: new Date().toISOString(), event }) + "\n");
 }

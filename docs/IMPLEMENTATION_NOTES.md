@@ -6,16 +6,33 @@
 
 ## Linear apply
 
-`linear-cli.mjs apply` 默认不真实写入。你需要在确认 schema 和策略后实现：
+`linear-cli.mjs apply` 已实现真实写入，但默认仍由 dry-run 和确认门禁保护。
 
-- projectCreate / projectUpdate。
-- projectMilestoneCreate。
-- issueCreate / issueUpdate。
-- issueRelationCreate。
-- projectUpdateCreate。
-- commentCreate。
+已支持的 operation type：
 
-每个 mutation 后必须 readback。
+- `project.create` / `project.update`
+- `projectMilestone.create`（别名：`milestone.create`, `project.milestone.create`）
+- `issue.create` / `issue.update`
+- `issueRelation.create`（别名：`issue.relation.create`）
+- `projectRelation.create`（别名：`project.relation.create`）
+- `projectUpdate.create`（别名：`project.update.create`）
+- `comment.create`
+
+写入条件：
+
+- `LINEAR_WRITE_MODE=confirmed-only`
+- `ALLOW_LINEAR_WRITES=true`
+- write plan 中 `dryRun=false`
+- write plan 中 `confirmedByUser=true`
+- CLI 传入 `--confirmed`
+
+安全机制：
+
+- create operation 会基于 `idempotencyKey + operation key` 生成稳定 UUID。
+- 重复执行同一个 write plan 会先 readback 已存在对象并跳过创建，避免重复写入。
+- operation 可以用 `key` 定义引用名，并用 `projectRef`、`projectMilestoneRef`、`issueRef`、`relatedIssueRef`、`projectUpdateRef` 等字段引用前序结果。
+- label 名称会解析为 Linear `labelIds`；teamKey 会解析为 `teamId` / `teamIds`。
+- 每个 mutation 后都会 readback；审计日志写入 `AUDIT_LOG_PATH`。
 
 ## MCP
 

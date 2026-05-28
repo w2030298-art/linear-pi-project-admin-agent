@@ -1,3 +1,8 @@
+---
+name: workspace-sync
+description: 同步 Linear workspace 的 teams、members、labels、workflow states、cycles、projects 和 repo-map，使 Agent 适配 workspace 变化。
+---
+
 # Workspace Sync
 
 ## 目的

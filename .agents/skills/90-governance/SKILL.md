@@ -1,3 +1,8 @@
+---
+name: governance
+description: 治理 Agent 的配置、证据、写入、安全和迭代策略。用于审查权限、写入策略、审计日志和生产化上线步骤。
+---
+
 # Governance
 
 ## 目的

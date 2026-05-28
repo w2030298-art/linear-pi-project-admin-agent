@@ -9,7 +9,7 @@ export default function (pi: ExtensionAPI) {
     const name = event?.toolName || event?.name;
     if (!MUTATING_LINEAR_TOOLS.has(name)) return;
 
-    const params = event?.params || event?.arguments || {};
+    const params = event?.input || event?.params || event?.arguments || {};
     if (params.confirmedByUser !== true) {
       throw new Error(`Blocked ${name}: confirmedByUser=true is required.`);
     }

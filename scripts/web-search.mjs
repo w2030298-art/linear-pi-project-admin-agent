@@ -12,6 +12,11 @@ if (!query) {
   process.exit(2);
 }
 
+if (provider === 'off' || process.env.ALLOW_WEB_SEARCH === 'false') {
+  json({ ok: true, provider: 'off', sourceType: 'web_search', collectedAt: now(), query, skipped: true, reason: 'Web search is disabled.' });
+  process.exit(0);
+}
+
 async function tavily() {
   const key = process.env.TAVILY_API_KEY;
   if (!key) throw new Error('TAVILY_API_KEY missing');

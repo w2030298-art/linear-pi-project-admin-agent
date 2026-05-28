@@ -6,8 +6,7 @@ export default function (pi: ExtensionAPI) {
   const auditPath = process.env.AUDIT_LOG_PATH || "state/audit.jsonl";
   function log(event: unknown) {
     fs.mkdirSync(path.dirname(auditPath), { recursive: true });
-    fs.appendFileSync(auditPath, JSON.stringify({ ts: new Date().toISOString(), event }) + "
-");
+    fs.appendFileSync(auditPath, JSON.stringify({ ts: new Date().toISOString(), event }) + "\n");
   }
 
   pi.on("session_start", (event: any) => log({ type: "session_start", event }));
