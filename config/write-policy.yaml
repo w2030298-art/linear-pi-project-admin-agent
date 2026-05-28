@@ -1,0 +1,36 @@
+version: 1
+levels:
+  L0:
+    description: read, fact pack, draft, report
+    confirm: false
+  L1:
+    description: comment and project update draft
+    confirm: false
+    markDraft: true
+  L2:
+    description: create project, milestone, issue, relation
+    confirm: true
+    requireIdempotencyKey: true
+    requireReadback: true
+  L3:
+    description: bulk state/assignee/cycle/priority changes
+    confirm: true
+    requireSecondConfirmation: true
+    requireImpactReport: true
+  L4:
+    description: delete, archive, cancel projects, close many issues
+    default: deny
+  L5:
+    description: secrets, tokens, personal sensitive data
+    default: deny
+mutationDefaults:
+  dryRun: true
+  confirmedByUser: false
+  auditLogRequired: true
+  readbackRequired: true
+protectedFields:
+  - token
+  - secret
+  - password
+  - apiKey
+  - privateKey

@@ -1,0 +1,83 @@
+version: 1
+policy:
+  factPackRequiredFor:
+    - create_project
+    - extend_project
+    - cycle_plan
+    - portfolio_review
+    - project_report
+    - issue_dispatch
+  sourcePriority:
+    - linear_live
+    - github_remote
+    - local_repo
+    - local_docs
+    - web_search
+    - user_input
+    - agent_state
+  conflictResolution:
+    projectManagementState: linear_live
+    engineeringMainline: github_remote_default_branch
+    workingCopy: local_repo_with_branch_commit_dirty
+    externalClaims: web_search_with_citations
+    userDecision: user_confirmed_decision
+sources:
+  linear:
+    enabled: true
+    mode: sdk
+    requiredForWrites: true
+    readbackRequired: true
+  github:
+    enabled: true
+    preferredMode: mcp
+    fallbackMode: rest
+    mcpConfigPath: config/mcp.servers.json
+    toolsets:
+      - context
+      - repos
+      - issues
+      - pull_requests
+      - actions
+    writeAllowed: false
+  localRepo:
+    enabled: true
+    allowlist:
+      - ./repos
+      - ./src
+      - ./docs
+      - ./research
+    denylist:
+      - ./.env
+      - ./node_modules
+      - ./.git
+      - ./state
+  localDocs:
+    enabled: true
+    extensions:
+      - .md
+      - .mdx
+      - .txt
+      - .pdf
+      - .docx
+      - .json
+      - .yaml
+      - .yml
+    maxFileBytes: 2000000
+  webSearch:
+    enabled: true
+    defaultProvider: tavily
+    requireCitations: true
+    allowedProviders:
+      - tavily
+      - brave
+    useCases:
+      - official_docs
+      - dependency_docs
+      - technical_standards
+      - recent_product_changes
+      - competitive_research
+    disallowedUses:
+      - replace_linear_state
+      - replace_repo_state
+      - fetch_secrets
+      - scrape_private_pages

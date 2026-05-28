@@ -1,0 +1,15 @@
+version: 1
+repos:
+  - key: example
+    owner: CHANGE_ME
+    repo: CHANGE_ME
+    defaultBranch: main
+    localPath: ./repos/CHANGE_ME
+    linearProjectPrefix: "example｜"
+    docs:
+      - README.md
+      - docs/
+      - architecture/
+      - package.json
+      - pyproject.toml
+    evidenceWeight: high

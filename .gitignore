@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+state/*.sqlite
+state/*.db
+state/fact-packs/*.json
+state/audit.jsonl
+.pi/sessions/
+.DS_Store

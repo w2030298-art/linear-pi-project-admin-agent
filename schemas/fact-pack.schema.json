@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LinearProjectAdminFactPack",
+  "type": "object",
+  "required": ["id", "createdAt", "scope", "facts", "assumptions", "openQuestions", "conflicts", "evidenceGaps", "planningImplications"],
+  "properties": {
+    "id": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "scope": { "type": "object" },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "sourceType", "source", "confidence"],
+        "properties": {
+          "claim": { "type": "string" },
+          "sourceType": { "enum": ["linear_live", "github_remote", "local_repo", "local_docs", "web_search", "user_input", "agent_state"] },
+          "source": { "type": "string" },
+          "timestamp": { "type": ["string", "null"] },
+          "confidence": { "enum": ["high", "medium", "low"] },
+          "rawRef": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "openQuestions": { "type": "array", "items": { "type": "string" } },
+    "conflicts": { "type": "array", "items": { "type": "string" } },
+    "evidenceGaps": { "type": "array", "items": { "type": "string" } },
+    "planningImplications": { "type": "array", "items": { "type": "string" } }
+  }
+}

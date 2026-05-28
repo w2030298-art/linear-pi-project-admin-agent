@@ -1,0 +1,37 @@
+{
+  "name": "linear-pi-project-admin-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A Pi Agent project scaffold for a Linear-native project administrator with GitHub, local repo/docs, and web evidence sources.",
+  "scripts": {
+    "validate": "node scripts/validate-layout.mjs",
+    "fact:local": "node scripts/local-evidence.mjs --root .",
+    "fact:repo": "node scripts/github-evidence.mjs snapshot",
+    "fact:web": "node scripts/web-search.mjs",
+    "fact:pack": "node scripts/fact-pack.mjs",
+    "linear:smoke": "node scripts/linear-cli.mjs smoke",
+    "linear:workspace": "node scripts/linear-cli.mjs workspace",
+    "bridge:dev": "tsx services/linear-bridge/src/server.ts",
+    "bridge:start": "node dist/services/linear-bridge/src/server.js",
+    "test:webhook-signature": "node scripts/test-webhook-signature.mjs"
+  },
+  "dependencies": {
+    "@linear/sdk": "latest",
+    "@modelcontextprotocol/sdk": "latest",
+    "@tavily/core": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "fast-glob": "latest",
+    "yaml": "latest",
+    "zod": "latest",
+    "typebox": "latest"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "latest",
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}

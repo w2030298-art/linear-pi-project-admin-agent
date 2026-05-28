@@ -1,0 +1,27 @@
+version: 1
+planning:
+  minMilestones: 3
+  maxMilestones: 12
+  minIssuesPerMilestone: 2
+  maxIssuesPerMilestone: 8
+  requireNonGoals: true
+  requireSuccessMetrics: true
+  requireAcceptanceCriteriaPerIssue: true
+  requireDependencyRelations: true
+  requireArchitectureSection: true
+  requireRiskRegister: true
+  requireRollbackForHighRiskChanges: true
+projectNaming:
+  pattern: "repo-name｜中文描述"
+  repoRequired: true
+issueDesign:
+  issueAtomicity: "one issue should be independently executable and reviewable"
+  requireLabels:
+    - difficulty
+  recommendedLabels:
+    - area
+    - type
+cycle:
+  currentCycleMaxFocusIssues: 5
+  nextCycleMaxFocusIssues: 8
+  rolloverThreshold: 2

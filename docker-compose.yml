@@ -1,0 +1,11 @@
+services:
+  linear-bridge:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    command: sh -c "npm install && npm run bridge:dev"
+    ports:
+      - "8787:8787"

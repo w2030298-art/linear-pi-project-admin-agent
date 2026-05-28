@@ -1,0 +1,27 @@
+{
+  "sessionDir": ".pi/sessions",
+  "skills": ["../.agents/skills"],
+  "prompts": ["prompts"],
+  "extensions": [
+    "extensions/linear-admin-tools.ts",
+    "extensions/fact-source-router.ts",
+    "extensions/github-evidence.ts",
+    "extensions/local-repo-docs.ts",
+    "extensions/web-research.ts",
+    "extensions/linear-write-guard.ts",
+    "extensions/linear-plan-reviewer.ts",
+    "extensions/workspace-sync.ts",
+    "extensions/observability.ts"
+  ],
+  "enableSkillCommands": true,
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 24576,
+    "keepRecentTokens": 24000
+  },
+  "retry": {
+    "enabled": true,
+    "maxRetries": 3
+  },
+  "enabledModels": ["claude-*", "gpt-*", "gemini-*"]
+}

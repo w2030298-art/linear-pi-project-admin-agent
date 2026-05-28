@@ -1,0 +1,26 @@
+{
+  "idempotencyKey": "sample-create-project-001",
+  "dryRun": true,
+  "confirmedByUser": false,
+  "operations": [
+    {
+      "type": "project.create",
+      "level": "L2",
+      "input": {
+        "name": "example｜示例项目",
+        "description": "示例 Project。"
+      }
+    },
+    {
+      "type": "issue.create",
+      "level": "L2",
+      "input": {
+        "title": "建立 Fact Pack",
+        "description": "收集 Linear、GitHub、本地和 Web 事实。",
+        "labels": ["Medium-difficulty", "Research"]
+      }
+    }
+  ],
+  "readbackRequired": true,
+  "auditLogRequired": true
+}

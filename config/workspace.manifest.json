@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "lastSyncedAt": null,
+  "workspace": {
+    "name": "CHANGE_ME",
+    "defaultTeamKey": "ENG",
+    "language": "zh-CN"
+  },
+  "teams": [],
+  "members": [],
+  "labels": {
+    "difficulty": {
+      "required": true,
+      "exactlyOne": true,
+      "allowed": ["High-difficulty", "Medium-difficulty", "Low-difficulty"]
+    },
+    "area": {
+      "required": false,
+      "allowed": ["Backend", "Frontend", "Infra", "Research", "Product", "AI", "Data"]
+    },
+    "agentTrigger": {
+      "allowed": [
+        "Agent:PlanProject",
+        "Agent:ExtendProject",
+        "Agent:PortfolioReview",
+        "Agent:CyclePlan",
+        "Agent:ReportDraft",
+        "Agent:Dispatch",
+        "Agent:HygieneCheck",
+        "Agent:SyncWorkspace"
+      ]
+    }
+  },
+  "workflowStates": {
+    "backlog": ["Backlog", "积压"],
+    "ready": ["Ready", "准备开始"],
+    "inProgress": ["In Progress", "进行中"],
+    "blocked": ["Blocked", "阻塞"],
+    "review": ["In Review", "审核中"],
+    "done": ["Done", "完成"],
+    "canceled": ["Canceled", "取消"]
+  },
+  "orchestrationPolicy": {
+    "maxActiveProjects": 3,
+    "maxInProgressIssuesPerMember": 2,
+    "requireMilestoneForProjectIssues": true,
+    "requireAcceptanceCriteria": true,
+    "requireFactPack": true,
+    "requireDryRunForWrites": true
+  }
+}

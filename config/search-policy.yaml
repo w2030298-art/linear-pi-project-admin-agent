@@ -1,0 +1,26 @@
+version: 1
+webSearch:
+  defaultProvider: tavily
+  fallbackProvider: brave
+  maxResults: 8
+  recencyDaysForCurrentInfo: 365
+  requireOfficialDocsFor:
+    - api_usage
+    - security
+    - pricing
+    - legal
+    - package_installation
+  trustedDomains:
+    - docs.github.com
+    - github.com
+    - linear.app
+    - modelcontextprotocol.io
+    - pi.dev
+    - npmjs.com
+    - pypi.org
+    - docs.tavily.com
+    - brave.com
+  neverUseFor:
+    - secrets
+    - private_repo_content
+    - private_linear_content

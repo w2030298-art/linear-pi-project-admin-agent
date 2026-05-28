@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LinearProjectPlan",
+  "type": "object",
+  "required": ["project", "milestones", "issues", "relations", "qualityReview", "writePlan"],
+  "properties": {
+    "project": {
+      "type": "object",
+      "required": ["name", "summary", "goals", "nonGoals", "successMetrics"],
+      "properties": {
+        "name": { "type": "string" },
+        "summary": { "type": "string" },
+        "goals": { "type": "array", "items": { "type": "string" } },
+        "nonGoals": { "type": "array", "items": { "type": "string" } },
+        "successMetrics": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "milestones": { "type": "array" },
+    "issues": { "type": "array" },
+    "relations": { "type": "array" },
+    "qualityReview": { "type": "object" },
+    "writePlan": { "type": "object" }
+  }
+}
