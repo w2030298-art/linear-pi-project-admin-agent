@@ -4,6 +4,7 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import fg from 'fast-glob';
 import { arg, json, now } from './utils.mjs';
+import { scoreDocument, tokenizeQuery } from './retrieval-utils.mjs';
 
 const cmd = process.argv[2] === 'docs' ? 'docs' : 'repo';
 const root = path.resolve(arg('--root', process.env.LOCAL_REPO_ROOTS?.split(',')[0] || '.'));
@@ -37,7 +38,11 @@ async function repoSnapshot() {
 }
 
 async function docsSearch() {
-  const roots = (process.env.LOCAL_DOC_ROOTS || './docs,./research').split(',').map(x => path.resolve(x.trim())).filter(Boolean);
+  const requestedRoot = arg('--root');
+  const roots = requestedRoot
+    ? [path.resolve(requestedRoot)]
+    : (process.env.LOCAL_DOC_ROOTS || './docs,./research').split(',').map(x => path.resolve(x.trim())).filter(Boolean);
+  const tokens = tokenizeQuery(query);
   const results = [];
   for (const r of roots) {
     if (!fs.existsSync(r)) continue;
@@ -45,13 +50,14 @@ async function docsSearch() {
     for (const f of files.slice(0, 300)) {
       const p = path.join(r, f);
       const content = fs.readFileSync(p, 'utf8');
-      if (!query || content.toLowerCase().includes(query.toLowerCase())) {
-        results.push({ root: r, path: f, stat: safeStat(p), excerpt: content.slice(0, 1200) });
+      const match = tokens.length ? scoreDocument(f, content, tokens) : { score: 1, matchedTokens: [] };
+      if (!query || match.score > 0) {
+        results.push({ root: r, path: f, stat: safeStat(p), score: match.score, matchedTokens: match.matchedTokens, excerpt: content.slice(0, 1200) });
       }
-      if (results.length >= 20) break;
     }
   }
-  json({ sourceType: 'local_docs', collectedAt: now(), query, results });
+  results.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+  json({ sourceType: 'local_docs', collectedAt: now(), query, tokens, results: results.slice(0, 20) });
 }
 
 if (cmd === 'docs') await docsSearch();

@@ -10,11 +10,15 @@
     "fact:repo": "node scripts/github-evidence.mjs snapshot",
     "fact:web": "node scripts/web-search.mjs",
     "fact:pack": "node scripts/fact-pack.mjs",
+    "plan:review": "node scripts/plan-reviewer.mjs",
     "linear:smoke": "node scripts/linear-cli.mjs smoke",
     "linear:workspace": "node scripts/linear-cli.mjs workspace",
     "bridge:dev": "tsx services/linear-bridge/src/server.ts",
     "bridge:start": "node dist/services/linear-bridge/src/server.js",
-    "test:webhook-signature": "node scripts/test-webhook-signature.mjs"
+    "test:webhook-signature": "node scripts/test-webhook-signature.mjs",
+    "test:plan-review": "node scripts/test-plan-reviewer.mjs",
+    "test:linear-snapshot": "node scripts/test-linear-snapshot.mjs",
+    "test:retrieval-ux": "node scripts/test-retrieval-ux.mjs"
   },
   "dependencies": {
     "@linear/sdk": "latest",

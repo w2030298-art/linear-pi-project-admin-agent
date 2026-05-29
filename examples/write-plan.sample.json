@@ -2,6 +2,7 @@
   "idempotencyKey": "sample-create-project-001",
   "dryRun": true,
   "confirmedByUser": false,
+  "dependencyValidation": "Sample has one standalone issue; no issueRelation operation is required for this minimal dry-run review sample.",
   "operations": [
     {
       "key": "project",

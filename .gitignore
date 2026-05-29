@@ -3,7 +3,12 @@ dist/
 .env
 state/*.sqlite
 state/*.db
+state/linear-events.jsonl
+state/seen-linear-deliveries.json
 state/fact-packs/*.json
 state/audit.jsonl
+state/pi-queue/*.md
+state/pi-queue/*.log
+state/workspace.manifest.draft.json
 .pi/sessions/
 .DS_Store

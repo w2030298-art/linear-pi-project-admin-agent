@@ -10,8 +10,18 @@ const required = [
   'config/fact-sources.yaml',
   'config/workspace.manifest.json',
   'services/linear-bridge/src/server.ts',
+  'scripts/plan-reviewer.mjs',
+  'scripts/portfolio-snapshot-utils.mjs',
+  'scripts/retrieval-utils.mjs',
+  'scripts/test-linear-snapshot.mjs',
+  'scripts/test-retrieval-ux.mjs',
+  'examples/project-plan.sample.json',
+  'examples/write-plan.sample.json',
   'README.md',
-  'docs/DEPLOYMENT.md'
+  'docs/DEPLOYMENT.md',
+  'docs/SCOPE_FREEZE.md',
+  'docs/SECURITY.md',
+  'docs/OPERATIONS.md'
 ];
 
 const missing = required.filter(p => !fs.existsSync(p));

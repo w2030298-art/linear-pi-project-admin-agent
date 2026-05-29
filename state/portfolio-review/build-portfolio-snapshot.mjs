@@ -1,19 +1,22 @@
 import { LinearClient } from '@linear/sdk';
 import fs from 'node:fs';
+import '../../scripts/utils.mjs';
+import {
+  cycleWindowStatus,
+  difficultyNames,
+  isTerminalIssue,
+  priorityLabel,
+  stateBucket,
+  summarizeCycle,
+  summarizeIssueRelations
+} from '../../scripts/portfolio-snapshot-utils.mjs';
 
 const linear = new LinearClient({ apiKey: process.env.LINEAR_API_KEY });
 const now = new Date('2026-05-28T12:10:00Z');
 const today = '2026-05-28';
 const outPath = 'state/portfolio-review/portfolio-snapshot-2026-05-28.json';
 
-const priorityLabel = (p) => ({1:'Urgent',2:'High',3:'Medium',4:'Low',0:'None'}[p] || String(p ?? 'None'));
-const difficultyNames = new Set(['High-difficulty','Medium-difficulty','Low-difficulty']);
-const readyNames = new Set(['Ready','准备开始']);
-const inProgressNames = new Set(['In Progress','进行中','In Review','审核中']);
-const backlogNames = new Set(['Backlog','积压']);
-const todoNames = new Set(['Todo','待办']);
-const blockedNames = new Set(['Blocked','阻塞']);
-const doneTypes = new Set(['completed','canceled','duplicate']);
+const difficultyNameSet = difficultyNames();
 
 function daysAgo(iso) {
   if (!iso) return null;
@@ -28,24 +31,6 @@ function bodySummary(body) {
   if (!body) return '';
   return body.replace(/\s+/g,' ').trim().slice(0, 260);
 }
-function stateBucket(issue) {
-  const name = issue.state?.name || 'Unknown';
-  const type = issue.state?.type || '';
-  if (type === 'completed') return 'Done';
-  if (type === 'canceled') return 'Canceled';
-  if (type === 'duplicate') return 'Duplicate';
-  if (readyNames.has(name)) return 'Ready';
-  if (inProgressNames.has(name) || type === 'started') return 'InProgress';
-  if (blockedNames.has(name)) return 'Blocked';
-  if (backlogNames.has(name) || type === 'backlog') return 'Backlog';
-  if (todoNames.has(name) || type === 'unstarted') return 'Todo';
-  if (type === 'triage') return 'Triage';
-  return name;
-}
-function isDoneOrCanceled(issueLike) {
-  return doneTypes.has(issueLike?.state?.type);
-}
-
 async function gql(query, vars = {}) {
   const res = await linear.client.rawRequest(query, vars);
   return res.data;
@@ -93,12 +78,12 @@ for (const header of activeProjectHeaders) {
   const data = await gql(projectQuery, {id: header.id});
   const p = data.project;
   const issues = p.issues.nodes.filter(i => !i.archivedAt);
-  for (const i of issues.filter(i => !isDoneOrCanceled(i))) {
+  for (const i of issues.filter(i => !isTerminalIssue(i))) {
     const rel = await gql(relationQuery, {id: i.id});
     i.relations = rel.issue.relations;
     i.inverseRelations = rel.issue.inverseRelations;
   }
-  for (const i of issues.filter(i => isDoneOrCanceled(i))) {
+  for (const i of issues.filter(i => isTerminalIssue(i))) {
     i.relations = { nodes: [] };
     i.inverseRelations = { nodes: [] };
   }
@@ -115,32 +100,23 @@ for (const header of activeProjectHeaders) {
     const mdone = mis.filter(i => stateBucket(i) === 'Done').length;
     return { id:m.id, name:m.name, targetDate:m.targetDate, issueCount:mis.length, doneCount:mdone, openCount:mis.length-mdone, overdue: !!m.targetDate && m.targetDate < today && (mis.length-mdone)>0 };
   });
-  const missingDifficulty = issues.filter(i => !isDoneOrCanceled(i) && !i.labels.nodes.some(l => difficultyNames.has(l.name))).map(i => i.identifier);
-  const missingMilestone = issues.filter(i => !isDoneOrCanceled(i) && !i.projectMilestone).map(i => i.identifier);
+  const missingDifficulty = issues.filter(i => !isTerminalIssue(i) && !i.labels.nodes.some(l => difficultyNameSet.has(l.name))).map(i => i.identifier);
+  const missingMilestone = issues.filter(i => !isTerminalIssue(i) && !i.projectMilestone).map(i => i.identifier);
   const inProgressNoAssignee = issues.filter(i => stateBucket(i)==='InProgress' && !i.assignee).map(i => i.identifier);
   const unresolvedBlockedBy = new Map();
   const blocksCount = new Map();
   const relationDigest = [];
   for (const i of issues) {
-    const blockers = i.inverseRelations.nodes.filter(r => r.type === 'blocks' && !isDoneOrCanceled(r.issue)).map(r => ({identifier:r.issue.identifier,title:r.issue.title,state:r.issue.state?.name}));
+    const { blocks, blockedBy: blockers } = summarizeIssueRelations(i);
     if (blockers.length) unresolvedBlockedBy.set(i.identifier, blockers);
     const blockNodes = i.relations.nodes.filter(r => r.type === 'blocks');
-    const blocks = blockNodes.map(r => ({identifier:r.relatedIssue.identifier,title:r.relatedIssue.title,state:r.relatedIssue.state?.name}));
-    blocksCount.set(i.identifier, blockNodes.filter(r => !doneTypes.has(r.relatedIssue?.state?.type || '')).length);
+    blocksCount.set(i.identifier, blockNodes.filter(r => !isTerminalIssue(r.relatedIssue)).length);
     if (blockers.length || blocks.length) relationDigest.push({issue:i.identifier, blockedBy:blockers, blocks});
   }
   const blockedIssueCount = new Set([...issues.filter(i=>stateBucket(i)==='Blocked').map(i=>i.identifier), ...unresolvedBlockedBy.keys()]).size;
   const cycles = {};
-  for (const i of issues) {
-    if (!i.cycle) continue;
-    const key = i.cycle.id;
-    cycles[key] ||= { id:i.cycle.id, number:i.cycle.number, name:i.cycle.name, startsAt:i.cycle.startsAt, endsAt:i.cycle.endsAt, issueCount:0, completedCount:0, highOpenCount:0, blockedCount:0, issues:[] };
-    cycles[key].issueCount++;
-    if (stateBucket(i)==='Done') cycles[key].completedCount++;
-    const hasHigh = i.labels.nodes.some(l => l.name === 'High-difficulty');
-    if (hasHigh && !isDoneOrCanceled(i)) cycles[key].highOpenCount++;
-    if (stateBucket(i)==='Blocked' || unresolvedBlockedBy.has(i.identifier)) cycles[key].blockedCount++;
-    cycles[key].issues.push({identifier:i.identifier,title:i.title,state:i.state.name,difficulty:i.labels.nodes.find(l=>difficultyNames.has(l.name))?.name || null});
+  for (const cycle of new Map(issues.filter(i => i.cycle).map(i => [i.cycle.id, i.cycle])).values()) {
+    cycles[cycle.id] = summarizeCycle(cycle, issues, new Set(unresolvedBlockedBy.keys()));
   }
 
   const latestUpdate = p.projectUpdates.nodes[0] || null;
@@ -223,7 +199,7 @@ for (const header of activeProjectHeaders) {
 
 const cycles = cycleData.cycles.nodes
   .sort((a,b)=>new Date(a.startsAt)-new Date(b.startsAt))
-  .map(c => ({...c, status: new Date(c.startsAt) <= now && now < new Date(c.endsAt) ? 'current' : (new Date(c.startsAt) > now ? 'future' : 'past')}));
+  .map(c => ({...c, status: cycleWindowStatus(c, now)}));
 
 const result = {
   ok:true,

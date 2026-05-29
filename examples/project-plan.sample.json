@@ -1,0 +1,93 @@
+{
+  "$schema": "../schemas/project-plan.schema.json",
+  "project": {
+    "name": "linear-pi-project-admin-agent",
+    "summary": "Validate a Linear-native project admin runtime before controlled writes.",
+    "goals": [
+      "Build plans from Fact Pack evidence before Linear mutation."
+    ],
+    "nonGoals": [
+      "Do not enable unconfirmed automatic Linear writes in v0.1."
+    ],
+    "successMetrics": [
+      "Project Plan reviewer returns pass for this sample."
+    ]
+  },
+  "milestones": [
+    {
+      "key": "m2",
+      "name": "M2 | Planning review",
+      "exitCriteria": [
+        "Reviewer catches missing labels, dependencies, and fact boundaries."
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "key": "plan-reviewer",
+      "title": "Review Project Plan before Write Guard",
+      "labels": [
+        "Medium-difficulty",
+        "Backend"
+      ],
+      "acceptanceCriteria": [
+        "npm run test:plan-review passes.",
+        "npm run plan:review -- examples/project-plan.sample.json --strict returns pass."
+      ],
+      "dependencies": [
+        "Fact Pack",
+        "Pi interaction"
+      ],
+      "factRefs": [
+        "AGENTS.md Fact Pack protocol",
+        "schemas/project-plan.schema.json"
+      ],
+      "assumptions": [
+        "OAuth app remains vNext."
+      ],
+      "openQuestions": [
+        "Which future Cycle should carry non-MVP reviewer enhancements?"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "Fact Pack",
+      "to": "plan-reviewer",
+      "type": "blocks"
+    }
+  ],
+  "qualityReview": {
+    "reviewer": "deterministic",
+    "rules": [
+      "schema",
+      "labels",
+      "dependencies",
+      "fact-boundaries"
+    ]
+  },
+  "writePlan": {
+    "dryRun": true,
+    "operations": [
+      {
+        "type": "comment.create",
+        "input": {
+          "issueId": "WEN-252",
+          "body": "Project Plan review sample."
+        }
+      }
+    ]
+  },
+  "facts": [
+    {
+      "claim": "Complex planning requires a Fact Pack before writing to Linear.",
+      "source": "AGENTS.md"
+    }
+  ],
+  "assumptions": [
+    "This sample is a local review fixture and does not write to Linear."
+  ],
+  "openQuestions": [
+    "Whether to add semantic LLM review in vNext remains a product decision."
+  ]
+}

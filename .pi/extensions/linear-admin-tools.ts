@@ -34,9 +34,20 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
+    name: "linear_get_issue",
+    label: "Linear Exact Issue Lookup",
+    description: "Read one Linear issue by exact identifier or UUID. Use this for WEN-123 style lookups instead of full-text search.",
+    parameters: Type.Object({ identifierOrId: Type.String() }),
+    promptSnippet: "linear_get_issue: exact lookup for a single Linear issue by identifier or UUID.",
+    async execute(_id, params, signal) {
+      return callLinear(signal, ["issue", params.identifierOrId]);
+    }
+  });
+
+  pi.registerTool({
     name: "linear_search_issues",
     label: "Linear Search Issues",
-    description: "Search Linear issues by text or repo/project signal.",
+    description: "Full-text search Linear issues by title or description. For exact WEN-123 lookup, use linear_get_issue.",
     parameters: Type.Object({ query: Type.String(), teamKey: Type.Optional(Type.String()) }),
     async execute(_id, params, signal) {
       const args = ["issues", "--query", params.query];
