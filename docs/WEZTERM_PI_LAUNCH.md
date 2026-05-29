@@ -48,7 +48,7 @@ C:\Program Files\WezTerm\wezterm-gui.exe
 任务栏快捷方式参数：
 
 ```text
-start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"
+--config-file "C:\Users\22003\linear-pi-project-admin-agent\config\wezterm-linear-pi.lua" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"
 ```
 
 该参数只包含 cwd 和启动命令，不包含 token、secret、API key 或其他凭据。
@@ -56,7 +56,23 @@ start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" 
 等价命令行：
 
 ```powershell
-& "C:\Program Files\WezTerm\wezterm-gui.exe" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"
+& "C:\Program Files\WezTerm\wezterm-gui.exe" --config-file "C:\Users\22003\linear-pi-project-admin-agent\config\wezterm-linear-pi.lua" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"
+```
+
+## Linear Pi shortcut key config
+
+The dedicated shortcut must load this repo-local config explicitly:
+
+```text
+C:\Users\22003\linear-pi-project-admin-agent\config\wezterm-linear-pi.lua
+```
+
+That file loads the user's normal WezTerm config first, then appends the Windows shortcut bindings needed by the Pi launcher: copy, paste, command palette, search, tab open, and tab close. This keeps the user's global WezTerm setup intact while making the `Linear Project Admin Pi (WezTerm)` shortcut deterministic.
+
+To install or repair the Start Menu and taskbar shortcuts, run:
+
+```powershell
+& "C:\Users\22003\linear-pi-project-admin-agent\scripts\install-wezterm-linear-pi-shortcut.ps1"
 ```
 
 ## 使用范围

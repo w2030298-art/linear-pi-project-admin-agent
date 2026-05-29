@@ -361,6 +361,9 @@ function validateWritePlan(plan, dryRun) {
   for (const [index, op] of plan.operations.entries()) {
     if (!op?.type) throw new Error(`operations[${index}].type is required.`);
     if (!typeToKind(op.type)) throw new Error(`operations[${index}] unsupported type: ${op.type}`);
+    if (/^issue\.(create|update)$/.test(normalizeType(op.type)) && op.input?.cycleId) {
+      throw new Error(`operations[${index}].input.cycleId is not allowed because cycle planning is disabled for this agent.`);
+    }
   }
   if (!dryRun) {
     if (!plan.idempotencyKey) throw new Error('idempotencyKey is required for non-dry-run apply.');

@@ -39,10 +39,18 @@ C:\Program Files\WezTerm\wezterm-gui.exe
 Arguments:
 
 ```text
-start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"
+--config-file "C:\Users\22003\linear-pi-project-admin-agent\config\wezterm-linear-pi.lua" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"
 ```
 
 Security check: shortcut target and arguments contain no token, secret, API key, or credential value.
+
+Dedicated config:
+
+```text
+C:\Users\22003\linear-pi-project-admin-agent\config\wezterm-linear-pi.lua
+```
+
+This repo-local config loads the user's normal WezTerm config and appends the Windows shortcut bindings used by the Pi shortcut.
 
 ## Automated evidence
 
@@ -53,6 +61,7 @@ Security check: shortcut target and arguments contain no token, secret, API key,
 | Pi callable through WezTerm launch chain | WezTerm GUI smoke wrote `0.77.0` from `pi --version` | Pass |
 | Taskbar shortcut launches WezTerm | `Start-Process` on taskbar `.lnk` created `wezterm-gui.exe` process, then smoke process was closed | Pass |
 | Project files present | `.pi/settings.json`, `.agents/skills`, `.pi/extensions` exist in repo | Pass |
+| Shortcut key config explicit | Shortcut arguments include `--config-file ...\config\wezterm-linear-pi.lua` | Pass |
 | Visible Pi TUI starts | Taskbar `.lnk` launched a visible WezTerm window running Pi; the window showed project context, skills, and extensions loaded | Pass |
 | rollback documented | `docs/WEZTERM_PI_LAUNCH.md` includes manual `cd` + `pi` and Windows Terminal fallback | Pass |
 

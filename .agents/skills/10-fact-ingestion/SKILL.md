@@ -1,36 +1,42 @@
 ---
 name: fact-ingestion
-description: 从 Linear、GitHub、本地 repo、本地文档和联网搜索构造 Fact Pack。用于项目规划、扩展、报告、Cycle 规划和派发前的事实核验。
+description: Build a Fact Pack from Linear, GitHub, local repos, local docs, and web search before project planning, extension, reports, issue dispatch, repo-map work, or workspace sync. Cycle planning is disabled.
 ---
 
 # Fact Ingestion
 
-## 目的
+Use this skill to build a Fact Pack before Linear planning or reporting work.
 
-从 Linear、GitHub MCP/API、本地 repo、本地文档、联网搜索构造 Fact Pack。
+## Triggers
 
-## 触发
+- New project planning.
+- Existing project extension.
+- Project or portfolio reports.
+- Issue dispatch.
+- Repo-map or workspace-sync work.
+- Requests to plan from repo, docs, web, or Linear facts.
 
-- 用户要求新建项目、扩展项目、规划 cycle、输出报告、派发 issue。
-- 用户要求“根据 repo/文档/网上资料规划”。
-- Linear webhook 或 Agent session 触发复杂任务。
+Cycle planning is disabled. Do not use Fact Pack construction to prepare Cycle planning or `cycleId` writes.
 
-## 事实来源顺序
+## Source Priority
 
-1. `linear_*` 工具读取项目管理事实。
-2. `github_*` 工具读取远端 repo 事实。
-3. `local_*` 工具读取本地代码和文档。
-4. `web_*` 工具读取外部最新资料。
+1. Linear live data for project management facts.
+2. GitHub remote evidence for remote repository facts.
+3. Local repo evidence for working-copy facts.
+4. Local docs for project documentation.
+5. Web search for external or recent facts with citations.
+6. User input for confirmed decisions.
 
-## Fact Pack 输出
+## Output Requirements
 
-- facts：每条事实必须有 sourceType、source、timestamp、confidence。
-- conflicts：必须指出冲突来源。
-- evidenceGaps：缺失但重要的证据。
-- planningImplications：对 Linear 编排的影响。
+- `facts`: every fact needs source type, source, timestamp, and confidence.
+- `conflicts`: identify the conflicting sources.
+- `evidenceGaps`: keep important missing evidence explicit.
+- `planningImplications`: explain the impact on non-cycle Linear planning.
 
-## 禁止
+## Boundaries
 
-- 不得把 web search 的内容当作 repo 当前实现。
-- 不得把本地 dirty branch 当作远端 main 已实现事实。
-- 不得把用户想法写成已决策事实。
+- Do not treat web search as current repo implementation.
+- Do not treat a dirty local branch as remote mainline fact.
+- Do not write user ideas as confirmed decisions.
+- Do not plan, assign, or write Cycles.

@@ -4,16 +4,24 @@ import fs from 'node:fs';
 
 const guidePath = 'docs/WEZTERM_PI_LAUNCH.md';
 const reportPath = 'docs/reports/wezterm-pi-smoke-2026-05-29.md';
+const configPath = 'config/wezterm-linear-pi.lua';
+const installerPath = 'scripts/install-wezterm-linear-pi-shortcut.ps1';
 
 assert.equal(fs.existsSync(guidePath), true, `${guidePath} should exist`);
 assert.equal(fs.existsSync(reportPath), true, `${reportPath} should exist`);
+assert.equal(fs.existsSync(configPath), true, `${configPath} should exist`);
+assert.equal(fs.existsSync(installerPath), true, `${installerPath} should exist`);
 
 const guide = fs.readFileSync(guidePath, 'utf8');
 const report = fs.readFileSync(reportPath, 'utf8');
+const config = fs.readFileSync(configPath, 'utf8');
+const installer = fs.readFileSync(installerPath, 'utf8');
 
 for (const text of [guide, report]) {
   assert.match(text, /wezterm-gui\.exe/i);
   assert.match(text, /wezterm start --cwd|start --cwd/i);
+  assert.match(text, /--config-file/i);
+  assert.match(text, /config[\\\/]wezterm-linear-pi\.lua/i);
   assert.match(text, /C:\\Users\\22003\\linear-pi-project-admin-agent/);
   assert.match(text, /\bpi\b/);
   assert.doesNotMatch(text, /(LINEAR_API_KEY|LINEAR_API_TOKEN|GITHUB_TOKEN|OPENAI_API_KEY)\s*=/i);
@@ -34,5 +42,13 @@ assert.match(report, /WezTerm version/i);
 assert.match(report, /Shortcut/i);
 assert.match(report, /Manual verification/i);
 assert.match(report, /rollback/i);
+
+assert.match(config, /require\(["']wezterm["']\)/);
+assert.match(config, /CopyTo\(["']Clipboard["']\)/);
+assert.match(config, /PasteFrom\(["']Clipboard["']\)/);
+assert.match(config, /ActivateCommandPalette/);
+assert.match(config, /SpawnTab/);
+assert.match(installer, /--config-file/);
+assert.match(installer, /wezterm-linear-pi\.lua/);
 
 console.log('wezterm launch docs tests passed');

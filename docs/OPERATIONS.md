@@ -22,7 +22,7 @@ npm run bridge:dev
 
 1. `/workspace-sync`：检查 workspace drift。
 2. `/portfolio-review`：项目健康审查。
-3. `/cycle-plan`：调整当前/下一周期。
+3. `/cycle-plan`：disabled; do not use for active planning.
 4. 检查 `state/audit.jsonl` 和 `state/linear-events.jsonl`。
 5. 清理或归档已处理的 `state/pi-queue/*.md`、`*.log`。
 
@@ -51,7 +51,9 @@ npm run bridge:dev
 - `npm run fact:pack -- --task "portfolio review"`
 ```
 
-## Cycle 纳入规则
+## Cycle 纳入规则（disabled）
+
+Cycle planning is disabled. The historical rules below are not active operating policy.
 
 - Current Cycle 只放入依赖已解除、验收命令明确、能在 1-2 周内关闭的 issue。
 - Next Cycle 可以纳入依赖即将解除、范围清楚但还需要一次事实核验的 issue。
@@ -160,3 +162,10 @@ npm run bridge:dev
 - 设置 `ALLOW_LINEAR_WRITES=false`。
 - 设置 `LINEAR_WRITE_MODE=dry-run`。
 - 根据 `state/audit.jsonl` 的 idempotencyKey 和 readback URL 逐项核对，不执行批量删除。
+## Cycle Disabled
+
+Cycle planning and `cycleId` writes are disabled for this agent. Do not dispatch `Agent:CyclePlan`, do not use `/cycle-plan` for active planning, and do not include `cycleId` in Linear write plans. Use Project, Milestone, Issue, relation, report, repo-map, and workspace-sync flows instead.
+
+## Linear Write Confirmation UI
+
+In interactive Pi runs, `linear_apply_write_plan` uses the tool execution context `ctx.ui.confirm()` as the approve/cancel confirmation channel before real Linear writes. If `ctx.hasUI` is false, the agent may only use the current conversation explicit approval fallback after telling the user that no generic confirmation UI is available.
