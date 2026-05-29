@@ -20,7 +20,11 @@ Dry-run compilation and real apply use separate protocol gates:
 
 - `linear_apply_write_plan` with `dryRun=true` is read/compile-only and does not require `ask_user`.
 - Real apply requires `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and `confirmedByUser=true`.
-- If `ask_user` is unavailable in the current host, one explicit approval in the current conversation can be recorded in `confirmationText`.
+- Dry-run output includes `confirmationChannel`, which is one of `ask_user approve/cancel`, `current conversation explicit approval fallback`, or `not writable until ask_user or explicit conversation approval is available`.
+- If generic `ask_user` is available, real apply must trigger one approve/cancel UI before calling the CLI mutation path.
+- If generic `ask_user` is unavailable, `pi_ask_user` is treated as repo-map only and must not be reused for Linear write confirmation.
+- If generic `ask_user` is unavailable, one explicit approval in the current conversation can be recorded in `confirmationText`, but the user must first be told that the current conversation explicit approval fallback is being used.
+- Conversation fallback confirmation records must include fallback reason, user approval text, write plan path, and `idempotencyKey`; final apply output and `state/audit.jsonl` include the same confirmation payload.
 - `scripts/write-plan-execution.mjs` computes the effective apply mode. If the source write-plan file is still `dryRun=true` but the tool/CLI call is `dryRun=false` with `--confirmed`, the CLI uses an in-memory effective plan with `dryRun=false` / `confirmedByUser=true` and records `reason.cliConfirmedOverride=true`.
 - This avoids silent dry-run when the user already approved real apply, while preserving explicit dry-run when `--dry-run` or `LINEAR_WRITE_MODE=dry-run` is present.
 

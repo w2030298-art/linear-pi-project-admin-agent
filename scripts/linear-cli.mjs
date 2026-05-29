@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { cycleWindowStatus } from './portfolio-snapshot-utils.mjs';
 import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
 import { normalizeProjectDescriptionFields } from './project-field-normalizer.mjs';
-import { resolveApplyMode } from './write-plan-execution.mjs';
+import { detectHostConfirmationCapabilities, resolveApplyMode } from './write-plan-execution.mjs';
 
 const apiKey = process.env.LINEAR_API_KEY;
 const cmd = process.argv[2] || 'smoke';
@@ -350,6 +350,11 @@ function appendAudit(entry) {
   fs.appendFileSync(auditPath, JSON.stringify(redacted({ ts: now(), ...entry })) + '\n');
 }
 
+function argValue(name, fallback = '') {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : fallback;
+}
+
 function validateWritePlan(plan, dryRun) {
   if (!plan || typeof plan !== 'object') throw new Error('Write plan must be a JSON object.');
   if (!Array.isArray(plan.operations) || plan.operations.length === 0) throw new Error('writePlan.operations must be a non-empty array.');
@@ -360,6 +365,13 @@ function validateWritePlan(plan, dryRun) {
   if (!dryRun) {
     if (!plan.idempotencyKey) throw new Error('idempotencyKey is required for non-dry-run apply.');
     if (plan.confirmedByUser !== true) throw new Error('confirmedByUser=true is required for non-dry-run apply.');
+    if (!plan.confirmationText) throw new Error('confirmationText is required for non-dry-run apply.');
+    if (plan.confirmationChannel === 'conversation_fallback') {
+      const text = String(plan.confirmationText || '');
+      for (const required of ['Fallback reason:', 'User approval:', 'Write plan:', 'Idempotency key:']) {
+        if (!text.includes(required)) throw new Error(`conversation fallback confirmationText must include "${required}"`);
+      }
+    }
     if (plan.readbackRequired === false) throw new Error('readbackRequired=false is not allowed for non-dry-run apply.');
     if (plan.auditLogRequired === false) throw new Error('auditLogRequired=false is not allowed for non-dry-run apply.');
   }
@@ -535,8 +547,14 @@ async function apply(planPath) {
   const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
   const cliDryRun = process.argv.includes('--dry-run');
   const cliConfirmed = process.argv.includes('--confirmed');
+  const confirmationText = argValue('--confirmation-text', '');
+  const confirmationChannelOverride = argValue('--confirmation-channel', '');
   const allow = process.env.ALLOW_LINEAR_WRITES === 'true';
-  const applyMode = resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan });
+  const hostCapabilities = detectHostConfirmationCapabilities(process.env, process.cwd());
+  if (confirmationChannelOverride === 'ask_user') hostCapabilities.askUserAvailable = true;
+  if (confirmationChannelOverride === 'conversation_fallback') hostCapabilities.askUserAvailable = false;
+  if (confirmationChannelOverride === 'unavailable') hostCapabilities.conversationFallbackAllowed = false;
+  const applyMode = resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, confirmationText, writePlanPath: planPath, hostCapabilities });
   const dryRun = applyMode.dryRun;
   const effectivePlan = applyMode.effectivePlan;
 
@@ -550,6 +568,7 @@ async function apply(planPath) {
       dryRun: true,
       mode,
       reason: applyMode.reason,
+      confirmationChannel: applyMode.reason.confirmationChannel,
       operations: compiled
     });
     return;
@@ -557,7 +576,14 @@ async function apply(planPath) {
 
   const refs = {};
   const results = [];
-  appendAudit({ type: 'linear_apply_start', idempotencyKey: effectivePlan.idempotencyKey, operationCount: effectivePlan.operations.length, dryRun: false });
+  const confirmation = {
+    channel: effectivePlan.confirmationChannel || applyMode.reason.confirmationChannel.channel,
+    fallbackReason: effectivePlan.confirmationFallbackReason || null,
+    confirmationText: effectivePlan.confirmationText || null,
+    writePlanPath: planPath,
+    idempotencyKey: effectivePlan.idempotencyKey
+  };
+  appendAudit({ type: 'linear_apply_start', idempotencyKey: effectivePlan.idempotencyKey, operationCount: effectivePlan.operations.length, dryRun: false, confirmation });
 
   try {
     for (const [index, rawOp] of effectivePlan.operations.entries()) {
@@ -579,10 +605,10 @@ async function apply(planPath) {
       results.push(result);
       appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, result });
     }
-    appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: true, resultCount: results.length });
-    json({ ok: true, dryRun: false, mode, idempotencyKey: effectivePlan.idempotencyKey, reason: applyMode.reason, results });
+    appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: true, resultCount: results.length, confirmation });
+    json({ ok: true, dryRun: false, mode, idempotencyKey: effectivePlan.idempotencyKey, reason: applyMode.reason, confirmation, results });
   } catch (err) {
-    appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: false, error: err.message, partialResults: results });
+    appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: false, error: err.message, partialResults: results, confirmation });
     throw err;
   }
 }

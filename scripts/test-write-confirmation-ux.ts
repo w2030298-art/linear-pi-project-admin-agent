@@ -4,7 +4,12 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
 
 {
   const decision = linearWriteGuardDecision(
-    { confirmedByUser: true, dryRun: false, confirmationText: 'ask_user approved the exact dry-run plan' },
+    {
+      confirmedByUser: true,
+      dryRun: false,
+      confirmationText: 'ask_user approved the exact dry-run plan',
+      confirmationChannel: 'ask_user'
+    },
     { ALLOW_LINEAR_WRITES: 'true' }
   );
   assert.deepEqual(decision, { action: 'allow' });
@@ -12,7 +17,12 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
 
 {
   const decision = linearWriteGuardDecision(
-    { confirmedByUser: true, dryRun: false, confirmationText: 'ask_user approved the exact dry-run plan' },
+    {
+      confirmedByUser: true,
+      dryRun: false,
+      confirmationText: 'Fallback reason: Generic ask_user is unavailable; pi_ask_user is repo-map only. User approval: 用户回复确认。 Write plan: plan.json. Idempotency key: key.',
+      confirmationChannel: 'conversation_fallback'
+    },
     { ALLOW_LINEAR_WRITES: 'false' }
   );
   assert.deepEqual(decision, { action: 'allow' });
@@ -29,6 +39,31 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
 
 {
   const decision = linearWriteGuardDecision(
+    { confirmedByUser: false, dryRun: false, confirmationChannel: 'ask_user' },
+    { ALLOW_LINEAR_WRITES: 'true' }
+  );
+  assert.deepEqual(decision, { action: 'allow' });
+}
+
+{
+  const decision = linearWriteGuardDecision(
+    { confirmedByUser: true, dryRun: false, confirmationText: '用户回复确认。', confirmationChannel: 'conversation_fallback' },
+    { ALLOW_LINEAR_WRITES: 'true' }
+  );
+  assert.deepEqual(decision, { action: 'allow' });
+}
+
+{
+  const decision = linearWriteGuardDecision(
+    { confirmedByUser: true, dryRun: false, confirmationText: '', confirmationChannel: 'conversation_fallback' },
+    { ALLOW_LINEAR_WRITES: 'true' }
+  );
+  assert.equal(decision.action, 'block');
+  assert.match(decision.message, /explicit approval/i);
+}
+
+{
+  const decision = linearWriteGuardDecision(
     { confirmedByUser: false, dryRun: true },
     { ALLOW_LINEAR_WRITES: 'true' }
   );
@@ -37,6 +72,8 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
 
 const adminTools = fs.readFileSync('.pi/extensions/linear-admin-tools.ts', 'utf8');
 assert.match(adminTools, /ask_user exactly once/i);
+assert.match(adminTools, /current conversation explicit approval fallback/i);
+assert.match(adminTools, /pi_ask_user is repo-map only/i);
 assert.doesNotMatch(adminTools, /type .*确认执行/i);
 
 console.log('write confirmation UX tests passed');
