@@ -282,7 +282,11 @@ LINEAR_WRITE_MODE=confirmed-only
 
 ```bash
 npm run validate
+npm run test:plan-review
+npm run plan:review -- examples/project-plan.sample.json --strict
+npm run plan:review -- examples/write-plan.sample.json --strict
 npm run linear:smoke
+npm run linear:workspace
 npm run test:webhook-signature
 node scripts/fact-pack.mjs --task "smoke test" --web
 ```
@@ -300,6 +304,7 @@ node scripts/fact-pack.mjs --task "smoke test" --web
 | Local repo | 能读取 branch/commit/dirty |
 | Web search | 能返回带 URL 的外部资料 |
 | Fact Pack | 能产出 facts/conflicts/evidenceGaps/planningImplications |
+| Project Plan reviewer | schema、labels、依赖、事实/假设/待确认项缺失会被标记 |
 | Webhook 签名 | 假签名 401，真签名通过 |
 | Label trigger | Agent:* label 被映射为任务 |
 | Linear 写入 | 未确认时只 dry-run |

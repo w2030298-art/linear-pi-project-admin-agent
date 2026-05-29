@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "kind": "project_plan",
+  "target": "examples/project-plan.sample.json",
+  "status": "pass",
+  "executedMutation": false,
+  "reviewedAt": "2026-05-28T13:41:18.952Z",
+  "findings": []
+}

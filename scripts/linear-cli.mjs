@@ -4,6 +4,8 @@ import { json, now, ensureDir, hash } from './utils.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { cycleWindowStatus } from './portfolio-snapshot-utils.mjs';
+import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
 
 const apiKey = process.env.LINEAR_API_KEY;
 const cmd = process.argv[2] || 'smoke';
@@ -386,14 +388,83 @@ async function workspace() {
   const teams = await linear.teams();
   const labels = await linear.issueLabels();
   const users = await linear.users();
+  const projectsData = await linear.client.rawRequest(`
+    query WorkspaceProjects {
+      projects(first: 100) {
+        nodes {
+          id
+          name
+          url
+          state
+          createdAt
+          updatedAt
+          startDate
+          targetDate
+          archivedAt
+        }
+      }
+    }`);
+  const cyclesData = await linear.client.rawRequest(`
+    query WorkspaceCycles {
+      cycles(first: 50) {
+        nodes {
+          id
+          number
+          name
+          startsAt
+          endsAt
+          completedAt
+          team { id key name }
+        }
+      }
+    }`);
+  let workflowStates = [];
+  try {
+    const statesData = await linear.client.rawRequest(`
+      query WorkspaceWorkflowStates {
+        teams(first: 50) {
+          nodes {
+            id
+            key
+            name
+            states {
+              nodes { id name type position }
+            }
+          }
+        }
+      }`);
+    workflowStates = statesData.data.teams.nodes.flatMap(team =>
+      team.states.nodes.map(state => ({ ...state, teamId: team.id, teamKey: team.key, teamName: team.name }))
+    );
+  } catch (err) {
+    workflowStates = [];
+  }
+  const collected = new Date();
   json({
     ok: true,
     sourceType: 'linear_live',
-    collectedAt: now(),
+    collectedAt: collected.toISOString(),
     viewer: { id: viewer.id, name: viewer.name },
     teams: teams.nodes.map(t => ({ id: t.id, key: t.key, name: t.name })),
     labels: labels.nodes.map(l => ({ id: l.id, name: l.name, color: l.color })),
-    users: users.nodes.slice(0, 100).map(u => ({ id: u.id, name: u.name, active: u.active, admin: u.admin }))
+    users: users.nodes.slice(0, 100).map(u => ({ id: u.id, name: u.name, active: u.active, admin: u.admin })),
+    projects: projectsData.data.projects.nodes.map(project => ({
+      id: project.id,
+      name: project.name,
+      url: project.url,
+      state: project.state,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      startDate: project.startDate,
+      targetDate: project.targetDate,
+      archivedAt: project.archivedAt,
+      active: !project.archivedAt && !['canceled', 'completed'].includes(project.state)
+    })),
+    cycles: cyclesData.data.cycles.nodes.map(cycle => ({
+      ...cycle,
+      status: cycleWindowStatus(cycle, collected)
+    })),
+    workflowStates
   });
 }
 
@@ -424,7 +495,27 @@ async function issues() {
   const linear = client();
   const query = `query Issues($term: String) { issues(filter: { or: [{ title: { containsIgnoreCase: $term } }, { description: { containsIgnoreCase: $term } }] }, first: 20) { nodes { id identifier title url updatedAt state { name type } labels { nodes { name } } } } }`;
   const res = await linear.client.rawRequest(query, { term: queryText });
-  json({ ok: true, sourceType: 'linear_live', collectedAt: now(), query: queryText, data: res.data });
+  json({ ok: true, sourceType: 'linear_live', collectedAt: now(), query: queryText, semantics: 'full-text-contains', data: res.data });
+}
+
+async function issue(identifierOrId) {
+  if (!identifierOrId) throw new Error('issue requires an identifier or UUID.');
+  if (!isIssueIdentifierOrUuid(identifierOrId)) throw new Error('issue expects an exact Linear identifier like WEN-239 or a UUID. Use `issues --query` for full-text search.');
+  const linear = client();
+  const query = `
+    query IssueExact($id: String!) {
+      issue(id: $id) {
+        id identifier title url description priority createdAt updatedAt
+        state { id name type }
+        labels { nodes { id name } }
+        assignee { id name }
+        cycle { id name startsAt endsAt }
+        project { id name url }
+        projectMilestone { id name }
+      }
+    }`;
+  const res = await linear.client.rawRequest(query, { id: identifierOrId });
+  json({ ok: Boolean(res.data?.issue), sourceType: 'linear_live', collectedAt: now(), identifierOrId, semantics: 'exact-identifier-or-uuid', data: res.data });
 }
 
 async function apply(planPath) {
@@ -489,6 +580,7 @@ try {
   if (cmd === 'smoke') await smoke();
   else if (cmd === 'workspace') await workspace();
   else if (cmd === 'project') await project(process.argv[3]);
+  else if (cmd === 'issue') await issue(process.argv[3]);
   else if (cmd === 'issues') await issues();
   else if (cmd === 'apply') await apply(process.argv[3]);
   else json({ ok: false, error: `unknown command ${cmd}` });

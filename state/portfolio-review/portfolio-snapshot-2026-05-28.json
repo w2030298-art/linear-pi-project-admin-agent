@@ -1,10 +1,10 @@
 {
   "ok": true,
   "sourceType": "linear_live",
-  "collectedAt": "2026-05-28T12:12:47.432Z",
+  "collectedAt": "2026-05-28T23:13:46.387Z",
   "reportDate": "2026-05-28",
   "factPackPath": "state/fact-packs/fact-ea42051c1339.json",
-  "activeProjectsScanned": 6,
+  "activeProjectsScanned": 7,
   "inactiveProjectsExcluded": [
     {
       "id": "7ab2937d-5da8-423e-81af-9609ad5477ae",
@@ -113,6 +113,405 @@
     }
   ],
   "projects": [
+    {
+      "id": "c642b249-cdda-4e85-b7f4-604776cb8cbd",
+      "name": "linear-pi-project-admin-agent｜Linear 项目管理员 Agent 运行时",
+      "url": "https://linear.app/wentaoxu-personal-workplace/project/linear-pi-project-admin-agentlinear-项目管理员-agent-运行时-46b9b0fe3fc1",
+      "state": "started",
+      "targetDate": "2026-07-05",
+      "startDate": "2026-05-28",
+      "updatedAt": "2026-05-28T13:03:26.118Z",
+      "latestUpdate": {
+        "createdAt": "2026-05-28T13:47:53.801Z",
+        "daysAgo": -1,
+        "health": "onTrack",
+        "url": "https://linear.app/wentaoxu-personal-workplace/project/linear-pi-project-admin-agentlinear-项目管理员-agent-运行时-46b9b0fe3fc1/activity#project-update-ef5a7e6f",
+        "summary": "## v0.1 验收更新（2026-05-28） ### 已完成 - WEN-247：v0.1 MVP / 非目标 / 验收命令 / 风险与待确认项已落到 `docs/SCOPE_FREEZE.md`、README 和项目计划文档。 - WEN-252：新增 deterministic Project Plan / Write Plan reviewer，覆盖 schema、labels、依赖、事实/假设/待确认项和 dry-run 边界；reviewer 不执行 Linear mutation。 - WEN-25"
+      },
+      "issueCounts": {
+        "total": 12,
+        "Done": 12,
+        "Canceled": 0,
+        "Duplicate": 0,
+        "Ready": 0,
+        "InProgress": 0,
+        "Blocked": 0,
+        "Todo": 0,
+        "Backlog": 0,
+        "Triage": 0,
+        "Other": 0
+      },
+      "doneRatio": 100,
+      "milestoneStats": [
+        {
+          "id": "59f73881-5585-46b8-805f-dd22258406b2",
+          "name": "M4｜上线、运维与周期化审查",
+          "targetDate": "2026-07-05",
+          "issueCount": 2,
+          "doneCount": 2,
+          "openCount": 0,
+          "overdue": false
+        },
+        {
+          "id": "0f5fa231-3270-441e-ad43-30378c484b3f",
+          "name": "M3｜Linear Bridge 与写入治理",
+          "targetDate": "2026-06-25",
+          "issueCount": 2,
+          "doneCount": 2,
+          "openCount": 0,
+          "overdue": false
+        },
+        {
+          "id": "6265aa21-9729-4334-b624-95b251cc111b",
+          "name": "M2｜Pi 交互与项目编排闭环",
+          "targetDate": "2026-06-16",
+          "issueCount": 2,
+          "doneCount": 2,
+          "openCount": 0,
+          "overdue": false
+        },
+        {
+          "id": "54346ebb-06f2-495a-9f7a-1870c1809e7a",
+          "name": "M1｜只读事实层与工作区同步",
+          "targetDate": "2026-06-07",
+          "issueCount": 2,
+          "doneCount": 2,
+          "openCount": 0,
+          "overdue": false
+        },
+        {
+          "id": "67a012c9-88ce-4c1a-b621-2e67bf388e41",
+          "name": "M0｜仓库基线与范围冻结",
+          "targetDate": "2026-05-31",
+          "issueCount": 2,
+          "doneCount": 2,
+          "openCount": 0,
+          "overdue": false
+        }
+      ],
+      "labelCoverage": 100,
+      "missingDifficulty": [],
+      "missingMilestone": [],
+      "inProgressNoAssignee": [],
+      "blockedIssueCount": 0,
+      "relationDigest": [],
+      "cycles": [
+        {
+          "id": "bb9c6164-ea45-411e-9906-3ad81b6b9186",
+          "number": 1,
+          "name": null,
+          "startsAt": "2026-05-31T16:00:00.000Z",
+          "endsAt": "2026-06-14T16:00:00.000Z",
+          "issueCount": 2,
+          "completedCount": 2,
+          "openCount": 0,
+          "highOpenCount": 0,
+          "blockedCount": 0,
+          "issues": [
+            {
+              "identifier": "WEN-258",
+              "title": "[检索入口]：统一 Issue 精确查询、docs 召回与 official web 过滤语义",
+              "state": "Done",
+              "difficulty": "Medium-difficulty"
+            },
+            {
+              "identifier": "WEN-257",
+              "title": "[数据采集]：补齐 Linear workspace 与 portfolio snapshot 结构化采集",
+              "state": "Done",
+              "difficulty": "Medium-difficulty"
+            }
+          ]
+        }
+      ],
+      "recommendedReady": [],
+      "topCandidates": [],
+      "suggestions": [
+        {
+          "type": "issue_flow",
+          "severity": "high",
+          "text": "项目已 started，但无 Ready/In Progress Issue，建议推进 1 个可执行 Issue 到 Ready。"
+        },
+        {
+          "type": "close_check",
+          "severity": "low",
+          "text": "Done 比例 100%，建议检查剩余 Issue，满足后关闭项目或收口。"
+        }
+      ],
+      "issues": [
+        {
+          "id": "96303f9c-6cce-4913-950f-3a1998d6737d",
+          "identifier": "WEN-258",
+          "title": "[检索入口]：统一 Issue 精确查询、docs 召回与 official web 过滤语义",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "None",
+          "assignee": null,
+          "milestone": null,
+          "milestoneTarget": null,
+          "cycle": {
+            "id": "bb9c6164-ea45-411e-9906-3ad81b6b9186",
+            "number": 1,
+            "startsAt": "2026-05-31T16:00:00.000Z",
+            "endsAt": "2026-06-14T16:00:00.000Z"
+          },
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "Medium-difficulty",
+            "Improvement"
+          ],
+          "updatedAt": "2026-05-28T23:12:54.936Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "842c3d27-2a8a-4b33-b50a-527c3cd7532c",
+          "identifier": "WEN-257",
+          "title": "[数据采集]：补齐 Linear workspace 与 portfolio snapshot 结构化采集",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "None",
+          "assignee": null,
+          "milestone": null,
+          "milestoneTarget": null,
+          "cycle": {
+            "id": "bb9c6164-ea45-411e-9906-3ad81b6b9186",
+            "number": 1,
+            "startsAt": "2026-05-31T16:00:00.000Z",
+            "endsAt": "2026-06-14T16:00:00.000Z"
+          },
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "Medium-difficulty",
+            "Bug"
+          ],
+          "updatedAt": "2026-05-28T14:01:20.382Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "b742a3c4-eb64-41a4-8910-de70a355a1ce",
+          "identifier": "WEN-256",
+          "title": "[上线验收]：完成部署 smoke、周期巡检和状态更新机制",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "Medium",
+          "assignee": null,
+          "milestone": "M4｜上线、运维与周期化审查",
+          "milestoneTarget": "2026-07-05",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "Medium-difficulty",
+            "Test"
+          ],
+          "updatedAt": "2026-05-28T13:49:17.859Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "1e265b3f-8bc2-4d2d-90cf-21d1345d6807",
+          "identifier": "WEN-255",
+          "title": "[安全运维]：完成 token、权限、audit log 和回滚策略",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "Medium",
+          "assignee": null,
+          "milestone": "M4｜上线、运维与周期化审查",
+          "milestoneTarget": "2026-07-05",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Docs",
+            "Backend",
+            "Medium-difficulty"
+          ],
+          "updatedAt": "2026-05-28T13:49:11.525Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "bb7df4e5-badd-44d1-8731-1773259bd66e",
+          "identifier": "WEN-254",
+          "title": "[写入治理]：验证 dry-run、confirmed-only、幂等与回读",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "High",
+          "assignee": null,
+          "milestone": "M3｜Linear Bridge 与写入治理",
+          "milestoneTarget": "2026-06-25",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "High-difficulty",
+            "Feature"
+          ],
+          "updatedAt": "2026-05-28T13:22:29.642Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "2b171d5b-808d-492f-a175-59751fbd6fde",
+          "identifier": "WEN-253",
+          "title": "[Webhook Bridge]：实现 Linear 事件接收、签名校验与队列",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "High",
+          "assignee": null,
+          "milestone": "M3｜Linear Bridge 与写入治理",
+          "milestoneTarget": "2026-06-25",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "High-difficulty",
+            "Feature"
+          ],
+          "updatedAt": "2026-05-28T13:22:25.144Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "21895265-46ce-44e4-af19-fb192837f536",
+          "identifier": "WEN-252",
+          "title": "[计划审查]：Project Plan schema 与 reviewer 质量门禁",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "Medium",
+          "assignee": null,
+          "milestone": "M2｜Pi 交互与项目编排闭环",
+          "milestoneTarget": "2026-06-16",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "Medium-difficulty",
+            "Feature"
+          ],
+          "updatedAt": "2026-05-28T13:49:00.948Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "1393bc46-a5e8-48c3-bcd0-b64dc1c03aaf",
+          "identifier": "WEN-251",
+          "title": "[仓库基线]：校验安装、目录布局与脚本入口",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "Medium",
+          "assignee": null,
+          "milestone": "M0｜仓库基线与范围冻结",
+          "milestoneTarget": "2026-05-31",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Medium-difficulty",
+            "Test"
+          ],
+          "updatedAt": "2026-05-28T13:22:03.765Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "5e8bcf3b-cdb8-42b4-8b31-ae5dc850606a",
+          "identifier": "WEN-250",
+          "title": "[Pi 交互]：验证 skills、prompts 和 extensions 加载",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "Medium",
+          "assignee": null,
+          "milestone": "M2｜Pi 交互与项目编排闭环",
+          "milestoneTarget": "2026-06-16",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "Medium-difficulty",
+            "Feature"
+          ],
+          "updatedAt": "2026-05-28T13:22:21.202Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "9a64548d-2a42-4592-90b6-a923f1ac1613",
+          "identifier": "WEN-249",
+          "title": "[Fact Pack]：实现规划前事实包和冲突缺口输出",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "High",
+          "assignee": null,
+          "milestone": "M1｜只读事实层与工作区同步",
+          "milestoneTarget": "2026-06-07",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "High-difficulty",
+            "Feature"
+          ],
+          "updatedAt": "2026-05-28T13:22:17.078Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "56f2781b-58c4-4c09-ad0c-effbb8739bf8",
+          "identifier": "WEN-248",
+          "title": "[事实层]：打通 Linear / GitHub / Local / Web evidence",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "High",
+          "assignee": null,
+          "milestone": "M1｜只读事实层与工作区同步",
+          "milestoneTarget": "2026-06-07",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Backend",
+            "High-difficulty",
+            "Feature"
+          ],
+          "updatedAt": "2026-05-28T13:22:08.852Z",
+          "blockedBy": [],
+          "blocks": []
+        },
+        {
+          "id": "17b5f8c4-11fc-4624-b658-44fbaa647f32",
+          "identifier": "WEN-247",
+          "title": "[范围冻结]：确认 MVP、非目标与验收命令",
+          "state": "Done",
+          "stateType": "completed",
+          "bucket": "Done",
+          "priority": "Medium",
+          "assignee": null,
+          "milestone": "M0｜仓库基线与范围冻结",
+          "milestoneTarget": "2026-05-31",
+          "cycle": null,
+          "labels": [
+            "repo:linear-pi-project-admin-agent",
+            "Docs",
+            "Medium-difficulty"
+          ],
+          "updatedAt": "2026-05-28T13:48:54.662Z",
+          "blockedBy": [],
+          "blocks": []
+        }
+      ]
+    },
     {
       "id": "649d858d-e4b6-4749-a30e-16bad5dc3002",
       "name": "linear-bridge｜Linear 与本地 Agent 的派发桥",
@@ -464,6 +863,7 @@
           "endsAt": "2026-06-14T16:00:00.000Z",
           "issueCount": 23,
           "completedCount": 19,
+          "openCount": 4,
           "highOpenCount": 4,
           "blockedCount": 3,
           "issues": [
@@ -1410,10 +1810,10 @@
         "Done": 34,
         "Canceled": 0,
         "Duplicate": 0,
-        "Ready": 1,
+        "Ready": 2,
         "InProgress": 0,
         "Blocked": 0,
-        "Todo": 3,
+        "Todo": 2,
         "Backlog": 1,
         "Triage": 0,
         "Other": 0
@@ -1479,11 +1879,18 @@
           "name": null,
           "startsAt": "2026-05-31T16:00:00.000Z",
           "endsAt": "2026-06-14T16:00:00.000Z",
-          "issueCount": 1,
+          "issueCount": 2,
           "completedCount": 1,
+          "openCount": 1,
           "highOpenCount": 0,
           "blockedCount": 0,
           "issues": [
+            {
+              "identifier": "WEN-153",
+              "title": "前端：Compare evidence_mixed 警告展示",
+              "state": "Ready",
+              "difficulty": "Low-difficulty"
+            },
             {
               "identifier": "WEN-151",
               "title": "验收清单与项目交接",
@@ -1494,27 +1901,6 @@
         }
       ],
       "recommendedReady": [
-        {
-          "identifier": "WEN-153",
-          "title": "前端：Compare evidence_mixed 警告展示",
-          "state": "Todo",
-          "priority": "Low",
-          "milestone": "M3｜前端、compare 与 export",
-          "cycle": null,
-          "labels": [
-            "Frontend",
-            "Low-difficulty"
-          ],
-          "score": 36,
-          "scoring": {
-            "priorityScore": 25,
-            "milestoneScore": 40,
-            "blockInfluenceScore": 0,
-            "dependencyScore": 80,
-            "statusScore": 100
-          },
-          "blocks": []
-        },
         {
           "identifier": "WEN-150",
           "title": "README/AGENTS.md/参考文档更新",
@@ -1537,27 +1923,6 @@
         }
       ],
       "topCandidates": [
-        {
-          "identifier": "WEN-153",
-          "title": "前端：Compare evidence_mixed 警告展示",
-          "state": "Todo",
-          "priority": "Low",
-          "milestone": "M3｜前端、compare 与 export",
-          "cycle": null,
-          "labels": [
-            "Frontend",
-            "Low-difficulty"
-          ],
-          "score": 36,
-          "scoring": {
-            "priorityScore": 25,
-            "milestoneScore": 40,
-            "blockInfluenceScore": 0,
-            "dependencyScore": 80,
-            "statusScore": 100
-          },
-          "blocks": []
-        },
         {
           "identifier": "WEN-150",
           "title": "README/AGENTS.md/参考文档更新",
@@ -1653,19 +2018,24 @@
           "id": "a383b550-f786-4b27-b7c5-2b07109b8b5c",
           "identifier": "WEN-153",
           "title": "前端：Compare evidence_mixed 警告展示",
-          "state": "Todo",
+          "state": "Ready",
           "stateType": "unstarted",
-          "bucket": "Todo",
+          "bucket": "Ready",
           "priority": "Low",
           "assignee": null,
           "milestone": "M3｜前端、compare 与 export",
           "milestoneTarget": "2026-06-21",
-          "cycle": null,
+          "cycle": {
+            "id": "bb9c6164-ea45-411e-9906-3ad81b6b9186",
+            "number": 1,
+            "startsAt": "2026-05-31T16:00:00.000Z",
+            "endsAt": "2026-06-14T16:00:00.000Z"
+          },
           "labels": [
             "Frontend",
             "Low-difficulty"
           ],
-          "updatedAt": "2026-05-23T07:53:08.905Z",
+          "updatedAt": "2026-05-28T12:50:40.911Z",
           "blockedBy": [],
           "blocks": []
         },
@@ -2430,11 +2800,11 @@
         "Done": 9,
         "Canceled": 0,
         "Duplicate": 3,
-        "Ready": 1,
+        "Ready": 2,
         "InProgress": 0,
         "Blocked": 0,
         "Todo": 0,
-        "Backlog": 18,
+        "Backlog": 17,
         "Triage": 0,
         "Other": 0
       },
@@ -2538,8 +2908,9 @@
           "name": null,
           "startsAt": "2026-05-31T16:00:00.000Z",
           "endsAt": "2026-06-14T16:00:00.000Z",
-          "issueCount": 5,
+          "issueCount": 6,
           "completedCount": 2,
+          "openCount": 1,
           "highOpenCount": 0,
           "blockedCount": 0,
           "issues": [
@@ -2568,6 +2939,12 @@
               "difficulty": null
             },
             {
+              "identifier": "WEN-121",
+              "title": "生产构建下验证 /export print flow",
+              "state": "Ready",
+              "difficulty": "Medium-difficulty"
+            },
+            {
               "identifier": "WEN-46",
               "title": "部署模式与 export 稳定性：验证 static/Node 路径",
               "state": "Done",
@@ -2577,27 +2954,6 @@
         }
       ],
       "recommendedReady": [
-        {
-          "identifier": "WEN-121",
-          "title": "生产构建下验证 /export print flow",
-          "state": "Backlog",
-          "priority": "High",
-          "milestone": "M1｜部署模式证明",
-          "cycle": null,
-          "labels": [
-            "Frontend",
-            "Medium-difficulty"
-          ],
-          "score": 55,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 70,
-            "blockInfluenceScore": 0,
-            "dependencyScore": 100,
-            "statusScore": 50
-          },
-          "blocks": []
-        },
         {
           "identifier": "WEN-106",
           "title": "生产 UX 硬化：favicon、隐私提示、首次运行引导",
@@ -2623,27 +2979,6 @@
         }
       ],
       "topCandidates": [
-        {
-          "identifier": "WEN-121",
-          "title": "生产构建下验证 /export print flow",
-          "state": "Backlog",
-          "priority": "High",
-          "milestone": "M1｜部署模式证明",
-          "cycle": null,
-          "labels": [
-            "Frontend",
-            "Medium-difficulty"
-          ],
-          "score": 55,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 70,
-            "blockInfluenceScore": 0,
-            "dependencyScore": 100,
-            "statusScore": 50
-          },
-          "blocks": []
-        },
         {
           "identifier": "WEN-106",
           "title": "生产 UX 硬化：favicon、隐私提示、首次运行引导",
@@ -2728,6 +3063,27 @@
             "milestoneScore": 70,
             "blockInfluenceScore": 0,
             "dependencyScore": 100,
+            "statusScore": 50
+          },
+          "blocks": []
+        },
+        {
+          "identifier": "WEN-126",
+          "title": "AI 面板添加数据隐私提示组件",
+          "state": "Backlog",
+          "priority": "High",
+          "milestone": "M2｜生产 UX 与隐私硬化",
+          "cycle": null,
+          "labels": [
+            "Frontend",
+            "Medium-difficulty"
+          ],
+          "score": 46,
+          "scoring": {
+            "priorityScore": 75,
+            "milestoneScore": 40,
+            "blockInfluenceScore": 0,
+            "dependencyScore": 80,
             "statusScore": 50
           },
           "blocks": []
@@ -3128,19 +3484,24 @@
           "id": "fd6ff83d-94ef-43a1-b7a8-be9836720b69",
           "identifier": "WEN-121",
           "title": "生产构建下验证 /export print flow",
-          "state": "Backlog",
-          "stateType": "backlog",
-          "bucket": "Backlog",
+          "state": "Ready",
+          "stateType": "unstarted",
+          "bucket": "Ready",
           "priority": "High",
           "assignee": "Wentao",
           "milestone": "M1｜部署模式证明",
           "milestoneTarget": "2026-06-07",
-          "cycle": null,
+          "cycle": {
+            "id": "bb9c6164-ea45-411e-9906-3ad81b6b9186",
+            "number": 1,
+            "startsAt": "2026-05-31T16:00:00.000Z",
+            "endsAt": "2026-06-14T16:00:00.000Z"
+          },
           "labels": [
             "Frontend",
             "Medium-difficulty"
           ],
-          "updatedAt": "2026-05-23T07:53:21.082Z",
+          "updatedAt": "2026-05-28T12:50:39.760Z",
           "blockedBy": [],
           "blocks": []
         },
@@ -3392,10 +3753,10 @@
         "Done": 7,
         "Canceled": 0,
         "Duplicate": 0,
-        "Ready": 1,
+        "Ready": 2,
         "InProgress": 0,
         "Blocked": 0,
-        "Todo": 22,
+        "Todo": 21,
         "Backlog": 1,
         "Triage": 0,
         "Other": 0
@@ -3850,7 +4211,7 @@
             {
               "identifier": "WEN-43",
               "title": "MiniMOBA 环境与 RL 算法主线稳定化",
-              "state": "Todo"
+              "state": "Ready"
             }
           ],
           "blocks": []
@@ -3874,14 +4235,21 @@
           "name": null,
           "startsAt": "2026-05-31T16:00:00.000Z",
           "endsAt": "2026-06-14T16:00:00.000Z",
-          "issueCount": 1,
+          "issueCount": 2,
           "completedCount": 0,
-          "highOpenCount": 1,
+          "openCount": 2,
+          "highOpenCount": 2,
           "blockedCount": 1,
           "issues": [
             {
               "identifier": "WEN-44",
               "title": "ISSUE-F13：验证 objective policy 与 base objective 可达性",
+              "state": "Ready",
+              "difficulty": "High-difficulty"
+            },
+            {
+              "identifier": "WEN-43",
+              "title": "MiniMOBA 环境与 RL 算法主线稳定化",
               "state": "Ready",
               "difficulty": "High-difficulty"
             }
@@ -3910,29 +4278,6 @@
           },
           "blocks": [
             "WEN-159"
-          ]
-        },
-        {
-          "identifier": "WEN-87",
-          "title": "【M1】验证主线 RL 算法测试与最小训练路径",
-          "state": "Todo",
-          "priority": "High",
-          "milestone": "M1｜MiniMOBA/RL 主线稳定化",
-          "cycle": null,
-          "labels": [
-            "Backend",
-            "High-difficulty"
-          ],
-          "score": 66,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 70,
-            "blockInfluenceScore": 25,
-            "dependencyScore": 100,
-            "statusScore": 100
-          },
-          "blocks": [
-            "WEN-88"
           ]
         }
       ],
@@ -3984,29 +4329,6 @@
           ]
         },
         {
-          "identifier": "WEN-43",
-          "title": "MiniMOBA 环境与 RL 算法主线稳定化",
-          "state": "Todo",
-          "priority": "High",
-          "milestone": "M1｜MiniMOBA/RL 主线稳定化",
-          "cycle": null,
-          "labels": [
-            "Backend",
-            "High-difficulty"
-          ],
-          "score": 66,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 70,
-            "blockInfluenceScore": 25,
-            "dependencyScore": 100,
-            "statusScore": 100
-          },
-          "blocks": [
-            "WEN-44"
-          ]
-        },
-        {
           "identifier": "WEN-53",
           "title": "AgentBench Core、Scenarios、API 与 Demo 完整交付",
           "state": "Todo",
@@ -4052,6 +4374,26 @@
           "blocks": [
             "WEN-92"
           ]
+        },
+        {
+          "identifier": "WEN-54",
+          "title": "发布门禁与 Linear 维护闭环：四 repo 验证与状态同步",
+          "state": "Backlog",
+          "priority": "Medium",
+          "milestone": "M4｜全量验证与交接",
+          "cycle": null,
+          "labels": [
+            "Medium-difficulty"
+          ],
+          "score": 31,
+          "scoring": {
+            "priorityScore": 50,
+            "milestoneScore": 10,
+            "blockInfluenceScore": 0,
+            "dependencyScore": 80,
+            "statusScore": 50
+          },
+          "blocks": []
         }
       ],
       "suggestions": [],
@@ -4725,19 +5067,24 @@
           "id": "1d0ea729-51b9-494e-9a44-34c2d1fe4d12",
           "identifier": "WEN-43",
           "title": "MiniMOBA 环境与 RL 算法主线稳定化",
-          "state": "Todo",
+          "state": "Ready",
           "stateType": "unstarted",
-          "bucket": "Todo",
+          "bucket": "Ready",
           "priority": "High",
           "assignee": "Wentao",
           "milestone": "M1｜MiniMOBA/RL 主线稳定化",
           "milestoneTarget": "2026-06-07",
-          "cycle": null,
+          "cycle": {
+            "id": "bb9c6164-ea45-411e-9906-3ad81b6b9186",
+            "number": 1,
+            "startsAt": "2026-05-31T16:00:00.000Z",
+            "endsAt": "2026-06-14T16:00:00.000Z"
+          },
           "labels": [
             "Backend",
             "High-difficulty"
           ],
-          "updatedAt": "2026-05-23T07:52:57.945Z",
+          "updatedAt": "2026-05-28T12:50:38.186Z",
           "blockedBy": [],
           "blocks": [
             "WEN-44"
@@ -4784,10 +5131,10 @@
         "Done": 8,
         "Canceled": 0,
         "Duplicate": 0,
-        "Ready": 1,
+        "Ready": 2,
         "InProgress": 0,
         "Blocked": 0,
-        "Todo": 22,
+        "Todo": 21,
         "Backlog": 0,
         "Triage": 0,
         "Other": 0
@@ -5241,7 +5588,7 @@
             {
               "identifier": "WEN-38",
               "title": "设计源链：完成 overview image、Pencil .pen 与 view-model",
-              "state": "Todo"
+              "state": "Ready"
             }
           ],
           "blocks": [
@@ -5271,8 +5618,9 @@
           "name": null,
           "startsAt": "2026-05-31T16:00:00.000Z",
           "endsAt": "2026-06-14T16:00:00.000Z",
-          "issueCount": 1,
+          "issueCount": 2,
           "completedCount": 1,
+          "openCount": 1,
           "highOpenCount": 0,
           "blockedCount": 0,
           "issues": [
@@ -5281,60 +5629,18 @@
               "title": "【M1】生成 Dashboard overview image brief、prompt、image 与生成日志",
               "state": "Done",
               "difficulty": "Low-difficulty"
+            },
+            {
+              "identifier": "WEN-38",
+              "title": "设计源链：完成 overview image、Pencil .pen 与 view-model",
+              "state": "Ready",
+              "difficulty": "Medium-difficulty"
             }
           ]
         }
       ],
-      "recommendedReady": [
-        {
-          "identifier": "WEN-38",
-          "title": "设计源链：完成 overview image、Pencil .pen 与 view-model",
-          "state": "Todo",
-          "priority": "High",
-          "milestone": "M1｜Dashboard 设计源链与契约基线",
-          "cycle": null,
-          "labels": [
-            "Frontend",
-            "Medium-difficulty"
-          ],
-          "score": 66,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 70,
-            "blockInfluenceScore": 25,
-            "dependencyScore": 100,
-            "statusScore": 100
-          },
-          "blocks": [
-            "WEN-39"
-          ]
-        }
-      ],
-      "topCandidates": [
-        {
-          "identifier": "WEN-38",
-          "title": "设计源链：完成 overview image、Pencil .pen 与 view-model",
-          "state": "Todo",
-          "priority": "High",
-          "milestone": "M1｜Dashboard 设计源链与契约基线",
-          "cycle": null,
-          "labels": [
-            "Frontend",
-            "Medium-difficulty"
-          ],
-          "score": 66,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 70,
-            "blockInfluenceScore": 25,
-            "dependencyScore": 100,
-            "statusScore": 100
-          },
-          "blocks": [
-            "WEN-39"
-          ]
-        }
-      ],
+      "recommendedReady": [],
+      "topCandidates": [],
       "suggestions": [],
       "issues": [
         {
@@ -5990,19 +6296,24 @@
           "id": "dedeb96a-978c-4708-b546-2409658c91b6",
           "identifier": "WEN-38",
           "title": "设计源链：完成 overview image、Pencil .pen 与 view-model",
-          "state": "Todo",
+          "state": "Ready",
           "stateType": "unstarted",
-          "bucket": "Todo",
+          "bucket": "Ready",
           "priority": "High",
           "assignee": "Wentao",
           "milestone": "M1｜Dashboard 设计源链与契约基线",
           "milestoneTarget": "2026-06-07",
-          "cycle": null,
+          "cycle": {
+            "id": "bb9c6164-ea45-411e-9906-3ad81b6b9186",
+            "number": 1,
+            "startsAt": "2026-05-31T16:00:00.000Z",
+            "endsAt": "2026-06-14T16:00:00.000Z"
+          },
           "labels": [
             "Frontend",
             "Medium-difficulty"
           ],
-          "updatedAt": "2026-05-23T07:53:56.585Z",
+          "updatedAt": "2026-05-28T12:50:39.041Z",
           "blockedBy": [],
           "blocks": [
             "WEN-39"
@@ -6069,10 +6380,10 @@
         "Done": 10,
         "Canceled": 0,
         "Duplicate": 0,
-        "Ready": 0,
+        "Ready": 2,
         "InProgress": 0,
         "Blocked": 0,
-        "Todo": 2,
+        "Todo": 0,
         "Backlog": 3,
         "Triage": 0,
         "Other": 0
@@ -6153,7 +6464,7 @@
             {
               "identifier": "WEN-239",
               "title": "COMA 改造确认：冻结原版 COMA 与 GAM-COMA 当前实现边界",
-              "state": "Todo"
+              "state": "Ready"
             }
           ],
           "blocks": [
@@ -6170,7 +6481,7 @@
             {
               "identifier": "WEN-238",
               "title": "TD3 创新算法：完成 Mainline-A 下的 TD3 改进方案 ADR",
-              "state": "Todo"
+              "state": "Ready"
             }
           ],
           "blocks": [
@@ -6213,19 +6524,20 @@
           "endsAt": "2026-06-14T16:00:00.000Z",
           "issueCount": 6,
           "completedCount": 4,
+          "openCount": 2,
           "highOpenCount": 1,
           "blockedCount": 0,
           "issues": [
             {
               "identifier": "WEN-239",
               "title": "COMA 改造确认：冻结原版 COMA 与 GAM-COMA 当前实现边界",
-              "state": "Todo",
+              "state": "Ready",
               "difficulty": "Medium-difficulty"
             },
             {
               "identifier": "WEN-238",
               "title": "TD3 创新算法：完成 Mainline-A 下的 TD3 改进方案 ADR",
-              "state": "Todo",
+              "state": "Ready",
               "difficulty": "High-difficulty"
             },
             {
@@ -6255,109 +6567,9 @@
           ]
         }
       ],
-      "recommendedReady": [
-        {
-          "identifier": "WEN-239",
-          "title": "COMA 改造确认：冻结原版 COMA 与 GAM-COMA 当前实现边界",
-          "state": "Todo",
-          "priority": "High",
-          "milestone": "M4｜TD3/COMA 双主线重定位与后续实验设计",
-          "cycle": "#1",
-          "labels": [
-            "Backend",
-            "Medium-difficulty"
-          ],
-          "score": 51,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 10,
-            "blockInfluenceScore": 25,
-            "dependencyScore": 100,
-            "statusScore": 100
-          },
-          "blocks": [
-            "WEN-241"
-          ]
-        },
-        {
-          "identifier": "WEN-238",
-          "title": "TD3 创新算法：完成 Mainline-A 下的 TD3 改进方案 ADR",
-          "state": "Todo",
-          "priority": "High",
-          "milestone": "M4｜TD3/COMA 双主线重定位与后续实验设计",
-          "cycle": "#1",
-          "labels": [
-            "Backend",
-            "High-difficulty"
-          ],
-          "score": 51,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 10,
-            "blockInfluenceScore": 25,
-            "dependencyScore": 100,
-            "statusScore": 100
-          },
-          "blocks": [
-            "WEN-240"
-          ]
-        }
-      ],
-      "topCandidates": [
-        {
-          "identifier": "WEN-239",
-          "title": "COMA 改造确认：冻结原版 COMA 与 GAM-COMA 当前实现边界",
-          "state": "Todo",
-          "priority": "High",
-          "milestone": "M4｜TD3/COMA 双主线重定位与后续实验设计",
-          "cycle": "#1",
-          "labels": [
-            "Backend",
-            "Medium-difficulty"
-          ],
-          "score": 51,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 10,
-            "blockInfluenceScore": 25,
-            "dependencyScore": 100,
-            "statusScore": 100
-          },
-          "blocks": [
-            "WEN-241"
-          ]
-        },
-        {
-          "identifier": "WEN-238",
-          "title": "TD3 创新算法：完成 Mainline-A 下的 TD3 改进方案 ADR",
-          "state": "Todo",
-          "priority": "High",
-          "milestone": "M4｜TD3/COMA 双主线重定位与后续实验设计",
-          "cycle": "#1",
-          "labels": [
-            "Backend",
-            "High-difficulty"
-          ],
-          "score": 51,
-          "scoring": {
-            "priorityScore": 75,
-            "milestoneScore": 10,
-            "blockInfluenceScore": 25,
-            "dependencyScore": 100,
-            "statusScore": 100
-          },
-          "blocks": [
-            "WEN-240"
-          ]
-        }
-      ],
-      "suggestions": [
-        {
-          "type": "issue_flow",
-          "severity": "high",
-          "text": "项目已 started，但无 Ready/In Progress Issue，建议推进 1 个可执行 Issue 到 Ready。"
-        }
-      ],
+      "recommendedReady": [],
+      "topCandidates": [],
+      "suggestions": [],
       "issues": [
         {
           "id": "68316cdb-2455-4c15-b2dc-73ec11efba95",
@@ -6434,9 +6646,9 @@
           "id": "f4d05839-29d9-4bad-b1ff-c01181b74a22",
           "identifier": "WEN-239",
           "title": "COMA 改造确认：冻结原版 COMA 与 GAM-COMA 当前实现边界",
-          "state": "Todo",
+          "state": "Ready",
           "stateType": "unstarted",
-          "bucket": "Todo",
+          "bucket": "Ready",
           "priority": "High",
           "assignee": "Wentao",
           "milestone": "M4｜TD3/COMA 双主线重定位与后续实验设计",
@@ -6451,7 +6663,7 @@
             "Backend",
             "Medium-difficulty"
           ],
-          "updatedAt": "2026-05-28T04:21:53.579Z",
+          "updatedAt": "2026-05-28T12:50:36.605Z",
           "blockedBy": [],
           "blocks": [
             "WEN-241"
@@ -6461,9 +6673,9 @@
           "id": "cad21518-d26c-4947-89eb-f1dcdd54a0a8",
           "identifier": "WEN-238",
           "title": "TD3 创新算法：完成 Mainline-A 下的 TD3 改进方案 ADR",
-          "state": "Todo",
+          "state": "Ready",
           "stateType": "unstarted",
-          "bucket": "Todo",
+          "bucket": "Ready",
           "priority": "High",
           "assignee": "Wentao",
           "milestone": "M4｜TD3/COMA 双主线重定位与后续实验设计",
@@ -6478,7 +6690,7 @@
             "Backend",
             "High-difficulty"
           ],
-          "updatedAt": "2026-05-28T05:17:47.093Z",
+          "updatedAt": "2026-05-28T12:50:37.366Z",
           "blockedBy": [],
           "blocks": [
             "WEN-240"

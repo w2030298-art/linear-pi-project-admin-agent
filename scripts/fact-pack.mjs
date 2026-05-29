@@ -9,6 +9,7 @@ const task = arg('--task', 'unspecified');
 const linear = arg('--linear', '');
 const repoKey = arg('--repo', '');
 const query = arg('--query', task);
+const includePortfolio = !has('--no-portfolio') && (has('--portfolio') || /portfolio|组合巡检|项目巡检/i.test(`${task} ${query}`));
 
 function runNode(args) {
   const r = spawnSync('node', args, { encoding: 'utf8', env: process.env });
@@ -54,6 +55,22 @@ if (linear) {
   else pack.facts.push(fact(`Linear project context was retrieved for ${linear}.`, 'linear_live', `linear:${linear}`, 'high', JSON.stringify(linearData).slice(0, 5000)));
 } else {
   pack.evidenceGaps.push('No Linear project key/id provided; project state may be incomplete for extend/report/cycle tasks.');
+}
+
+if (includePortfolio) {
+  const portfolio = runNode(['state/portfolio-review/build-portfolio-snapshot.mjs']);
+  if (!portfolio.ok && portfolio.error) {
+    pack.evidenceGaps.push(`Linear portfolio snapshot unavailable: ${portfolio.error}`);
+  } else {
+    pack.facts.push(fact(
+      `Linear portfolio snapshot collected: ${portfolio.activeProjects || 0} active projects scanned.`,
+      'linear_live',
+      portfolio.outPath || 'state/portfolio-review/portfolio-snapshot-2026-05-28.json',
+      'high',
+      JSON.stringify(portfolio).slice(0, 5000)
+    ));
+    pack.planningImplications.push('Portfolio review must use the structured snapshot summary instead of oversized single-project context dumps.');
+  }
 }
 
 if (!has('--no-github')) {

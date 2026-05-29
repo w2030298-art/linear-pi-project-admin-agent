@@ -74,6 +74,20 @@ npm run bridge:dev
 ## 重要限制
 
 - `scripts/linear-cli.mjs apply` 已实现真实写入，但默认仍是 dry-run。真实写入必须同时满足 `LINEAR_WRITE_MODE=confirmed-only`、`ALLOW_LINEAR_WRITES=true`、write plan `dryRun=false`、`confirmedByUser=true` 和 CLI `--confirmed`。
+- v0.1 范围以 `docs/SCOPE_FREEZE.md` 为准：只覆盖本地安装、事实层、Pi 交互、Webhook Bridge、Project Plan reviewer、写入治理和运维文档。
 - GitHub MCP 的配置文件已提供；Pi 是否能直接作为 MCP host 取决于你的 Pi/MCP 插件安装情况。本项目同时提供 GitHub REST fallback。
 - Web search 需要 `TAVILY_API_KEY` 或 `BRAVE_SEARCH_API_KEY`。
 - 不要把 `.env`、token、secret 写入 Linear 或提交到 GitHub。
+
+## 验收命令
+
+```bash
+npm run validate
+npm run test:plan-review
+npm run plan:review -- examples/project-plan.sample.json --strict
+npm run plan:review -- examples/write-plan.sample.json --strict
+npm run linear:smoke
+npm run linear:workspace
+npm run fact:pack -- --task "smoke test"
+npm run test:webhook-signature
+```

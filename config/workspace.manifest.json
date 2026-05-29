@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastSyncedAt": "2026-05-28T11:53:28.931Z",
+  "lastSyncedAt": "2026-05-28T13:42:24.996Z",
   "workspace": {
     "name": "WENTAOXU-personal-workplace",
     "defaultTeamKey": "WEN",
@@ -97,6 +97,7 @@
       "required": false,
       "allowed": [
         "Repo",
+        "repo:linear-pi-project-admin-agent",
         "repo:linear-bridge",
         "repo:multica"
       ]

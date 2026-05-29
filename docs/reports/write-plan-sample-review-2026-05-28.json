@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "kind": "write_plan",
+  "target": "examples/write-plan.sample.json",
+  "status": "pass",
+  "executedMutation": false,
+  "reviewedAt": "2026-05-28T13:41:19.118Z",
+  "findings": []
+}
