@@ -95,6 +95,13 @@ npm run bridge:dev
 - 检查 writePlan 是否包含 idempotencyKey。
 - 调用 `linear_apply_write_plan` 时确认 `confirmedByUser=true`，`confirmationText` 记录本次 `ask_user` approve。
 
+### Existing milestone extension rejected
+
+- 如果只是新增 Issue 到已有 Milestone，不要新建临时 Milestone 来绕过 reviewer。
+- 先用 Linear 回读确认目标 Milestone 存在。
+- write plan 顶层写入 `targetProjectId`、`targetMilestoneId`、`targetMilestoneReadback`。
+- `issue.create.input.projectId` 和 `issue.create.input.projectMilestoneId` 应指向同一组已回读对象。
+
 ### Emergency rollback
 
 - 设置 `PI_AUTO_RUN=false`。

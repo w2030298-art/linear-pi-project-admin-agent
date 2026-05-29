@@ -40,6 +40,15 @@
 - label 名称会解析为 Linear `labelIds`；teamKey 会解析为 `teamId` / `teamIds`。
 - 每个 mutation 后都会 readback；审计日志写入 `AUDIT_LOG_PATH`。
 
+## Write plan review
+
+`scripts/plan-reviewer.mjs` 支持两类合法写入计划：
+
+- 新建/调整结构：包含 `project.create` / `project.update`、`projectMilestone.create` 和 Issue mutation。
+- 扩展已有结构：包含 `targetProjectId`、`targetMilestoneId`、`targetMilestoneReadback`，并把 `issue.create` 的 `projectId` / `projectMilestoneId` 指向已回读验证的对象。
+
+新增单个 Issue 挂到已有 Milestone 时，不应为了通过 reviewer 人为创建新 Milestone。Reviewer 只要求已有 Milestone 先被 Linear 回读确认存在，并且 readback 的 `projectId` 与 `targetProjectId` 一致。
+
 ## MCP
 
 `config/mcp.servers.json` 提供 GitHub MCP Server 配置。由于不同 MCP host 的配置语法可能不同，本项目保留 REST fallback，确保 GitHub 事实来源可用。

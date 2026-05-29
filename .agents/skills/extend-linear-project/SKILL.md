@@ -226,6 +226,8 @@ description: >-
 
 **何时调整已有**：新需求只是补充现有阶段目标、不改变主路径、不需要独立验收窗口。
 
+**何时复用已有**：如果只是新增一个或少量 Issue，且已有 Milestone 的目标、阶段和验收边界匹配，必须优先挂到已有 Milestone。不要为了通过本地 reviewer 人为新建 `M3.1` 之类的 Milestone。写入计划应包含 `targetProjectId`、`targetMilestoneId` 和 Linear 回读得到的 `targetMilestoneReadback`，证明该 Milestone 存在且属于目标 Project。
+
 ---
 
 ## 10. Cycle 调整

@@ -14,6 +14,7 @@
 - 影响面：产品、架构、数据、API、任务、周期、风险。
 - 新增/修改/不建议修改的 Milestones 和 Issues。
 - dry-run 写入计划。
+- 如果只是新增 Issue 且已有 Milestone 匹配，应挂到已有 Milestone；write plan 使用 `targetProjectId`、`targetMilestoneId`、`targetMilestoneReadback`，不要为过 reviewer 人为新建 Milestone。
 - dry-run 后只用 `ask_user` 发起一次确认；不要再要求用户手动输入固定确认句。
 
 用户输入：
