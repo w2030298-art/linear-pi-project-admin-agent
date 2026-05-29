@@ -15,6 +15,7 @@ const required = [
   'scripts/retrieval-utils.mjs',
   'scripts/test-linear-snapshot.mjs',
   'scripts/test-retrieval-ux.mjs',
+  'scripts/test-write-confirmation-ux.ts',
   'examples/project-plan.sample.json',
   'examples/write-plan.sample.json',
   'README.md',

@@ -122,7 +122,7 @@ description: >-
 - 新增的依赖关系
 - 项目状态更新草案
 
-**用户确认后再执行写入。** 不得在用户未确认时直接创建 Issue。
+**用户确认后再执行写入。** 不得在用户未确认时直接创建 Issue。Pi 交互模式下，dry-run 后只使用一次 `ask_user` 确认；不要再要求用户手动输入固定确认句。`ask_user` approve 后再调用 `linear_apply_write_plan`，并把 `confirmedByUser=true` 与 `confirmationText` 作为确认记录。
 
 ---
 

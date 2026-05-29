@@ -26,6 +26,12 @@
 - write plan 中 `confirmedByUser=true`
 - CLI 传入 `--confirmed`
 
+确认来源：
+
+- Pi 交互模式只使用一次 `ask_user` 作为用户确认。
+- 不再要求用户手动输入固定确认句。
+- `linear-write-guard` 只校验 `confirmedByUser=true`，不会再发起第二次 UI confirm；如果缺少确认，会阻止调用并提示先使用 `ask_user`。
+
 安全机制：
 
 - create operation 会基于 `idempotencyKey + operation key` 生成稳定 UUID。
