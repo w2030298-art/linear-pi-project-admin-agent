@@ -8,6 +8,7 @@ npm run test:plan-review
 npm run test:project-description-fields
 npm run test:repo-map
 npm run test:pi-ask-user
+npm run test:wezterm-launch
 npm run test:linear-apply-mode
 npm run test:retrieval-ux
 npm run test:write-confirmation
@@ -119,6 +120,14 @@ npm run bridge:dev
 - `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from `config/repo-map.yaml` first.
 - If a repoKey is missing or incomplete, record an evidence gap instead of falling back to `GITHUB_DEFAULT_*` / `LOCAL_REPO_ROOTS` for another repo.
 - Run `npm run test:repo-map` after changing repo-map behavior.
+
+### WezTerm Pi launch grey rollout
+
+- The grey shortcut target should be `C:\Program Files\WezTerm\wezterm-gui.exe`.
+- The shortcut arguments should use `start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"`.
+- Keep tokens and credential values out of shortcut targets, WezTerm config, and docs.
+- Run `npm run test:wezterm-launch` after changing `docs/WEZTERM_PI_LAUNCH.md` or the smoke report.
+- Keep WezTerm as a grey rollout until the visible Pi TUI checklist is verified: Chinese input, copy/paste, scrollback, shortcuts, theme, and font.
 
 ### Repo-map interactive clarification
 

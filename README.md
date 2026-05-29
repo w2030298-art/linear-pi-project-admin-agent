@@ -86,6 +86,7 @@ npm run validate
 npm run test:plan-review
 npm run test:repo-map
 npm run test:pi-ask-user
+npm run test:wezterm-launch
 npm run test:linear-apply-mode
 npm run plan:review -- examples/project-plan.sample.json --strict
 npm run plan:review -- examples/write-plan.sample.json --strict
