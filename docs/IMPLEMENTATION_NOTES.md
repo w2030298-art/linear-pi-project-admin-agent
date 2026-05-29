@@ -15,6 +15,16 @@
 - If the user cancels, it returns `cancelled` with open questions and `writesPerformed=false`.
 - If the user cancels or Pi UI is unavailable, it returns the target Project context in `openQuestions` / `evidenceGaps` so the flow can be resumed safely.
 
+### Repo-map drift detection and apply
+
+`scripts/repo-map-drift.mjs` is the repo-map governance CLI:
+
+- `check` compares `config/repo-map.yaml` with source facts from Git remote/local path and explicit Linear/GitHub CLI flags.
+- Drift or missing data produces `state/repo-map.draft.yaml`, a JSON/YAML-compatible report, a diff preview, and `writesPerformed=false`.
+- Missing facts that cannot be derived from source evidence return `piAskUser: { flow: "repo_map", seed }`, preserving the Linear Project ID/name context for the stepwise clarification UI.
+- `apply` refuses to edit `config/repo-map.yaml` unless `--confirmed` is present. Confirmed apply writes the map, validates it through `scripts/repo-map.mjs`, appends `state/repo-map-audit.jsonl`, and returns rollback advice.
+- The draft is the only bridge between check and apply; `config/repo-map.yaml` is never changed during check.
+
 ## Linear apply
 
 Dry-run compilation and real apply use separate protocol gates:
