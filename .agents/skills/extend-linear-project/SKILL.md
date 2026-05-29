@@ -122,7 +122,7 @@ description: >-
 - 新增的依赖关系
 - 项目状态更新草案
 
-**用户确认后再执行写入。** 不得在用户未确认时直接创建 Issue。
+**用户确认后再执行写入。** 不得在用户未确认时直接创建 Issue。Pi 交互模式下，dry-run 后只使用一次 `ask_user` 确认；不要再要求用户手动输入固定确认句。`ask_user` approve 后再调用 `linear_apply_write_plan`，并把 `confirmedByUser=true` 与 `confirmationText` 作为确认记录。
 
 ---
 
@@ -225,6 +225,8 @@ description: >-
 标题格式：`M[编号]｜[新增需求名]：[阶段目标]`
 
 **何时调整已有**：新需求只是补充现有阶段目标、不改变主路径、不需要独立验收窗口。
+
+**何时复用已有**：如果只是新增一个或少量 Issue，且已有 Milestone 的目标、阶段和验收边界匹配，必须优先挂到已有 Milestone。不要为了通过本地 reviewer 人为新建 `M3.1` 之类的 Milestone。写入计划应包含 `targetProjectId`、`targetMilestoneId` 和 Linear 回读得到的 `targetMilestoneReadback`，证明该 Milestone 存在且属于目标 Project。
 
 ---
 

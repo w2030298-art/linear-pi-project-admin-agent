@@ -148,6 +148,50 @@ function hasOp(operations, pattern) {
   return operations.some(op => pattern.test(operationType(op)));
 }
 
+function firstText(...values) {
+  return values.find(value => !isBlank(value));
+}
+
+function targetProjectId(plan) {
+  return firstText(plan.targetProjectId, plan.projectId, plan.targetProject?.id);
+}
+
+function issueMilestoneRefs(operations) {
+  return operations
+    .filter(operation => /^issue\.(create|update)$/.test(operationType(operation)))
+    .map(operation => operation.input || {})
+    .map(input => firstText(input.projectMilestoneId, input.projectMilestoneRef, input.milestoneRef))
+    .filter(Boolean);
+}
+
+function targetMilestoneId(plan, operations) {
+  return firstText(
+    plan.targetMilestoneId,
+    plan.targetProjectMilestoneId,
+    plan.projectMilestoneId,
+    plan.projectMilestoneRef,
+    plan.targetMilestone?.id,
+    ...issueMilestoneRefs(operations)
+  );
+}
+
+function milestoneReadback(plan) {
+  return plan.targetMilestoneReadback ||
+    plan.targetProjectMilestoneReadback ||
+    plan.existingMilestoneReadback ||
+    plan.milestoneReadback ||
+    null;
+}
+
+function hasVerifiedExistingMilestone(plan, operations) {
+  const id = targetMilestoneId(plan, operations);
+  const readback = milestoneReadback(plan);
+  if (isBlank(id) || !readback || typeof readback !== 'object') return false;
+  if (readback.id !== id) return false;
+  const projectId = targetProjectId(plan);
+  return isBlank(projectId) || readback.projectId === projectId;
+}
+
 export function reviewWritePlan(plan, options = {}) {
   const findings = [];
   const operations = asArray(plan.operations);
@@ -166,17 +210,21 @@ export function reviewWritePlan(plan, options = {}) {
       { path: '$.operations' }
     ));
   }
-  if (!hasOp(operations, /^project\.(create|update)$/)) {
+  const hasTargetProject = hasOp(operations, /^project\.(create|update)$/) || !isBlank(targetProjectId(plan));
+  const hasMilestoneTarget = hasOp(operations, /^(projectMilestone|milestone|project\.milestone)\.create$/) ||
+    hasVerifiedExistingMilestone(plan, operations);
+
+  if (!hasTargetProject) {
     findings.push(makeFinding(
       'write_plan_project_missing',
-      'Write plan must identify the target Project create/update operation.',
+      'Write plan must identify the target Project via project.create/update or targetProjectId.',
       { path: '$.operations' }
     ));
   }
-  if (!hasOp(operations, /^(projectMilestone|milestone|project\.milestone)\.create$/)) {
+  if (!hasMilestoneTarget) {
     findings.push(makeFinding(
       'write_plan_milestone_missing',
-      'Write plan must identify at least one Project Milestone operation.',
+      'Write plan must create a Project Milestone or include targetMilestoneId with Linear readback evidence.',
       { path: '$.operations' }
     ));
   }

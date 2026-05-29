@@ -121,6 +121,97 @@ function baseProjectPlan() {
 }
 
 {
+  const writePlan = {
+    idempotencyKey: 'issue-only-existing-milestone',
+    dryRun: true,
+    confirmedByUser: false,
+    targetProjectId: 'c642b249-cdda-4e85-b7f4-604776cb8cbd',
+    targetMilestoneId: 'existing-milestone-id',
+    targetMilestoneReadback: {
+      id: 'existing-milestone-id',
+      projectId: 'c642b249-cdda-4e85-b7f4-604776cb8cbd',
+      name: 'M3 | Linear Bridge'
+    },
+    dependencyValidation: 'Single issue is independent and attaches to an existing verified milestone.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'issue.create',
+        input: {
+          title: '[写入治理]：修复字段限制回归',
+          teamKey: 'WEN',
+          projectId: 'c642b249-cdda-4e85-b7f4-604776cb8cbd',
+          projectMilestoneId: 'existing-milestone-id',
+          labels: ['Medium-difficulty', 'Backend']
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan);
+  assert.equal(report.status, 'pass');
+  assert.deepEqual(report.findings, []);
+}
+
+{
+  const writePlan = {
+    idempotencyKey: 'issue-only-missing-existing-targets',
+    dryRun: true,
+    confirmedByUser: false,
+    dependencyValidation: 'Single issue is independent.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'issue.create',
+        input: {
+          title: '[写入治理]：修复字段限制回归',
+          teamKey: 'WEN',
+          labels: ['Medium-difficulty', 'Backend']
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan);
+  assert.equal(report.status, 'needs_revision');
+  assert.ok(findingCodes(report).includes('write_plan_project_missing'));
+  assert.ok(findingCodes(report).includes('write_plan_milestone_missing'));
+}
+
+{
+  const writePlan = {
+    idempotencyKey: 'issue-only-milestone-project-mismatch',
+    dryRun: true,
+    confirmedByUser: false,
+    targetProjectId: 'c642b249-cdda-4e85-b7f4-604776cb8cbd',
+    targetMilestoneId: 'existing-milestone-id',
+    targetMilestoneReadback: {
+      id: 'existing-milestone-id',
+      projectId: 'different-project-id',
+      name: 'M3 | Linear Bridge'
+    },
+    dependencyValidation: 'Single issue is independent.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'issue.create',
+        input: {
+          title: 'Fix field limit regression',
+          teamKey: 'WEN',
+          projectId: 'c642b249-cdda-4e85-b7f4-604776cb8cbd',
+          projectMilestoneId: 'existing-milestone-id',
+          labels: ['Medium-difficulty', 'Backend']
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan);
+  assert.equal(report.status, 'needs_revision');
+  assert.ok(findingCodes(report).includes('write_plan_milestone_missing'));
+}
+
+{
   const report = reviewProjectPlan(baseProjectPlan());
   assert.equal(report.status, 'pass');
   assert.deepEqual(report.findings, []);

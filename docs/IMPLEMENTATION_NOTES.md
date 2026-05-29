@@ -26,6 +26,12 @@
 - write plan 中 `confirmedByUser=true`
 - CLI 传入 `--confirmed`
 
+确认来源：
+
+- Pi 交互模式只使用一次 `ask_user` 作为用户确认。
+- 不再要求用户手动输入固定确认句。
+- `linear-write-guard` 只校验 `confirmedByUser=true`，不会再发起第二次 UI confirm；如果缺少确认，会阻止调用并提示先使用 `ask_user`。
+
 安全机制：
 
 - create operation 会基于 `idempotencyKey + operation key` 生成稳定 UUID。
@@ -33,6 +39,15 @@
 - operation 可以用 `key` 定义引用名，并用 `projectRef`、`projectMilestoneRef`、`issueRef`、`relatedIssueRef`、`projectUpdateRef` 等字段引用前序结果。
 - label 名称会解析为 Linear `labelIds`；teamKey 会解析为 `teamId` / `teamIds`。
 - 每个 mutation 后都会 readback；审计日志写入 `AUDIT_LOG_PATH`。
+
+## Write plan review
+
+`scripts/plan-reviewer.mjs` 支持两类合法写入计划：
+
+- 新建/调整结构：包含 `project.create` / `project.update`、`projectMilestone.create` 和 Issue mutation。
+- 扩展已有结构：包含 `targetProjectId`、`targetMilestoneId`、`targetMilestoneReadback`，并把 `issue.create` 的 `projectId` / `projectMilestoneId` 指向已回读验证的对象。
+
+新增单个 Issue 挂到已有 Milestone 时，不应为了通过 reviewer 人为创建新 Milestone。Reviewer 只要求已有 Milestone 先被 Linear 回读确认存在，并且 readback 的 `projectId` 与 `targetProjectId` 一致。
 
 ## MCP
 

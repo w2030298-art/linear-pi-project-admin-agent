@@ -109,6 +109,15 @@
 - `readbackRequired`
 - `auditLogRequired`
 
+### 3.1 单次确认协议
+
+在 Pi 交互模式中，真实写入确认只走一次 `ask_user`：
+
+- 展示 dry-run 写入计划后，用 `ask_user` 让用户选择 approve / cancel。
+- 不要求用户手动输入固定确认句，例如“确认执行该写入计划到 Linear”。
+- `ask_user` approve 后，调用 `linear_apply_write_plan` 时传 `confirmedByUser=true`，并在 `confirmationText` 里记录该次 `ask_user` 确认。
+- `linear-write-guard` 不再发起第二次确认；如果缺少 `confirmedByUser=true`，应阻止写入并提示先使用 `ask_user`。
+
 ---
 
 ## 4. 工具使用顺序
