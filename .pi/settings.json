@@ -8,6 +8,7 @@
     "extensions/github-evidence.ts",
     "extensions/local-repo-docs.ts",
     "extensions/web-research.ts",
+    "extensions/pi-ask-user.ts",
     "extensions/linear-write-guard.ts",
     "extensions/linear-plan-reviewer.ts",
     "extensions/workspace-sync.ts",

@@ -30,6 +30,8 @@ user request / Linear trigger
 
 `fact_pack_build --repo <repoKey>` resolves `config/repo-map.yaml` before environment fallbacks. A repoKey match supplies GitHub owner/repo/default branch, Linear project prefix, and localPath. If the repoKey is missing or incomplete, the Fact Pack records an evidence gap and does not silently fall back to `GITHUB_DEFAULT_*` or `LOCAL_REPO_ROOTS` for another repository.
 
+When repo-map facts are missing or drifted, use `pi_ask_user` with `flow=repo_map` in Pi interactive mode. It asks for GitHub URL, Linear Project, local repo path, repoKey, and defaultBranch one field at a time, then returns a review-only draft. Non-UI runs must keep the gap explicit and avoid fabricating user input.
+
 ### Linear live data
 
 用于确认项目状态、任务状态、labels、workflow states、Cycles、Project Updates。Linear 是项目管理事实的主源。
