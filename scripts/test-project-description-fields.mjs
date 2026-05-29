@@ -47,6 +47,8 @@ assert.equal(result.status, 0, result.stderr || result.stdout);
 const output = JSON.parse(result.stdout);
 assert.equal(output.ok, true);
 assert.equal(output.dryRun, true);
+assert.equal(output.confirmationChannel.channel, 'conversation_fallback');
+assert.equal(output.confirmationChannel.label, 'current conversation explicit approval fallback');
 
 const createOp = output.operations.find(op => op.key === 'project-create');
 assert.ok(createOp);
