@@ -13,3 +13,15 @@ repos:
       - package.json
       - tsconfig.json
     evidenceWeight: high
+  - key: linear-bridge
+    owner: w2030298-art
+    repo: linear-bridge
+    defaultBranch: main
+    localPath: C:/Users/22003/opencodeworkspace/linear-bridge
+    linearProjectPrefix: "linear-bridge"
+    docs:
+      - README.md
+      - docs/
+      - package.json
+      - go.mod
+    evidenceWeight: high

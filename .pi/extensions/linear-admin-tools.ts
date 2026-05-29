@@ -59,7 +59,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_apply_write_plan",
     label: "Apply Linear Write Plan",
-    description: "Apply a dry-run write plan after explicit user confirmation. Uses idempotency and readback.",
+    description: "Compile a dry-run write plan, or apply a real write plan after explicit user confirmation. Uses idempotency and readback.",
     parameters: Type.Object({
       writePlanPath: Type.String(),
       confirmedByUser: Type.Boolean(),
@@ -68,9 +68,11 @@ export default function (pi: ExtensionAPI) {
     }),
     promptSnippet: "linear_apply_write_plan: applies a confirmed Linear write plan with guardrails.",
     promptGuidelines: [
-      "Use ask_user exactly once to ask the user to approve or reject the exact dry-run write plan.",
+      "Dry-run compilation does not require user approval and should be called with dryRun=true.",
+      "Use ask_user exactly once before real Linear writes to ask the user to approve or reject the exact dry-run write plan.",
       "Do not ask the user to type a fixed confirmation phrase; the ask_user approval is the confirmation.",
-      "After ask_user approval, call linear_apply_write_plan with confirmedByUser=true and a confirmationText that summarizes the ask_user approval.",
+      "If ask_user is not available in the current host, use one explicit approval in the current conversation and record that text in confirmationText.",
+      "After ask_user approval, call linear_apply_write_plan with dryRun=false, confirmedByUser=true, and a confirmationText that summarizes the ask_user approval.",
       "Never call linear_apply_write_plan with confirmedByUser=true unless the user approval is present in the current conversation or Linear comment."
     ],
     async execute(_id, params, signal) {

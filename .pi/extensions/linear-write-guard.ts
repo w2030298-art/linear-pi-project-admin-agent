@@ -5,9 +5,10 @@ const MUTATING_LINEAR_TOOLS = new Set([
 ]);
 
 export function linearWriteGuardDecision(
-  params: { confirmedByUser?: boolean },
+  params: { confirmedByUser?: boolean; dryRun?: boolean },
   _env: Record<string, string | undefined> = process.env
 ) {
+  if (params.dryRun !== false) return { action: "allow" as const };
   if (params.confirmedByUser === true) return { action: "allow" as const };
 
   return {

@@ -6,6 +6,8 @@
 npm run validate
 npm run test:plan-review
 npm run test:project-description-fields
+npm run test:repo-map
+npm run test:linear-apply-mode
 npm run test:retrieval-ux
 npm run test:write-confirmation
 npm run linear:workspace
@@ -103,6 +105,19 @@ npm run bridge:dev
 - Run `npm run test:project-description-fields` when changing write-plan compilation.
 - `linear_plan_quality_review` should emit `write_plan_project_description_too_long` for long Project descriptions.
 - `node scripts/linear-cli.mjs apply <plan> --dry-run` should show `fieldTransforms` and preserve the full original description in `Project.content`.
+
+### Linear dry-run / apply protocol mismatch
+
+- `linear_apply_write_plan` with `dryRun=true` is allowed without user approval and only compiles the plan.
+- Real writes still require `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and `confirmedByUser=true`.
+- When the tool is called with `dryRun=false` and `--confirmed`, `scripts/linear-cli.mjs apply` builds an effective non-dry-run plan in memory; agents do not need to hand-write a separate confirmed copy just to flip `dryRun`.
+- The output includes `reason.cliConfirmedOverride` when CLI/tool confirmation overrides a dry-run source file for real apply.
+
+### Fact Pack repo-map mismatch
+
+- `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from `config/repo-map.yaml` first.
+- If a repoKey is missing or incomplete, record an evidence gap instead of falling back to `GITHUB_DEFAULT_*` / `LOCAL_REPO_ROOTS` for another repo.
+- Run `npm run test:repo-map` after changing repo-map behavior.
 
 ### Existing milestone extension rejected
 

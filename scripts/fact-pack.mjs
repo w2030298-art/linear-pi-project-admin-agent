@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { arg, has, json, now, ensureDir, writeJson, hash } from './utils.mjs';
+import { resolveRepoMapEntry } from './repo-map.mjs';
 
 const cmd = process.argv[2] === 'conflicts' ? 'conflicts' : 'build';
 const task = arg('--task', 'unspecified');
@@ -49,6 +50,25 @@ const pack = {
 
 pack.facts.push(fact(`Task scope received: ${task}`, 'user_input', 'current prompt', 'high'));
 
+const repoMapping = resolveRepoMapEntry(repoKey);
+if (repoMapping.ok) {
+  pack.scope.repo = {
+    source: repoMapping.source,
+    key: repoMapping.key,
+    owner: repoMapping.github.owner,
+    repo: repoMapping.github.repo,
+    defaultBranch: repoMapping.github.defaultBranch,
+    localPath: repoMapping.local.root,
+    localPathExists: repoMapping.local.exists,
+    linearProjectPrefix: repoMapping.linear.projectPrefix
+  };
+  if (repoKey) {
+    pack.facts.push(fact(`Repo map resolved ${repoKey} to ${repoMapping.github.owner}/${repoMapping.github.repo}.`, 'repo_map', process.env.REPO_MAP_PATH || 'config/repo-map.yaml', 'high', JSON.stringify(pack.scope.repo)));
+  }
+} else if (repoKey) {
+  pack.evidenceGaps.push(repoMapping.error);
+}
+
 if (linear) {
   const linearData = runNode(['scripts/linear-cli.mjs', 'project', linear]);
   if (!linearData.ok && linearData.error) pack.evidenceGaps.push(`Linear project context unavailable: ${linearData.error}`);
@@ -74,9 +94,8 @@ if (includePortfolio) {
 }
 
 if (!has('--no-github')) {
-  // repo-map lookup is deliberately simple in scaffold. Use env fallback.
-  const owner = process.env.GITHUB_DEFAULT_OWNER;
-  const repo = process.env.GITHUB_DEFAULT_REPO;
+  const owner = repoMapping.ok ? repoMapping.github.owner : null;
+  const repo = repoMapping.ok ? repoMapping.github.repo : null;
   if (owner && repo) {
     const gh = runNode(['scripts/github-evidence.mjs', 'snapshot', '--owner', owner, '--repo', repo]);
     if (gh.error) pack.evidenceGaps.push(`GitHub evidence unavailable: ${gh.error}`);
@@ -85,12 +104,14 @@ if (!has('--no-github')) {
       if (gh.repoInfo?.pushedAt) pack.planningImplications.push(`Repo last pushed at ${gh.repoInfo.pushedAt}; use this to assess implementation freshness.`);
     }
   } else {
-    pack.evidenceGaps.push('GITHUB_DEFAULT_OWNER/GITHUB_DEFAULT_REPO not configured; GitHub evidence skipped.');
+    pack.evidenceGaps.push(repoKey
+      ? `Repo map entry for ${repoKey} is missing GitHub owner/repo; GitHub evidence skipped.`
+      : 'GITHUB_DEFAULT_OWNER/GITHUB_DEFAULT_REPO not configured; GitHub evidence skipped.');
   }
 }
 
 if (!has('--no-local')) {
-  const localRoot = (process.env.LOCAL_REPO_ROOTS || '').split(',').map(s => s.trim()).filter(Boolean)[0];
+  const localRoot = repoMapping.ok ? repoMapping.local.root : null;
   if (localRoot && fs.existsSync(localRoot)) {
     const local = runNode(['scripts/local-evidence.mjs', '--root', localRoot]);
     if (local.error) pack.evidenceGaps.push(`Local repo evidence unavailable: ${local.error}`);
@@ -99,7 +120,9 @@ if (!has('--no-local')) {
       if (local.dirty) pack.conflicts.push('Local repo has uncommitted changes; planning must distinguish working-copy facts from GitHub remote facts.');
     }
   } else {
-    pack.evidenceGaps.push('No existing LOCAL_REPO_ROOTS path configured; local repo evidence skipped.');
+    pack.evidenceGaps.push(repoKey
+      ? `Repo map entry for ${repoKey} has no existing localPath; local repo evidence skipped.`
+      : 'No existing LOCAL_REPO_ROOTS path configured; local repo evidence skipped.');
   }
 }
 
