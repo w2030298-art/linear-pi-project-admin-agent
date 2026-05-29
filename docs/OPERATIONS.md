@@ -7,6 +7,7 @@ npm run validate
 npm run test:plan-review
 npm run test:project-description-fields
 npm run test:repo-map
+npm run test:pi-ask-user
 npm run test:linear-apply-mode
 npm run test:retrieval-ux
 npm run test:write-confirmation
@@ -118,6 +119,14 @@ npm run bridge:dev
 - `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from `config/repo-map.yaml` first.
 - If a repoKey is missing or incomplete, record an evidence gap instead of falling back to `GITHUB_DEFAULT_*` / `LOCAL_REPO_ROOTS` for another repo.
 - Run `npm run test:repo-map` after changing repo-map behavior.
+
+### Repo-map interactive clarification
+
+- Use `pi_ask_user` with `flow=repo_map` when GitHub, Linear Project, and local repo facts are missing or disagree.
+- The tool asks one field at a time: GitHub URL, Linear Project, local repo path, repoKey, and defaultBranch.
+- The result is a review-only draft; do not write `config/repo-map.yaml` until the user separately confirms the draft.
+- In non-UI mode, `pi_ask_user` returns `needs_interactive_input` and evidence gaps instead of blocking or fabricating answers.
+- Run `npm run test:pi-ask-user` after changing interactive repo-map clarification behavior.
 
 ### Existing milestone extension rejected
 

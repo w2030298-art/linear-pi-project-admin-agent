@@ -4,6 +4,16 @@
 
 本项目使用 Pi `pi.registerTool()` 暴露专用工具。工具主体尽量转发给 `scripts/*.mjs`，这样方便测试和在 webhook bridge 中复用。
 
+### Repo-map user clarification
+
+`.pi/extensions/pi-ask-user.ts` registers `pi_ask_user` for repo-map clarification. The first flow is `repo_map`:
+
+- It asks for GitHub URL, Linear Project, local repo path, repoKey, and defaultBranch one field at a time with `ctx.ui.input`.
+- It validates GitHub URL shape, local path existence, repoKey/defaultBranch shape, and Linear Project resolvability through `scripts/linear-cli.mjs project`.
+- It returns a review-only repo-map draft and YAML preview. It never writes `config/repo-map.yaml` by itself.
+- If the user cancels, it returns `cancelled` with open questions and `writesPerformed=false`.
+- If Pi UI is unavailable, it returns `needs_interactive_input` with evidence gaps instead of blocking or inventing answers.
+
 ## Linear apply
 
 Dry-run compilation and real apply use separate protocol gates:
