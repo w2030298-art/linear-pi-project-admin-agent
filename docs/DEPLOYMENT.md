@@ -355,9 +355,18 @@ Fact Pack 优先级：
 
 如果 repo-map 与 env fallback 不一致，repo-map 胜出，差异写入 `conflicts`。不要把 token 或 secret 写入 repo-map；不要自动扫描整盘寻找 repo。路径或项目映射缺失/漂移时，通过 `pi_ask_user flow=repo_map` 生成审阅草案，并只在用户确认后写入 `config/repo-map.yaml`。
 
+Drift governance:
+
+1. Run `npm run repo-map:drift -- check --repo <repoKey>` with explicit GitHub/Linear/local facts when available.
+2. The check command writes only `state/repo-map.draft.yaml` and reports `drifts`, `missingFields`, `diff`, and `piAskUser` seeds when clarification is needed.
+3. If fields are missing, use `pi_ask_user(flow=repo_map)` with the returned Linear Project context. Do not fabricate GitHub URL, localPath, repoKey, defaultBranch, or Linear Project ID.
+4. After review and explicit confirmation, run `npm run repo-map:drift -- apply --draft state/repo-map.draft.yaml --confirmed --confirmation-text "<approval>"`.
+5. Confirmed apply writes `config/repo-map.yaml`, appends `state/repo-map-audit.jsonl`, validates the map, and prints rollback commands.
+
 验证：
 
 ```bash
 node scripts/fact-pack.mjs --repo your-repo --no-github --no-local --no-linear
 npm run test:repo-map
+npm run test:repo-map-drift
 ```

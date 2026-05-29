@@ -47,7 +47,11 @@ Fact priority is:
 
 If repo-map facts conflict with env fallback values, repo-map wins and Fact Pack writes the mismatch to `conflicts`. If a repoKey is missing or incomplete, the Fact Pack records an `evidenceGaps` entry and does not silently fall back to env values for another repository.
 
-When repo-map facts are missing or drifted, use `pi_ask_user` with `flow=repo_map` in Pi interactive mode. It asks for GitHub URL, Linear Project, local repo path, repoKey, and defaultBranch one field at a time, then returns a review-only draft. Non-UI runs must keep the gap explicit and avoid fabricating user input.
+When repo-map facts are missing or drifted, run `npm run repo-map:drift -- check --repo <repoKey>` to compare the map with Git remote, Linear Project facts supplied by the caller, and local path facts. The check command writes only `state/repo-map.draft.yaml`; it never edits `config/repo-map.yaml`.
+
+If the drift check reports `needs_interactive_input`, use `pi_ask_user` with `flow=repo_map` and the returned seed. It asks for the target Linear Project first, then GitHub URL, local repo path, repoKey, and defaultBranch one field at a time, then returns a review-only draft. Non-UI runs must keep the gap explicit and avoid fabricating user input.
+
+After the draft is reviewed, `npm run repo-map:drift -- apply --draft state/repo-map.draft.yaml --confirmed --confirmation-text "<approval>"` may update `config/repo-map.yaml`. Apply output must include the diff, validation result, audit log path, and rollback advice. Without `--confirmed`, apply is blocked and the repo-map remains unchanged.
 
 ### Linear live data
 

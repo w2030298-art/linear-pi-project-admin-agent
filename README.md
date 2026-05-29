@@ -85,6 +85,7 @@ npm run bridge:dev
 npm run validate
 npm run test:plan-review
 npm run test:repo-map
+npm run test:repo-map-drift
 npm run test:pi-ask-user
 npm run test:wezterm-launch
 npm run test:linear-apply-mode

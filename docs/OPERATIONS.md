@@ -7,6 +7,7 @@ npm run validate
 npm run test:plan-review
 npm run test:project-description-fields
 npm run test:repo-map
+npm run test:repo-map-drift
 npm run test:pi-ask-user
 npm run test:wezterm-launch
 npm run test:linear-apply-mode
@@ -121,6 +122,15 @@ npm run bridge:dev
 - If a repoKey is missing or incomplete, record an evidence gap instead of falling back to `GITHUB_DEFAULT_*` / `LOCAL_REPO_ROOTS` for another repo.
 - Run `npm run test:repo-map` after changing repo-map behavior.
 
+### Repo-map drift governance
+
+- Detect drift with `npm run repo-map:drift -- check --repo <repoKey>`. Pass explicit facts such as `--github-owner`, `--github-repo`, `--default-branch`, `--linear-project-id`, `--linear-project-name`, and `--local-path` when they are available from Linear/GitHub/local evidence.
+- The check command may write `state/repo-map.draft.yaml`, but it must not modify `config/repo-map.yaml`.
+- If output contains `piAskUser.flow=repo_map`, call `pi_ask_user` with that seed and keep missing fields as evidence gaps until the user answers. Do not invent GitHub URL, localPath, Linear Project ID, or defaultBranch.
+- Apply only after explicit confirmation: `npm run repo-map:drift -- apply --draft state/repo-map.draft.yaml --confirmed --confirmation-text "<approval>"`.
+- Apply output must include a diff, validation result, `state/repo-map-audit.jsonl` record, and rollback advice. Without `--confirmed`, apply is blocked.
+- Run `npm run test:repo-map-drift`, `npm run test:repo-map`, and a Fact Pack smoke after changing this flow.
+
 ### WezTerm Pi launch grey rollout
 
 - The grey shortcut target should be `C:\Program Files\WezTerm\wezterm-gui.exe`.
@@ -132,7 +142,7 @@ npm run bridge:dev
 ### Repo-map interactive clarification
 
 - Use `pi_ask_user` with `flow=repo_map` when GitHub, Linear Project, and local repo facts are missing or disagree.
-- The tool asks one field at a time: GitHub URL, Linear Project, local repo path, repoKey, and defaultBranch.
+- The tool asks one field at a time: target Linear Project first, then GitHub URL, local repo path, repoKey, and defaultBranch.
 - The result is a review-only draft; do not write `config/repo-map.yaml` until the user separately confirms the draft.
 - In non-UI mode, `pi_ask_user` returns `needs_interactive_input` and evidence gaps instead of blocking or fabricating answers.
 - Run `npm run test:pi-ask-user` after changing interactive repo-map clarification behavior.
