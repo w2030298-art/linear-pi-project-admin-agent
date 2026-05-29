@@ -63,11 +63,13 @@ These items are the grey-rollout checklist before WEN-260 decides whether WezTer
 - [x] From Windows taskbar shortcut path, launch `Linear Project Admin Pi (WezTerm)` and confirm the visible window opens.
 - [x] Confirm the prompt is in `C:\Users\22003\linear-pi-project-admin-agent`.
 - [x] Confirm interactive `pi` starts and project `.pi/settings.json`, skills, and extensions are loaded.
-- [ ] Confirm Chinese input works in the Pi TUI.
-- [ ] Confirm copy/paste works.
-- [ ] Confirm scrollback works.
-- [ ] Confirm common shortcuts do not block normal Pi operation.
+- [x] Confirm Chinese input works in the Pi TUI.
+- [x] Confirm copy/paste works.
+- [x] Confirm scrollback works.
+- [x] Confirm common shortcuts do not block normal Pi operation.
 - [x] Confirm theme and font rendering are acceptable for grey rollout.
+
+Manual verification result on 2026-05-29: user confirmed the WezTerm Pi TUI flow works as expected, including the remaining Chinese input, copy/paste, scrollback, and common shortcut checks.
 
 ## rollback
 
@@ -86,4 +88,4 @@ wt -d C:\Users\22003\linear-pi-project-admin-agent powershell.exe -NoLogo -NoExi
 
 ## Decision input for WEN-260
 
-Current automated evidence is enough to continue a local grey rollout, but not enough to make WezTerm the final default. WEN-260 should wait for the manual verification checklist above, especially Chinese input, copy/paste, scrollback, shortcuts, theme, and font behavior.
+Current evidence is enough to close WEN-259 and continue the local grey rollout. WEN-260 should still make the separate default-terminal decision after a normal usage window, because WEN-259 does not promote WezTerm to the final default route.

@@ -59,6 +59,15 @@ start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" 
 & "C:\Program Files\WezTerm\wezterm-gui.exe" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"
 ```
 
+## 使用范围
+
+WezTerm 本身不是只能用于 `C:\Users\22003\linear-pi-project-admin-agent`，它是通用终端。当前只自动进入该目录并启动 `pi`，是因为这个灰度快捷方式显式写入了：
+
+- `--cwd "C:\Users\22003\linear-pi-project-admin-agent"`
+- `powershell.exe -NoLogo -NoExit -Command "pi"`
+
+如果需要给其他 repo 或普通 shell 使用 WezTerm，创建单独快捷方式并改 `--cwd` / 启动命令即可。不要把多个项目强行塞进同一个快捷方式，也不要在快捷方式中写入 token 或其他凭据。
+
 ## 已创建的快捷方式
 
 Start Menu shortcut：
