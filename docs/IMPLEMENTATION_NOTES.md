@@ -6,6 +6,14 @@
 
 ## Linear apply
 
+Dry-run compilation and real apply use separate protocol gates:
+
+- `linear_apply_write_plan` with `dryRun=true` is read/compile-only and does not require `ask_user`.
+- Real apply requires `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and `confirmedByUser=true`.
+- If `ask_user` is unavailable in the current host, one explicit approval in the current conversation can be recorded in `confirmationText`.
+- `scripts/write-plan-execution.mjs` computes the effective apply mode. If the source write-plan file is still `dryRun=true` but the tool/CLI call is `dryRun=false` with `--confirmed`, the CLI uses an in-memory effective plan with `dryRun=false` / `confirmedByUser=true` and records `reason.cliConfirmedOverride=true`.
+- This avoids silent dry-run when the user already approved real apply, while preserving explicit dry-run when `--dry-run` or `LINEAR_WRITE_MODE=dry-run` is present.
+
 `linear-cli.mjs apply` 已实现真实写入，但默认仍由 dry-run 和确认门禁保护。
 
 已支持的 operation type：

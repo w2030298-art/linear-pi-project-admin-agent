@@ -27,6 +27,14 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
   assert.match(decision.message, /ask_user/i);
 }
 
+{
+  const decision = linearWriteGuardDecision(
+    { confirmedByUser: false, dryRun: true },
+    { ALLOW_LINEAR_WRITES: 'true' }
+  );
+  assert.deepEqual(decision, { action: 'allow' });
+}
+
 const adminTools = fs.readFileSync('.pi/extensions/linear-admin-tools.ts', 'utf8');
 assert.match(adminTools, /ask_user exactly once/i);
 assert.doesNotMatch(adminTools, /type .*确认执行/i);

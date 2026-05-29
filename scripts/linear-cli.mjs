@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { cycleWindowStatus } from './portfolio-snapshot-utils.mjs';
 import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
 import { normalizeProjectDescriptionFields } from './project-field-normalizer.mjs';
+import { resolveApplyMode } from './write-plan-execution.mjs';
 
 const apiKey = process.env.LINEAR_API_KEY;
 const cmd = process.argv[2] || 'smoke';
@@ -535,19 +536,20 @@ async function apply(planPath) {
   const cliDryRun = process.argv.includes('--dry-run');
   const cliConfirmed = process.argv.includes('--confirmed');
   const allow = process.env.ALLOW_LINEAR_WRITES === 'true';
-  const confirmed = cliConfirmed || plan.confirmedByUser === true;
-  const dryRun = cliDryRun || mode === 'dry-run' || plan.dryRun !== false || !confirmed || !allow;
+  const applyMode = resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan });
+  const dryRun = applyMode.dryRun;
+  const effectivePlan = applyMode.effectivePlan;
 
-  validateWritePlan(plan, dryRun);
+  validateWritePlan(effectivePlan, dryRun);
   const linear = client();
-  const compiled = await compileOperations(linear, plan);
+  const compiled = await compileOperations(linear, effectivePlan);
 
   if (dryRun) {
     json({
       ok: true,
       dryRun: true,
       mode,
-      reason: { cliDryRun, planDryRun: plan.dryRun !== false, confirmed, allow },
+      reason: applyMode.reason,
       operations: compiled
     });
     return;
@@ -555,11 +557,11 @@ async function apply(planPath) {
 
   const refs = {};
   const results = [];
-  appendAudit({ type: 'linear_apply_start', idempotencyKey: plan.idempotencyKey, operationCount: plan.operations.length, dryRun: false });
+  appendAudit({ type: 'linear_apply_start', idempotencyKey: effectivePlan.idempotencyKey, operationCount: effectivePlan.operations.length, dryRun: false });
 
   try {
-    for (const [index, rawOp] of plan.operations.entries()) {
-      const op = { ...rawOp, planIdempotencyKey: plan.idempotencyKey };
+    for (const [index, rawOp] of effectivePlan.operations.entries()) {
+      const op = { ...rawOp, planIdempotencyKey: effectivePlan.idempotencyKey };
       const type = normalizeType(op.type);
       const kind = typeToKind(type);
       const key = opRefKey(op, index);
@@ -571,16 +573,16 @@ async function apply(planPath) {
       const entity = mutationResult.entity;
       if (entity?.id) refs[key] = { id: entity.id, kind, data: entity };
       const readbackEntity = entity?.id ? await readback(linear, kind, entity.id) : null;
-      if (!readbackEntity && plan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
+      if (!readbackEntity && effectivePlan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
 
       const result = { index, key, type, kind, success: true, skipped: mutationResult.skipped, entity, readback: readbackEntity, fieldTransforms: metadata.fieldTransforms };
       results.push(result);
-      appendAudit({ type: 'linear_apply_operation', idempotencyKey: plan.idempotencyKey, operation: { index, key, mutationType: type }, result });
+      appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, result });
     }
-    appendAudit({ type: 'linear_apply_end', idempotencyKey: plan.idempotencyKey, success: true, resultCount: results.length });
-    json({ ok: true, dryRun: false, mode, idempotencyKey: plan.idempotencyKey, results });
+    appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: true, resultCount: results.length });
+    json({ ok: true, dryRun: false, mode, idempotencyKey: effectivePlan.idempotencyKey, reason: applyMode.reason, results });
   } catch (err) {
-    appendAudit({ type: 'linear_apply_end', idempotencyKey: plan.idempotencyKey, success: false, error: err.message, partialResults: results });
+    appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: false, error: err.message, partialResults: results });
     throw err;
   }
 }
