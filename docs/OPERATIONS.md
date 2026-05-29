@@ -6,6 +6,7 @@
 npm run validate
 npm run test:plan-review
 npm run test:retrieval-ux
+npm run test:write-confirmation
 npm run linear:workspace
 npm run fact:pack -- --task "portfolio review"
 npm run bridge:dev
@@ -90,8 +91,9 @@ npm run bridge:dev
 ### Linear write blocked
 
 - 检查 `ALLOW_LINEAR_WRITES`。
-- 检查用户是否明确 approve。
+- 检查用户是否通过一次 `ask_user` 明确 approve；不要要求固定确认句后再二次确认。
 - 检查 writePlan 是否包含 idempotencyKey。
+- 调用 `linear_apply_write_plan` 时确认 `confirmedByUser=true`，`confirmationText` 记录本次 `ask_user` approve。
 
 ### Emergency rollback
 

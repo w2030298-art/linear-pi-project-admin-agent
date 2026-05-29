@@ -68,7 +68,9 @@ export default function (pi: ExtensionAPI) {
     }),
     promptSnippet: "linear_apply_write_plan: applies a confirmed Linear write plan with guardrails.",
     promptGuidelines: [
-      "Only call linear_apply_write_plan after the user explicitly approves the exact dry-run write plan.",
+      "Use ask_user exactly once to ask the user to approve or reject the exact dry-run write plan.",
+      "Do not ask the user to type a fixed confirmation phrase; the ask_user approval is the confirmation.",
+      "After ask_user approval, call linear_apply_write_plan with confirmedByUser=true and a confirmationText that summarizes the ask_user approval.",
       "Never call linear_apply_write_plan with confirmedByUser=true unless the user approval is present in the current conversation or Linear comment."
     ],
     async execute(_id, params, signal) {

@@ -13,6 +13,7 @@
 - 每项的事实依据。
 - 容量风险。
 - dry-run cycle assignment 计划。
+- 如需写入 Cycle / Issue，dry-run 后只用 `ask_user` 发起一次确认；不要再要求固定确认句。
 
 用户输入：
 {{input}}
