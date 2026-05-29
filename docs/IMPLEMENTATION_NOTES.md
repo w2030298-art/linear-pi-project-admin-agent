@@ -40,6 +40,15 @@
 - label 名称会解析为 Linear `labelIds`；teamKey 会解析为 `teamId` / `teamIds`。
 - 每个 mutation 后都会 readback；审计日志写入 `AUDIT_LOG_PATH`。
 
+## Project description field limit
+
+Linear `Project.description` has a 255-character limit. `scripts/project-field-normalizer.mjs` is the shared preflight rule for `project.create` and `project.update`:
+
+- `scripts/plan-reviewer.mjs` emits `write_plan_project_description_too_long` as a non-blocking warning before write-plan execution.
+- `scripts/linear-cli.mjs apply --dry-run` compiles the final mutation input with `description` reduced to a short summary and the full original text preserved in `content`.
+- The dry-run output includes `fieldTransforms` so the user can see that `description` was downgraded into `content`.
+- The same normalization is used for confirmed apply; no long text is silently discarded.
+
 ## Write plan review
 
 `scripts/plan-reviewer.mjs` 支持两类合法写入计划：

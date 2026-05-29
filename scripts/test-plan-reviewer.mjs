@@ -212,6 +212,48 @@ function baseProjectPlan() {
 }
 
 {
+  const longDescription = 'Long project description. '.repeat(20);
+  const writePlan = {
+    idempotencyKey: 'project-description-too-long',
+    dryRun: true,
+    confirmedByUser: false,
+    dependencyValidation: 'Project update is independent.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'project.update',
+        input: {
+          id: 'project-id',
+          description: longDescription
+        }
+      },
+      {
+        type: 'projectMilestone.create',
+        input: {
+          projectId: 'project-id',
+          name: 'M3'
+        }
+      },
+      {
+        type: 'issue.create',
+        input: {
+          title: 'Project description length guard',
+          teamKey: 'WEN',
+          labels: ['Medium-difficulty', 'Backend']
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan);
+  const finding = report.findings.find(item => item.code === 'write_plan_project_description_too_long');
+  assert.equal(report.status, 'pass');
+  assert.ok(finding);
+  assert.equal(finding.blocking, false);
+  assert.match(finding.message, /Project\.description/);
+}
+
+{
   const report = reviewProjectPlan(baseProjectPlan());
   assert.equal(report.status, 'pass');
   assert.deepEqual(report.findings, []);
