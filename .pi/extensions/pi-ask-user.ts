@@ -7,6 +7,7 @@ import YAML from "yaml";
 type InputValue = string | undefined;
 
 export interface RepoMapInputs {
+  linearProjectId?: string;
   githubUrl?: string;
   linearProject?: string;
   localRepoPath?: string;
@@ -52,8 +53,8 @@ const FIELD_ORDER: Array<{
   title: string;
   placeholder: string;
 }> = [
+  { key: "linearProject", title: "Linear Project", placeholder: "Project ID, name, slug, or URL" },
   { key: "githubUrl", title: "GitHub URL", placeholder: "https://github.com/owner/repo" },
-  { key: "linearProject", title: "Linear Project", placeholder: "Project name, slug, or UUID" },
   { key: "localRepoPath", title: "Local repo path", placeholder: "C:/path/to/repo" },
   { key: "repoKey", title: "Repo key", placeholder: "linear-bridge" },
   { key: "defaultBranch", title: "Default branch", placeholder: "main" }
@@ -68,8 +69,55 @@ function clean(value: InputValue) {
   return trimmed || undefined;
 }
 
-function openQuestions(fields = FIELD_ORDER) {
-  return fields.map(field => `Provide ${field.title} to complete the repo-map draft.`);
+function projectSummary(project: unknown): { id?: string; name?: string; url?: string } {
+  const value = (project && typeof project === "object" && "data" in project)
+    ? (project as any).data?.project
+    : project;
+  if (!value || typeof value !== "object") return {};
+  const id = clean((value as any).id);
+  const name = clean((value as any).name);
+  const url = clean((value as any).url);
+  return { id, name, url };
+}
+
+function applyProjectSummary(inputs: RepoMapInputs, project: unknown) {
+  const summary = projectSummary(project);
+  if (summary.id) inputs.linearProjectId = summary.id;
+  if (summary.name) inputs.linearProject = summary.name;
+  return summary;
+}
+
+function hasProjectContext(inputs: RepoMapInputs) {
+  return Boolean(clean(inputs.linearProjectId) || clean(inputs.linearProject));
+}
+
+function projectContextLabel(inputs: RepoMapInputs) {
+  const name = clean(inputs.linearProject) || "unknown Linear Project";
+  const id = clean(inputs.linearProjectId) || "unresolved-project-id";
+  return `Project ${name} (${id})`;
+}
+
+function fieldPrompt(field: (typeof FIELD_ORDER)[number], inputs: RepoMapInputs) {
+  if (field.key === "linearProject") {
+    return {
+      title: "Linear Project ID / name for repo-map target",
+      placeholder: "Select the target Linear Project before GitHub/local repo fields."
+    };
+  }
+  const context = projectContextLabel(inputs);
+  return {
+    title: `Complete ${field.title} for ${context}`,
+    placeholder: `${context}: ${field.placeholder}`
+  };
+}
+
+function openQuestions(fields = FIELD_ORDER, inputs: RepoMapInputs = {}) {
+  return fields.map(field => {
+    if (field.key === "linearProject" && !hasProjectContext(inputs)) {
+      return "Choose the target Linear Project ID/name before completing repo-map fields.";
+    }
+    return `Provide ${field.title} for ${projectContextLabel(inputs)} to complete the repo-map draft.`;
+  });
 }
 
 export function parseGitHubUrl(value: string): { ok: true; owner: string; repo: string } | { ok: false; error: string } {
@@ -94,8 +142,10 @@ export function validateRepoMapInputs(inputs: RepoMapInputs, options: FlowOption
   const cwd = options.cwd || process.cwd();
   const evidenceGaps: string[] = [];
 
-  for (const field of FIELD_ORDER) {
-    if (!clean(inputs[field.key])) evidenceGaps.push(`${field.title} is required.`);
+  if (!clean(inputs.linearProjectId)) evidenceGaps.push("Linear Project ID is required as the repo-map anchor.");
+  if (!clean(inputs.linearProject)) evidenceGaps.push("Linear Project is required.");
+  for (const field of FIELD_ORDER.filter(field => field.key !== "linearProject")) {
+    if (!clean(inputs[field.key])) evidenceGaps.push(`${field.title} is required for ${projectContextLabel(inputs)}.`);
   }
 
   const github = clean(inputs.githubUrl) ? parseGitHubUrl(inputs.githubUrl!) : null;
@@ -104,7 +154,7 @@ export function validateRepoMapInputs(inputs: RepoMapInputs, options: FlowOption
   const localRepoPath = clean(inputs.localRepoPath);
   if (localRepoPath) {
     const resolved = path.resolve(cwd, localRepoPath);
-    if (!fs.existsSync(resolved)) evidenceGaps.push(`Local repo path does not exist: ${resolved}`);
+    if (!fs.existsSync(resolved)) evidenceGaps.push(`Local repo path does not exist for ${projectContextLabel(inputs)}: ${resolved}`);
   }
 
   const repoKey = clean(inputs.repoKey);
@@ -118,7 +168,7 @@ export function validateRepoMapInputs(inputs: RepoMapInputs, options: FlowOption
   }
 
   if (clean(inputs.linearProject) && options.linearProjectResolved === false) {
-    evidenceGaps.push(`Linear Project could not be resolved: ${inputs.linearProject}`);
+    evidenceGaps.push(`Linear Project could not be resolved for repo-map target: ${inputs.linearProject}`);
   }
 
   return { ok: evidenceGaps.length === 0, evidenceGaps };
@@ -130,19 +180,29 @@ export function buildRepoMapDraft(inputs: RepoMapInputs, options: FlowOptions = 
   if (!github.ok) throw new Error(github.error);
 
   const linearProjectName = clean(inputs.linearProject);
-  const draft = {
-    key: clean(inputs.repoKey),
-    owner: github.owner,
-    repo: github.repo,
-    defaultBranch: clean(inputs.defaultBranch),
+  const repoKey = clean(inputs.repoKey);
+  const entry = {
+    repoKey,
+    github: {
+      owner: github.owner,
+      repo: github.repo,
+      defaultBranch: clean(inputs.defaultBranch)
+    },
+    linear: {
+      projectId: clean(inputs.linearProjectId),
+      projectName: linearProjectName,
+      projectPrefix: repoKey
+    },
     localPath: path.resolve(cwd, inputs.localRepoPath || ""),
-    linearProjectName,
-    linearProjectPrefix: clean(inputs.repoKey),
     docs: ["README.md", "docs/", "package.json"],
     evidenceWeight: "high"
   };
+  const draft = {
+    key: repoKey,
+    ...entry
+  };
 
-  const yamlPreview = YAML.stringify({ version: 1, repos: [draft] }).trimEnd();
+  const yamlPreview = YAML.stringify({ version: 1, repos: [entry] }).trimEnd();
   return {
     ok: true,
     status: "draft_ready" as const,
@@ -167,36 +227,42 @@ export function findLinearProjectInWorkspace(candidate: string, projects: Linear
 
 export function createNonInteractiveRepoMapResult(seed: RepoMapInputs = {}) {
   const missing = FIELD_ORDER.filter(field => !clean(seed[field.key]));
+  if (!clean(seed.linearProjectId) && !missing.some(field => field.key === "linearProject")) {
+    missing.unshift(FIELD_ORDER[0]);
+  }
+  const context = hasProjectContext(seed) ? ` Target: ${projectContextLabel(seed)}.` : "";
   return {
     ok: false,
     status: "needs_interactive_input" as const,
     writesPerformed: false,
     draft: null,
-    evidenceGaps: ["Pi UI is not available; cannot ask the user for repo-map fields interactively."],
-    openQuestions: openQuestions(missing.length ? missing : FIELD_ORDER)
+    evidenceGaps: [`Pi UI is not available; cannot ask the user for repo-map fields interactively.${context}`],
+    openQuestions: openQuestions(missing.length ? missing : FIELD_ORDER, seed)
   };
 }
 
-function cancelledResult(fieldTitle: string) {
+function cancelledResult(fieldTitle: string, inputs: RepoMapInputs) {
+  const context = hasProjectContext(inputs) ? ` for ${projectContextLabel(inputs)}` : "";
   return {
     ok: false,
     status: "cancelled" as const,
     writesPerformed: false,
     draft: null,
-    evidenceGaps: [],
-    openQuestions: [`${fieldTitle} was cancelled; repo-map draft is incomplete.`]
+    evidenceGaps: [`Repo-map clarification${context} was cancelled at ${fieldTitle}.`],
+    openQuestions: [`${fieldTitle}${context} was cancelled; repo-map draft is incomplete.`]
   };
 }
 
 function evidenceGapResult(inputs: RepoMapInputs, evidenceGaps: string[]) {
+  const context = hasProjectContext(inputs) ? [`Repo-map clarification target: ${projectContextLabel(inputs)}.`] : [];
   return {
     ok: false,
     status: "evidence_gap" as const,
     writesPerformed: false,
     draft: null,
     inputs,
-    evidenceGaps,
-    openQuestions: evidenceGaps.map(gap => `Resolve: ${gap}`)
+    evidenceGaps: [...context, ...evidenceGaps],
+    openQuestions: [...context, ...evidenceGaps.map(gap => `Resolve: ${gap}`)]
   };
 }
 
@@ -209,6 +275,7 @@ function fieldValidationErrors(field: (typeof FIELD_ORDER)[number], evidenceGaps
     || (field.key === "repoKey" && gap.includes("Repo key"))
     || (field.key === "defaultBranch" && gap.includes("Default branch"))
     || (field.key === "linearProject" && gap.includes("Linear Project"))
+    || (field.key === "linearProject" && gap.includes("Linear Project ID"))
   );
 }
 
@@ -220,14 +287,22 @@ async function askField(ctx: RepoMapAskContext, field: (typeof FIELD_ORDER)[numb
   let lastFieldErrors: string[] = [];
   let lastCandidate: RepoMapInputs = inputs;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const answer = clean(await ctx.ui.input(field.title, field.placeholder));
+    const prompt = fieldPrompt(field, inputs);
+    const answer = clean(await ctx.ui.input(prompt.title, prompt.placeholder));
     if (!answer) return { ok: false, reason: "cancelled", fieldTitle: field.title };
 
     const candidate = { ...inputs, [field.key]: answer };
     lastCandidate = candidate;
-    const linearProjectResolved = field.key === "linearProject" && options.resolveLinearProject
-      ? (await options.resolveLinearProject(answer)).ok
-      : options.linearProjectResolved;
+    let linearProjectResolved = options.linearProjectResolved;
+    if (field.key === "linearProject" && options.resolveLinearProject) {
+      const resolution = await options.resolveLinearProject(answer);
+      linearProjectResolved = resolution.ok;
+      if (resolution.ok) {
+        const summary = projectSummary(resolution.project);
+        if (summary.id) candidate.linearProjectId = summary.id;
+        if (summary.name) candidate.linearProject = summary.name;
+      }
+    }
     const validation = validateRepoMapInputs(candidate, {
       ...options,
       linearProjectResolved
@@ -246,10 +321,24 @@ export async function runRepoMapAskFlow(ctx: RepoMapAskContext, options: FlowOpt
   if (!ctx.hasUI) return createNonInteractiveRepoMapResult(inputs);
 
   for (const field of FIELD_ORDER) {
+    if (field.key === "linearProject" && hasProjectContext(inputs)) {
+      if (options.resolveLinearProject) {
+        const project = clean(inputs.linearProjectId) || clean(inputs.linearProject);
+        if (project) {
+          const resolution = await options.resolveLinearProject(project);
+          if (resolution.ok) applyProjectSummary(inputs, resolution.project);
+        }
+      }
+      continue;
+    }
     const answer = await askField(ctx, field, options, inputs);
-    if (!answer.ok && answer.reason === "cancelled") return cancelledResult(answer.fieldTitle);
+    if (!answer.ok && answer.reason === "cancelled") return cancelledResult(answer.fieldTitle, inputs);
     if (!answer.ok && answer.reason === "invalid") return evidenceGapResult(answer.inputs, answer.evidenceGaps);
     inputs[field.key] = answer.value;
+    if (field.key === "linearProject" && options.resolveLinearProject) {
+      const resolution = await options.resolveLinearProject(answer.value);
+      if (resolution.ok) applyProjectSummary(inputs, resolution.project);
+    }
   }
 
   const linearProjectResolution = options.resolveLinearProject && inputs.linearProject
@@ -295,6 +384,7 @@ export default function (pi: ExtensionAPI) {
       flow: Type.Optional(Type.String({ description: "Currently supports repo_map only." })),
       seed: Type.Optional(Type.Object({
         githubUrl: Type.Optional(Type.String()),
+        linearProjectId: Type.Optional(Type.String()),
         linearProject: Type.Optional(Type.String()),
         localRepoPath: Type.Optional(Type.String()),
         repoKey: Type.Optional(Type.String()),
