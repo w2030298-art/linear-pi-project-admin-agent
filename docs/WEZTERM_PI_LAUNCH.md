@@ -106,6 +106,12 @@ Taskbar pinned shortcut file：
 C:\Users\22003\AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Linear Project Admin Pi (WezTerm).lnk
 ```
 
+Shortcut icon：
+
+```text
+C:\Users\22003\linear-pi-project-admin-agent\assets\icons\linear-project-admin-pi.ico
+```
+
 如果 Windows 任务栏没有立即显示该图标，在 Start Menu 搜索 `Linear Project Admin Pi (WezTerm)`，右键选择 pin to taskbar。Windows 11 对任务栏 pin 有缓存，直接写入 pinned shortcut 目录不一定立即刷新 UI。
 
 ## 可选 default_cwd 配置
