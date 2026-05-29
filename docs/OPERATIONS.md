@@ -5,6 +5,7 @@
 ```bash
 npm run validate
 npm run test:plan-review
+npm run test:project-description-fields
 npm run test:retrieval-ux
 npm run test:write-confirmation
 npm run linear:workspace
@@ -94,6 +95,14 @@ npm run bridge:dev
 - 检查用户是否通过一次 `ask_user` 明确 approve；不要要求固定确认句后再二次确认。
 - 检查 writePlan 是否包含 idempotencyKey。
 - 调用 `linear_apply_write_plan` 时确认 `confirmedByUser=true`，`confirmationText` 记录本次 `ask_user` approve。
+
+### Project description length error
+
+- Linear `Project.description` must be 255 characters or shorter.
+- Do not silently truncate long project text.
+- Run `npm run test:project-description-fields` when changing write-plan compilation.
+- `linear_plan_quality_review` should emit `write_plan_project_description_too_long` for long Project descriptions.
+- `node scripts/linear-cli.mjs apply <plan> --dry-run` should show `fieldTransforms` and preserve the full original description in `Project.content`.
 
 ### Existing milestone extension rejected
 

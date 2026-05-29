@@ -6,6 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { cycleWindowStatus } from './portfolio-snapshot-utils.mjs';
 import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
+import { normalizeProjectDescriptionFields } from './project-field-normalizer.mjs';
 
 const apiKey = process.env.LINEAR_API_KEY;
 const cmd = process.argv[2] || 'smoke';
@@ -206,7 +207,7 @@ function normalizeHealth(health) {
   return map[String(health).replace(/[-\s]/g, '_').toLowerCase()] || health;
 }
 
-async function normalizeInput(linear, op, refs, index) {
+async function normalizeInput(linear, op, refs, index, metadata = null) {
   const type = normalizeType(op.type);
   const kind = typeToKind(type);
   if (!kind) throw new Error(`Unsupported operation type: ${op.type}`);
@@ -217,6 +218,9 @@ async function normalizeInput(linear, op, refs, index) {
   if (isCreate(type) && !input.id) input.id = stableUuid(`${op.planIdempotencyKey}:${type}:${refKey}`);
 
   if (type === 'project.create') {
+    const normalized = normalizeProjectDescriptionFields(input);
+    input = normalized.input;
+    if (metadata) metadata.fieldTransforms.push(...normalized.fieldTransforms);
     if (!input.teamIds?.length) input.teamIds = [await getTeamId(linear, input.teamId || input.teamKey)];
     const ids = await labelIds(linear, input);
     if (ids.length) input.labelIds = ids;
@@ -224,6 +228,9 @@ async function normalizeInput(linear, op, refs, index) {
   }
 
   if (type === 'project.update') {
+    const normalized = normalizeProjectDescriptionFields(input);
+    input = normalized.input;
+    if (metadata) metadata.fieldTransforms.push(...normalized.fieldTransforms);
     const ids = await labelIds(linear, input);
     if (ids.length) input.labelIds = ids;
     return pick(stripMeta(input), PROJECT_UPDATE_FIELDS);
@@ -367,11 +374,12 @@ async function compileOperations(linear, plan) {
     const type = normalizeType(op.type);
     const kind = typeToKind(type);
     const refKey = opRefKey(op, index);
-    const input = await normalizeInput(linear, op, refs, index);
+    const metadata = { fieldTransforms: [] };
+    const input = await normalizeInput(linear, op, refs, index, metadata);
 
     if (isCreate(type) && input.id) refs[refKey] = { id: input.id, kind, pending: true };
 
-    compiled.push({ index, key: refKey, type, level: op.level || null, kind, input, reason: op.reason || null });
+    compiled.push({ index, key: refKey, type, level: op.level || null, kind, input, reason: op.reason || null, fieldTransforms: metadata.fieldTransforms });
   }
   return compiled;
 }
@@ -555,7 +563,8 @@ async function apply(planPath) {
       const type = normalizeType(op.type);
       const kind = typeToKind(type);
       const key = opRefKey(op, index);
-      const input = await normalizeInput(linear, op, refs, index);
+      const metadata = { fieldTransforms: [] };
+      const input = await normalizeInput(linear, op, refs, index, metadata);
       if (isCreate(type) && input.id) refs[key] = { id: input.id, kind, pending: true };
 
       const mutationResult = await mutate(linear, op, input, refs);
@@ -564,7 +573,7 @@ async function apply(planPath) {
       const readbackEntity = entity?.id ? await readback(linear, kind, entity.id) : null;
       if (!readbackEntity && plan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
 
-      const result = { index, key, type, kind, success: true, skipped: mutationResult.skipped, entity, readback: readbackEntity };
+      const result = { index, key, type, kind, success: true, skipped: mutationResult.skipped, entity, readback: readbackEntity, fieldTransforms: metadata.fieldTransforms };
       results.push(result);
       appendAudit({ type: 'linear_apply_operation', idempotencyKey: plan.idempotencyKey, operation: { index, key, mutationType: type }, result });
     }

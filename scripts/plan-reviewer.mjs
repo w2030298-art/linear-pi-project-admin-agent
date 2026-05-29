@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Check, Errors } from 'typebox/value';
 import { arg, ensureDir, json, now } from './utils.mjs';
+import { PROJECT_DESCRIPTION_MAX_LENGTH, projectDescriptionLimit } from './project-field-normalizer.mjs';
 
 const DEFAULT_SCHEMA_PATH = 'schemas/project-plan.schema.json';
 
@@ -192,6 +193,25 @@ function hasVerifiedExistingMilestone(plan, operations) {
   return isBlank(projectId) || readback.projectId === projectId;
 }
 
+function reviewProjectFieldLimits(operations) {
+  const findings = [];
+  operations.forEach((operation, index) => {
+    if (!/^project\.(create|update)$/.test(operationType(operation))) return;
+    const limit = projectDescriptionLimit(operation.input || {});
+    if (!limit) return;
+    findings.push(makeFinding(
+      'write_plan_project_description_too_long',
+      `Project.description is ${limit.originalLength} characters; Linear limit is ${PROJECT_DESCRIPTION_MAX_LENGTH}. Dry-run/apply will write a short summary to description and preserve the full text in content.`,
+      {
+        path: `$.operations[${index}].input.description`,
+        severity: 'warning',
+        blocking: false
+      }
+    ));
+  });
+  return findings;
+}
+
 export function reviewWritePlan(plan, options = {}) {
   const findings = [];
   const operations = asArray(plan.operations);
@@ -271,6 +291,7 @@ export function reviewWritePlan(plan, options = {}) {
       { path: '$' }
     ));
   }
+  findings.push(...reviewProjectFieldLimits(operations));
 
   return finish('write_plan', options.target || null, findings);
 }

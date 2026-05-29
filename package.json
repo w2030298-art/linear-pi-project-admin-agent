@@ -17,6 +17,7 @@
     "bridge:start": "node dist/services/linear-bridge/src/server.js",
     "test:webhook-signature": "node scripts/test-webhook-signature.mjs",
     "test:plan-review": "node scripts/test-plan-reviewer.mjs",
+    "test:project-description-fields": "node scripts/test-project-description-fields.mjs",
     "test:linear-snapshot": "node scripts/test-linear-snapshot.mjs",
     "test:retrieval-ux": "node scripts/test-retrieval-ux.mjs",
     "test:write-confirmation": "tsx scripts/test-write-confirmation-ux.ts"
