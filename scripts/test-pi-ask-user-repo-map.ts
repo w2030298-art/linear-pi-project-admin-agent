@@ -15,17 +15,18 @@ const existingRepo = path.join(tempRoot, 'linear-bridge');
 fs.mkdirSync(existingRepo);
 
 const validAnswers = {
+  linearProjectId: 'project-id-2',
   githubUrl: 'https://github.com/w2030298-art/linear-bridge',
-  linearProject: 'linear-bridge｜Linear 与本地 Agent 的派发桥',
+  linearProject: 'linear-bridge Linear dispatch bridge',
   localRepoPath: existingRepo,
   repoKey: 'linear-bridge',
   defaultBranch: 'main'
 };
 
 {
-  const project = findLinearProjectInWorkspace('linear-bridge｜Linear 与本地 Agent 的派发桥', [
-    { id: 'project-id-1', name: 'linear-pi-project-admin-agent｜Linear 项目管理员 Agent 运行时' },
-    { id: 'project-id-2', name: 'linear-bridge｜Linear 与本地 Agent 的派发桥' }
+  const project = findLinearProjectInWorkspace('linear-bridge Linear dispatch bridge', [
+    { id: 'project-id-1', name: 'linear-pi-project-admin-agent runtime' },
+    { id: 'project-id-2', name: 'linear-bridge Linear dispatch bridge' }
   ]);
   assert.equal(project?.id, 'project-id-2');
 }
@@ -40,13 +41,16 @@ const validAnswers = {
 
   const draft = buildRepoMapDraft(validAnswers, { cwd: process.cwd() });
   assert.equal(draft.draft.key, 'linear-bridge');
-  assert.equal(draft.draft.owner, 'w2030298-art');
-  assert.equal(draft.draft.repo, 'linear-bridge');
-  assert.equal(draft.draft.defaultBranch, 'main');
+  assert.equal(draft.draft.repoKey, 'linear-bridge');
+  assert.equal(draft.draft.github.owner, 'w2030298-art');
+  assert.equal(draft.draft.github.repo, 'linear-bridge');
+  assert.equal(draft.draft.github.defaultBranch, 'main');
   assert.equal(draft.draft.localPath, path.resolve(existingRepo));
-  assert.equal(draft.draft.linearProjectName, validAnswers.linearProject);
-  assert.match(draft.yamlPreview, /key: linear-bridge/);
+  assert.equal(draft.draft.linear.projectId, validAnswers.linearProjectId);
+  assert.equal(draft.draft.linear.projectName, validAnswers.linearProject);
+  assert.match(draft.yamlPreview, /repoKey: linear-bridge/);
   assert.match(draft.yamlPreview, /owner: w2030298-art/);
+  assert.match(draft.yamlPreview, /projectId: project-id-2/);
   assert.equal(draft.confirmationRequired, true);
   assert.equal(draft.writesPerformed, false);
 }
@@ -61,18 +65,24 @@ const validAnswers = {
 }
 
 {
-  const fallback = createNonInteractiveRepoMapResult({ repoKey: 'linear-bridge' });
+  const fallback = createNonInteractiveRepoMapResult({
+    linearProjectId: validAnswers.linearProjectId,
+    linearProject: validAnswers.linearProject,
+    repoKey: 'linear-bridge'
+  });
   assert.equal(fallback.ok, false);
   assert.equal(fallback.status, 'needs_interactive_input');
   assert.equal(fallback.writesPerformed, false);
   assert.match(fallback.evidenceGaps.join('\n'), /Pi UI is not available/i);
+  assert.match(fallback.openQuestions.join('\n'), /linear-bridge/);
+  assert.match(fallback.openQuestions.join('\n'), /project-id-2/);
 }
 
 {
   const asked: string[] = [];
   const answers = [
-    validAnswers.githubUrl,
     validAnswers.linearProject,
+    validAnswers.githubUrl,
     validAnswers.localRepoPath,
     validAnswers.repoKey,
     validAnswers.defaultBranch
@@ -89,18 +99,22 @@ const validAnswers = {
   };
   const result = await runRepoMapAskFlow(ctx, {
     cwd: process.cwd(),
-    resolveLinearProject: async () => ({ ok: true })
+    resolveLinearProject: async () => ({
+      ok: true,
+      project: { id: validAnswers.linearProjectId, name: validAnswers.linearProject }
+    })
   });
   assert.equal(result.ok, true);
   assert.equal(result.status, 'draft_ready');
-  assert.equal(result.draft.key, 'linear-bridge');
-  assert.deepEqual(asked, [
-    'GitHub URL',
-    'Linear Project',
-    'Local repo path',
-    'Repo key',
-    'Default branch'
-  ]);
+  assert.equal(result.draft.repoKey, 'linear-bridge');
+  assert.equal(result.draft.linear.projectId, 'project-id-2');
+  assert.match(asked[0], /Linear Project/);
+  assert.doesNotMatch(asked[0], /GitHub URL/);
+  for (const prompt of asked.slice(1)) {
+    assert.match(prompt, /Project linear-bridge Linear dispatch bridge/);
+    assert.match(prompt, /project-id-2/);
+  }
+  assert.match(asked[1], /GitHub URL/);
 }
 
 {
@@ -120,13 +134,117 @@ const validAnswers = {
   assert.equal(result.ok, false);
   assert.equal(result.status, 'cancelled');
   assert.equal(result.writesPerformed, false);
-  assert.match(result.openQuestions.join('\n'), /GitHub URL/);
+  assert.match(result.openQuestions.join('\n'), /Linear Project/);
+}
+
+{
+  const asked: string[] = [];
+  const answers = [
+    validAnswers.githubUrl,
+    validAnswers.localRepoPath,
+    validAnswers.repoKey,
+    validAnswers.defaultBranch
+  ];
+  const ctx = {
+    hasUI: true,
+    ui: {
+      async input(title: string, placeholder?: string) {
+        asked.push(`${title} ${placeholder || ''}`);
+        return answers.shift();
+      },
+      notify() {}
+    }
+  };
+  const result = await runRepoMapAskFlow(ctx, {
+    cwd: process.cwd(),
+    seed: {
+      linearProjectId: validAnswers.linearProjectId
+    },
+    resolveLinearProject: async () => ({
+      ok: true,
+      project: { id: validAnswers.linearProjectId, name: validAnswers.linearProject }
+    })
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.draft.linear.projectId, validAnswers.linearProjectId);
+  assert.equal(asked.length, 4);
+  assert.doesNotMatch(asked[0], /^GitHub URL$/);
+  assert.match(asked[0], /Project linear-bridge Linear dispatch bridge/);
+  assert.match(asked[0], /project-id-2/);
+  assert.match(asked[0], /GitHub URL/);
+}
+
+{
+  const ctx = {
+    hasUI: true,
+    ui: {
+      async input(title: string) {
+        assert.match(title, /Project linear-bridge Linear dispatch bridge/);
+        assert.match(title, /project-id-2/);
+        return undefined;
+      },
+      notify() {}
+    }
+  };
+  const result = await runRepoMapAskFlow(ctx, {
+    cwd: process.cwd(),
+    seed: {
+      linearProjectId: validAnswers.linearProjectId,
+      linearProject: validAnswers.linearProject
+    },
+    resolveLinearProject: async () => ({
+      ok: true,
+      project: { id: validAnswers.linearProjectId, name: validAnswers.linearProject }
+    })
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 'cancelled');
+  assert.match(result.openQuestions.join('\n'), /linear-bridge/);
+  assert.match(result.openQuestions.join('\n'), /project-id-2/);
+  assert.match(result.evidenceGaps.join('\n'), /project-id-2/);
+}
+
+{
+  const prompts: string[] = [];
+  const batch = [
+    { id: 'project-a-id', name: 'Project A', repoKey: 'project-a', repo: path.join(tempRoot, 'project-a') },
+    { id: 'project-b-id', name: 'Project B', repoKey: 'project-b', repo: path.join(tempRoot, 'project-b') }
+  ];
+  for (const item of batch) fs.mkdirSync(item.repo);
+  for (const item of batch) {
+    const answers = [
+      `https://github.com/w2030298-art/${item.repoKey}`,
+      item.repo,
+      item.repoKey,
+      'main'
+    ];
+    const ctx = {
+      hasUI: true,
+      ui: {
+        async input(title: string) {
+          prompts.push(title);
+          return answers.shift();
+        },
+        notify() {}
+      }
+    };
+    const result = await runRepoMapAskFlow(ctx, {
+      cwd: process.cwd(),
+      seed: { linearProjectId: item.id, linearProject: item.name },
+      resolveLinearProject: async () => ({ ok: true, project: { id: item.id, name: item.name } })
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.draft.linear.projectId, item.id);
+    assert.equal(result.draft.repoKey, item.repoKey);
+  }
+  assert.ok(prompts.some(prompt => /Project A/.test(prompt) && /project-a-id/.test(prompt)));
+  assert.ok(prompts.some(prompt => /Project B/.test(prompt) && /project-b-id/.test(prompt)));
 }
 
 {
   const answers = [
-    validAnswers.githubUrl,
     validAnswers.linearProject,
+    validAnswers.githubUrl,
     path.join(tempRoot, 'missing'),
     path.join(tempRoot, 'still-missing')
   ];
@@ -142,12 +260,16 @@ const validAnswers = {
   const result = await runRepoMapAskFlow(ctx, {
     cwd: process.cwd(),
     maxRetries: 1,
-    resolveLinearProject: async () => ({ ok: true })
+    resolveLinearProject: async () => ({
+      ok: true,
+      project: { id: validAnswers.linearProjectId, name: validAnswers.linearProject }
+    })
   });
   assert.equal(result.ok, false);
   assert.equal(result.status, 'evidence_gap');
   assert.equal(result.writesPerformed, false);
   assert.match(result.evidenceGaps.join('\n'), /local repo path does not exist/i);
+  assert.match(result.openQuestions.join('\n'), /linear-bridge/);
 }
 
 console.log('pi ask user repo-map tests passed');

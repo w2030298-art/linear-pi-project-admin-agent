@@ -8,11 +8,12 @@
 
 `.pi/extensions/pi-ask-user.ts` registers `pi_ask_user` for repo-map clarification. The first flow is `repo_map`:
 
-- It asks for GitHub URL, Linear Project, local repo path, repoKey, and defaultBranch one field at a time with `ctx.ui.input`.
+- It anchors the flow on Linear Project ID first. If the seed does not include `linearProjectId` or `linearProject`, it asks for the target Linear Project before any GitHub or local repo field.
+- After the Linear Project is resolved, every GitHub URL, local path, repoKey, and defaultBranch prompt includes the target Project name and ID.
 - It validates GitHub URL shape, local path existence, repoKey/defaultBranch shape, and Linear Project resolvability through `scripts/linear-cli.mjs project`.
-- It returns a review-only repo-map draft and YAML preview. It never writes `config/repo-map.yaml` by itself.
+- It returns a review-only repo-map draft and YAML preview. The draft stores `linear.projectId` as the primary anchor; Project name and prefix are display/matching helpers. It never writes `config/repo-map.yaml` by itself.
 - If the user cancels, it returns `cancelled` with open questions and `writesPerformed=false`.
-- If Pi UI is unavailable, it returns `needs_interactive_input` with evidence gaps instead of blocking or inventing answers.
+- If the user cancels or Pi UI is unavailable, it returns the target Project context in `openQuestions` / `evidenceGaps` so the flow can be resumed safely.
 
 ## Linear apply
 
