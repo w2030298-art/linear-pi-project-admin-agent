@@ -320,3 +320,44 @@ node scripts/fact-pack.mjs --task "smoke test" --web
 - 为 GitHub MCP 只启用必要 toolsets。
 - 为 web search 设置域名白名单。
 - 每周执行 `/workspace-sync` 与 `/portfolio-review`。
+
+---
+
+## 13. Repo-map 部署边界
+
+`config/repo-map.yaml` 是 Fact Pack 的 GitHub / Linear / Local 三方路由事实源。推荐配置：
+
+```yaml
+version: 1
+repos:
+  - repoKey: your-repo
+    github:
+      owner: your-org
+      repo: your-repo
+      defaultBranch: main
+    linear:
+      projectId: linear-project-uuid
+      projectName: Your Linear Project
+      projectPrefix: your-repo
+    localPath: ./repos/your-repo
+    docs:
+      - README.md
+      - docs/
+      - package.json
+    evidenceWeight: high
+```
+
+Fact Pack 优先级：
+
+1. 传入 `--repo <repoKey>` 时，优先读取 `config/repo-map.yaml`。
+2. 未传入 repoKey 时，才使用 `GITHUB_DEFAULT_OWNER`、`GITHUB_DEFAULT_REPO`、`GITHUB_DEFAULT_BRANCH`、`LOCAL_REPO_ROOTS` 兼容路径。
+3. repo-map 缺失或字段不完整时，写入 `evidenceGaps`，不借用其他 repo 的 env fallback。
+
+如果 repo-map 与 env fallback 不一致，repo-map 胜出，差异写入 `conflicts`。不要把 token 或 secret 写入 repo-map；不要自动扫描整盘寻找 repo。路径或项目映射缺失/漂移时，通过 `pi_ask_user flow=repo_map` 生成审阅草案，并只在用户确认后写入 `config/repo-map.yaml`。
+
+验证：
+
+```bash
+node scripts/fact-pack.mjs --repo your-repo --no-github --no-local --no-linear
+npm run test:repo-map
+```

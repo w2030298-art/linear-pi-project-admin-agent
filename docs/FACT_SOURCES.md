@@ -28,7 +28,24 @@ user request / Linear trigger
 
 ### Repo map routing
 
-`fact_pack_build --repo <repoKey>` resolves `config/repo-map.yaml` before environment fallbacks. A repoKey match supplies GitHub owner/repo/default branch, Linear project prefix, and localPath. If the repoKey is missing or incomplete, the Fact Pack records an evidence gap and does not silently fall back to `GITHUB_DEFAULT_*` or `LOCAL_REPO_ROOTS` for another repository.
+`fact_pack_build --repo <repoKey>` and `node scripts/fact-pack.mjs --repo <repoKey>` resolve `config/repo-map.yaml` before environment fallbacks. A repoKey match supplies one three-way mapping:
+
+- `repoKey`
+- `github.owner`, `github.repo`, `github.defaultBranch`
+- `linear.projectId`, `linear.projectName`, or `linear.projectPrefix`
+- `localPath`
+- `docs`
+- `evidenceWeight`
+
+The schema is versioned in `schemas/repo-map.schema.json`, and runtime validation is implemented by `scripts/repo-map.mjs`.
+
+Fact priority is:
+
+1. `config/repo-map.yaml` when `--repo <repoKey>` is provided.
+2. Env fallback (`GITHUB_DEFAULT_OWNER`, `GITHUB_DEFAULT_REPO`, `GITHUB_DEFAULT_BRANCH`, `LOCAL_REPO_ROOTS`) only when no repoKey is provided.
+3. Explicit evidence gaps when the repoKey is missing or incomplete.
+
+If repo-map facts conflict with env fallback values, repo-map wins and Fact Pack writes the mismatch to `conflicts`. If a repoKey is missing or incomplete, the Fact Pack records an `evidenceGaps` entry and does not silently fall back to env values for another repository.
 
 When repo-map facts are missing or drifted, use `pi_ask_user` with `flow=repo_map` in Pi interactive mode. It asks for GitHub URL, Linear Project, local repo path, repoKey, and defaultBranch one field at a time, then returns a review-only draft. Non-UI runs must keep the gap explicit and avoid fabricating user input.
 

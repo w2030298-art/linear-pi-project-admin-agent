@@ -1,11 +1,15 @@
 version: 1
 repos:
-  - key: linear-pi-project-admin-agent
-    owner: w2030298-art
-    repo: linear-pi-project-admin-agent
-    defaultBranch: master
-    localPath: .
-    linearProjectPrefix: "linear-pi-project-admin-agent｜"
+  - repoKey: linear-pi-project-admin-agent
+    github:
+      owner: w2030298-art
+      repo: linear-pi-project-admin-agent
+      defaultBranch: master
+    linear:
+      projectId: c642b249-cdda-4e85-b7f4-604776cb8cbd
+      projectName: linear-pi-project-admin-agent｜Linear 项目管理员 Agent 运行时
+      projectPrefix: linear-pi-project-admin-agent
+    localPath: C:/Users/22003/linear-pi-project-admin-agent
     docs:
       - README.md
       - docs/
@@ -13,12 +17,15 @@ repos:
       - package.json
       - tsconfig.json
     evidenceWeight: high
-  - key: linear-bridge
-    owner: w2030298-art
-    repo: linear-bridge
-    defaultBranch: main
+  - repoKey: linear-bridge
+    github:
+      owner: w2030298-art
+      repo: linear-bridge
+      defaultBranch: main
+    linear:
+      projectName: linear-bridge
+      projectPrefix: linear-bridge
     localPath: C:/Users/22003/opencodeworkspace/linear-bridge
-    linearProjectPrefix: "linear-bridge"
     docs:
       - README.md
       - docs/

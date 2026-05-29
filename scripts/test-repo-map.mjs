@@ -13,18 +13,35 @@ fs.mkdirSync(localPath);
 fs.writeFileSync(repoMapPath, `
 version: 1
 repos:
-  - key: linear-pi-project-admin-agent
-    owner: w2030298-art
-    repo: linear-pi-project-admin-agent
-    defaultBranch: master
+  - repoKey: linear-pi-project-admin-agent
+    github:
+      owner: w2030298-art
+      repo: linear-pi-project-admin-agent
+      defaultBranch: master
     localPath: .
-    linearProjectPrefix: "linear-pi-project-admin-agent"
-  - key: linear-bridge
-    owner: w2030298-art
-    repo: linear-bridge
-    defaultBranch: main
+    linear:
+      projectId: c642b249-cdda-4e85-b7f4-604776cb8cbd
+      projectName: linear-pi-project-admin-agent｜Linear 项目管理员 Agent 运行时
+      projectPrefix: linear-pi-project-admin-agent
+    docs:
+      - README.md
+      - docs/
+    evidenceWeight: high
+  - repoKey: linear-bridge
+    github:
+      owner: w2030298-art
+      repo: linear-bridge
+      defaultBranch: main
     localPath: ${JSON.stringify(localPath)}
-    linearProjectPrefix: "linear-bridge"
+    linear:
+      projectName: linear-bridge
+      projectPrefix: linear-bridge
+    docs:
+      - README.md
+    evidenceWeight: high
+  - repoKey: incomplete
+    github:
+      owner: w2030298-art
 `);
 
 {
@@ -41,11 +58,16 @@ repos:
   assert.equal(resolved.github.owner, 'w2030298-art');
   assert.equal(resolved.github.repo, 'linear-bridge');
   assert.equal(resolved.github.defaultBranch, 'main');
+  assert.equal(resolved.linear.projectName, 'linear-bridge');
+  assert.equal(resolved.linear.projectPrefix, 'linear-bridge');
   assert.equal(resolved.local.root, path.resolve(localPath));
+  assert.deepEqual(resolved.evidenceGaps, []);
+  assert.match(resolved.conflicts.join('\n'), /GITHUB_DEFAULT_OWNER/);
+  assert.match(resolved.conflicts.join('\n'), /LOCAL_REPO_ROOTS/);
 }
 
 {
-  const result = spawnSync(process.execPath, ['scripts/fact-pack.mjs', '--task', 'repo map test', '--repo', 'linear-bridge', '--no-github', '--no-local'], {
+  const result = spawnSync(process.execPath, ['scripts/fact-pack.mjs', '--task', 'repo map test', '--repo', 'linear-bridge', '--no-github', '--no-local', '--no-linear'], {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -61,6 +83,47 @@ repos:
   assert.equal(output.factPack.scope.repo.owner, 'w2030298-art');
   assert.equal(output.factPack.scope.repo.repo, 'linear-bridge');
   assert.equal(output.factPack.scope.repo.localPath, path.resolve(localPath));
+  assert.equal(output.factPack.scope.repo.linearProjectName, 'linear-bridge');
+  assert.equal(output.factPack.scope.linearProjectIdOrKey, 'linear-bridge');
+  assert.deepEqual(output.factPack.openQuestions, []);
+  assert.match(output.factPack.conflicts.join('\n'), /GITHUB_DEFAULT_OWNER/);
+  assert.doesNotMatch(output.factPack.evidenceGaps.join('\n'), /GITHUB_DEFAULT_OWNER/);
+}
+
+{
+  const missing = resolveRepoMapEntry('incomplete', {
+    cwd: process.cwd(),
+    repoMapPath,
+    env: {
+      GITHUB_DEFAULT_OWNER: 'fallback-owner',
+      GITHUB_DEFAULT_REPO: 'fallback-repo',
+      LOCAL_REPO_ROOTS: localPath
+    }
+  });
+  assert.equal(missing.ok, true);
+  assert.equal(missing.github.owner, 'w2030298-art');
+  assert.equal(missing.github.repo, null);
+  assert.match(missing.evidenceGaps.join('\n'), /github\.repo/);
+  assert.match(missing.evidenceGaps.join('\n'), /localPath/);
+  assert.match(missing.evidenceGaps.join('\n'), /Linear project/);
+  assert.notEqual(missing.github.repo, 'fallback-repo');
+}
+
+{
+  const current = resolveRepoMapEntry('linear-pi-project-admin-agent', {
+    cwd: process.cwd(),
+    repoMapPath: path.join(process.cwd(), 'config/repo-map.yaml'),
+    env: {}
+  });
+  assert.equal(current.ok, true);
+  assert.equal(current.github.owner, 'w2030298-art');
+  assert.equal(current.github.repo, 'linear-pi-project-admin-agent');
+  assert.equal(current.github.defaultBranch, 'master');
+  assert.equal(current.linear.projectId, 'c642b249-cdda-4e85-b7f4-604776cb8cbd');
+  assert.equal(current.linear.projectName, 'linear-pi-project-admin-agent｜Linear 项目管理员 Agent 运行时');
+  assert.equal(current.linear.projectPrefix, 'linear-pi-project-admin-agent');
+  assert.ok(current.local.root);
+  assert.equal(current.evidenceGaps.length, 0);
 }
 
 console.log('repo map tests passed');
