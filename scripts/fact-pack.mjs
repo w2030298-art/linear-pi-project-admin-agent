@@ -51,6 +51,9 @@ const pack = {
 pack.facts.push(fact(`Task scope received: ${task}`, 'user_input', 'current prompt', 'high'));
 
 const repoMapping = resolveRepoMapEntry(repoKey);
+if (repoMapping.evidenceGaps?.length) pack.evidenceGaps.push(...repoMapping.evidenceGaps);
+if (repoMapping.conflicts?.length) pack.conflicts.push(...repoMapping.conflicts);
+
 if (repoMapping.ok) {
   pack.scope.repo = {
     source: repoMapping.source,
@@ -60,19 +63,25 @@ if (repoMapping.ok) {
     defaultBranch: repoMapping.github.defaultBranch,
     localPath: repoMapping.local.root,
     localPathExists: repoMapping.local.exists,
-    linearProjectPrefix: repoMapping.linear.projectPrefix
+    linearProjectId: repoMapping.linear.projectId,
+    linearProjectName: repoMapping.linear.projectName,
+    linearProjectPrefix: repoMapping.linear.projectPrefix,
+    docs: repoMapping.docs,
+    evidenceWeight: repoMapping.evidenceWeight
   };
+  pack.scope.linearProjectIdOrKey = linear || repoMapping.linear.projectId || repoMapping.linear.projectName || repoMapping.linear.projectPrefix || null;
   if (repoKey) {
-    pack.facts.push(fact(`Repo map resolved ${repoKey} to ${repoMapping.github.owner}/${repoMapping.github.repo}.`, 'repo_map', process.env.REPO_MAP_PATH || 'config/repo-map.yaml', 'high', JSON.stringify(pack.scope.repo)));
+    pack.facts.push(fact(`Repo map resolved ${repoKey} to ${repoMapping.github.owner}/${repoMapping.github.repo}.`, 'repo_map', process.env.REPO_MAP_PATH || 'config/repo-map.yaml', repoMapping.evidenceWeight || 'high', JSON.stringify(pack.scope.repo)));
   }
 } else if (repoKey) {
-  pack.evidenceGaps.push(repoMapping.error);
+  if (!repoMapping.evidenceGaps?.length && repoMapping.error) pack.evidenceGaps.push(repoMapping.error);
 }
 
-if (linear) {
-  const linearData = runNode(['scripts/linear-cli.mjs', 'project', linear]);
+const effectiveLinear = linear || (repoMapping.ok ? (repoMapping.linear.projectId || repoMapping.linear.projectName || repoMapping.linear.projectPrefix || '') : '');
+if (effectiveLinear && !has('--no-linear')) {
+  const linearData = runNode(['scripts/linear-cli.mjs', 'project', effectiveLinear]);
   if (!linearData.ok && linearData.error) pack.evidenceGaps.push(`Linear project context unavailable: ${linearData.error}`);
-  else pack.facts.push(fact(`Linear project context was retrieved for ${linear}.`, 'linear_live', `linear:${linear}`, 'high', JSON.stringify(linearData).slice(0, 5000)));
+  else pack.facts.push(fact(`Linear project context was retrieved for ${effectiveLinear}.`, 'linear_live', `linear:${effectiveLinear}`, 'high', JSON.stringify(linearData).slice(0, 5000)));
 } else {
   pack.evidenceGaps.push('No Linear project key/id provided; project state may be incomplete for extend/report/cycle tasks.');
 }
@@ -97,7 +106,9 @@ if (!has('--no-github')) {
   const owner = repoMapping.ok ? repoMapping.github.owner : null;
   const repo = repoMapping.ok ? repoMapping.github.repo : null;
   if (owner && repo) {
-    const gh = runNode(['scripts/github-evidence.mjs', 'snapshot', '--owner', owner, '--repo', repo]);
+    const ghArgs = ['scripts/github-evidence.mjs', 'snapshot', '--owner', owner, '--repo', repo];
+    if (repoMapping.github.defaultBranch) ghArgs.push('--ref', repoMapping.github.defaultBranch);
+    const gh = runNode(ghArgs);
     if (gh.error) pack.evidenceGaps.push(`GitHub evidence unavailable: ${gh.error}`);
     else {
       pack.facts.push(fact(`GitHub repo ${owner}/${repo} snapshot collected.`, 'github_remote', `github:${owner}/${repo}`, 'high', JSON.stringify(gh).slice(0, 5000)));
@@ -132,8 +143,12 @@ if (has('--web') && process.env.ALLOW_WEB_SEARCH !== 'false') {
   else pack.facts.push(fact(`Web search collected for query: ${query}`, 'web_search', web.provider || 'web', 'medium', JSON.stringify(web).slice(0, 5000)));
 }
 
-if (!pack.facts.some(f => f.sourceType === 'linear_live')) pack.openQuestions.push('Which Linear project/team should this task target?');
-if (!pack.facts.some(f => f.sourceType === 'github_remote')) pack.openQuestions.push('Which GitHub repo should be treated as engineering source of truth?');
+if (!pack.facts.some(f => f.sourceType === 'linear_live') && !pack.scope.linearProjectIdOrKey) {
+  pack.openQuestions.push('Which Linear project/team should this task target?');
+}
+if (!pack.facts.some(f => f.sourceType === 'github_remote') && !(pack.scope.repo?.owner && pack.scope.repo?.repo)) {
+  pack.openQuestions.push('Which GitHub repo should be treated as engineering source of truth?');
+}
 
 pack.planningImplications.push('Project planning must cite Fact Pack facts and label missing data as assumptions.');
 pack.planningImplications.push('Linear writes must remain dry-run until explicit approval.');

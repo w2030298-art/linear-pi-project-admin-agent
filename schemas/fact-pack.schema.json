@@ -14,7 +14,7 @@
         "required": ["claim", "sourceType", "source", "confidence"],
         "properties": {
           "claim": { "type": "string" },
-          "sourceType": { "enum": ["linear_live", "github_remote", "local_repo", "local_docs", "web_search", "user_input", "agent_state"] },
+          "sourceType": { "enum": ["repo_map", "linear_live", "github_remote", "local_repo", "local_docs", "web_search", "user_input", "agent_state"] },
           "source": { "type": "string" },
           "timestamp": { "type": ["string", "null"] },
           "confidence": { "enum": ["high", "medium", "low"] },
