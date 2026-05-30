@@ -6,6 +6,8 @@ const guidePath = 'docs/WEZTERM_PI_LAUNCH.md';
 const reportPath = 'docs/reports/wezterm-pi-smoke-2026-05-29.md';
 const configPath = 'config/wezterm-linear-pi.lua';
 const installerPath = 'scripts/install-wezterm-linear-pi-shortcut.ps1';
+const launchScript = 'launch-linear-pi-runtime.ps1';
+const runtimeRoot = 'C:\\Users\\22003\\linear-pi-project-admin-agent-runtime';
 
 assert.equal(fs.existsSync(guidePath), true, `${guidePath} should exist`);
 assert.equal(fs.existsSync(reportPath), true, `${reportPath} should exist`);
@@ -16,12 +18,19 @@ const guide = fs.readFileSync(guidePath, 'utf8');
 const report = fs.readFileSync(reportPath, 'utf8');
 const config = fs.readFileSync(configPath, 'utf8');
 const installer = fs.readFileSync(installerPath, 'utf8');
+const launchScriptPattern = new RegExp(launchScript.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+const runtimeRootPattern = new RegExp(runtimeRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
 for (const text of [guide, report]) {
   assert.match(text, /wezterm-gui\.exe/i);
-  assert.match(text, /wezterm start --cwd|start --cwd/i);
+  assert.match(text, launchScriptPattern);
+  assert.match(text, /powershell\.exe/i);
+  assert.match(text, /runtime checkout|runtime clone|runtime root/i);
+  assert.match(text, /master/i);
+  assert.match(text, /ff-only/i);
+  assert.match(text, runtimeRootPattern);
   assert.match(text, /--config-file/i);
-  assert.match(text, /config[\\\/]wezterm-linear-pi\.lua/i);
+  assert.match(text, /wezterm-linear-pi\.lua/i);
   assert.match(text, /C:\\Users\\22003\\linear-pi-project-admin-agent/);
   assert.match(text, /\bpi\b/);
   assert.doesNotMatch(text, /(LINEAR_API_KEY|LINEAR_API_TOKEN|GITHUB_TOKEN|OPENAI_API_KEY)\s*=/i);
@@ -30,13 +39,14 @@ for (const text of [guide, report]) {
 
 assert.match(guide, /winget install wez\.wezterm/i);
 assert.match(guide, /default_cwd/i);
-assert.match(guide, /任务栏/);
-assert.match(guide, /回退/);
+assert.match(guide, /Start Menu/i);
+assert.match(guide, /rollback/i);
 assert.match(guide, /Windows Terminal/);
-assert.match(guide, /中文输入/);
-assert.match(guide, /复制粘贴/);
-assert.match(guide, /滚动/);
-assert.match(guide, /快捷键/);
+assert.match(guide, /development repo/i);
+assert.match(guide, /does not automatically sync/i);
+assert.match(guide, /copy/i);
+assert.match(guide, /paste/i);
+assert.match(guide, /shortcut/i);
 
 assert.match(report, /WezTerm version/i);
 assert.match(report, /Shortcut/i);
@@ -48,7 +58,16 @@ assert.match(config, /CopyTo\(["']Clipboard["']\)/);
 assert.match(config, /PasteFrom\(["']Clipboard["']\)/);
 assert.match(config, /ActivateCommandPalette/);
 assert.match(config, /SpawnTab/);
+assert.match(config, /LINEAR_PI_RUNTIME_ROOT/);
+
 assert.match(installer, /--config-file/);
 assert.match(installer, /wezterm-linear-pi\.lua/);
+assert.match(installer, launchScriptPattern);
+assert.match(installer, /RuntimeRoot/);
+assert.match(installer, /StableBranch/);
+assert.match(installer, /git clone/i);
+assert.match(installer, /pull --ff-only/i);
+assert.match(installer, /LOCALAPPDATA|LocalAppData/i);
+assert.match(installer, /powershell\.exe/i);
 
 console.log('wezterm launch docs tests passed');

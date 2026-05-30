@@ -1,19 +1,18 @@
-# WezTerm Pi Smoke｜2026-05-29
+# WezTerm Pi Smoke - 2026-05-29
 
 ## Scope
 
-WEN-259 灰度验证：使用 Windows 任务栏快捷方式打开 WezTerm，进入 `C:\Users\22003\linear-pi-project-admin-agent` 并运行 `pi`。
+The `Linear Project Admin Pi (WezTerm)` shortcut now starts an external runtime launcher instead of running Pi directly in the development repo `C:\Users\22003\linear-pi-project-admin-agent`.
 
 ## Environment
 
 ```text
-OS: Microsoft Windows NT 10.0.26200.0
-PowerShell: 5.1.26100.8457
+OS: Microsoft Windows
 WezTerm version: 20240203-110809-5046fc22
 WezTerm GUI: C:\Program Files\WezTerm\wezterm-gui.exe
-WezTerm CLI: C:\Program Files\WezTerm\wezterm.exe
-Pi version: 0.77.0
-Repo: C:\Users\22003\linear-pi-project-admin-agent
+Development repo: C:\Users\22003\linear-pi-project-admin-agent
+Runtime root: C:\Users\22003\linear-pi-project-admin-agent-runtime
+Stable branch: master
 ```
 
 ## Shortcut
@@ -30,55 +29,57 @@ Taskbar pinned shortcut file:
 C:\Users\22003\AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Linear Project Admin Pi (WezTerm).lnk
 ```
 
-Target:
+Shortcut target:
 
 ```text
-C:\Program Files\WezTerm\wezterm-gui.exe
+powershell.exe
 ```
 
-Arguments:
+Shortcut arguments:
 
 ```text
---config-file "C:\Users\22003\linear-pi-project-admin-agent\config\wezterm-linear-pi.lua" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent" powershell.exe -NoLogo -NoExit -Command "pi"
+-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%LOCALAPPDATA%\LinearProjectAdminPi\launch-linear-pi-runtime.ps1"
+```
+
+The launcher invokes:
+
+```powershell
+& "C:\Program Files\WezTerm\wezterm-gui.exe" --config-file "%LOCALAPPDATA%\LinearProjectAdminPi\wezterm-linear-pi.lua" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent-runtime" powershell.exe -NoLogo -NoExit -Command "pi"
 ```
 
 Security check: shortcut target and arguments contain no token, secret, API key, or credential value.
 
-Dedicated config:
+## Runtime Sync
+
+The launcher keeps the runtime checkout on `master` and updates with:
 
 ```text
-C:\Users\22003\linear-pi-project-admin-agent\config\wezterm-linear-pi.lua
+git pull --ff-only origin master
 ```
 
-This repo-local config loads the user's normal WezTerm config and appends the Windows shortcut bindings used by the Pi shortcut.
+Feature branch changes do not automatically sync to `master`; they become visible to runtime only after merge.
 
-## Automated evidence
+## Automated Evidence
 
 | Check | Evidence | Result |
 | --- | --- | --- |
 | WezTerm installed | `C:\Program Files\WezTerm\wezterm.exe --version` returned `wezterm 20240203-110809-5046fc22` | Pass |
-| `start --cwd` enters repo | WezTerm GUI smoke wrote `C:\Users\22003\linear-pi-project-admin-agent` from `$PWD.Path` | Pass |
-| Pi callable through WezTerm launch chain | WezTerm GUI smoke wrote `0.77.0` from `pi --version` | Pass |
-| Taskbar shortcut launches WezTerm | `Start-Process` on taskbar `.lnk` created `wezterm-gui.exe` process, then smoke process was closed | Pass |
-| Project files present | `.pi/settings.json`, `.agents/skills`, `.pi/extensions` exist in repo | Pass |
-| Shortcut key config explicit | Shortcut arguments include `--config-file ...\config\wezterm-linear-pi.lua` | Pass |
-| Visible Pi TUI starts | Taskbar `.lnk` launched a visible WezTerm window running Pi; the window showed project context, skills, and extensions loaded | Pass |
-| rollback documented | `docs/WEZTERM_PI_LAUNCH.md` includes manual `cd` + `pi` and Windows Terminal fallback | Pass |
+| Runtime launcher documented | `docs/WEZTERM_PI_LAUNCH.md` references `launch-linear-pi-runtime.ps1` and runtime root | Pass |
+| Shortcut key config explicit | Launcher passes `--config-file ...\wezterm-linear-pi.lua` | Pass |
+| Stable branch explicit | Launcher uses `master` and `git pull --ff-only` | Pass |
+| Development repo separated | Shortcut no longer uses development repo as direct Pi cwd | Pass |
+| rollback documented | Manual `cd` + `pi` and Windows Terminal fallback are documented | Pass |
 
-## Visible and manual verification
+## Manual Verification
 
-These items are the grey-rollout checklist before WEN-260 decides whether WezTerm becomes the default route:
+- [ ] Launch `Linear Project Admin Pi (WezTerm)` from Start Menu or taskbar.
+- [ ] Confirm the visible Pi session opens in `C:\Users\22003\linear-pi-project-admin-agent-runtime`.
+- [ ] Confirm runtime branch is `master`.
+- [ ] Confirm interactive `pi` starts and project `.pi/settings.json`, skills, and extensions are loaded.
+- [ ] Confirm copy and paste work.
+- [ ] Confirm scrollback and common shortcut keys work.
 
-- [x] From Windows taskbar shortcut path, launch `Linear Project Admin Pi (WezTerm)` and confirm the visible window opens.
-- [x] Confirm the prompt is in `C:\Users\22003\linear-pi-project-admin-agent`.
-- [x] Confirm interactive `pi` starts and project `.pi/settings.json`, skills, and extensions are loaded.
-- [x] Confirm Chinese input works in the Pi TUI.
-- [x] Confirm copy/paste works.
-- [x] Confirm scrollback works.
-- [x] Confirm common shortcuts do not block normal Pi operation.
-- [x] Confirm theme and font rendering are acceptable for grey rollout.
-
-Manual verification result on 2026-05-29: user confirmed the WezTerm Pi TUI flow works as expected, including the remaining Chinese input, copy/paste, scrollback, and common shortcut checks.
+Manual verification should be repeated after installing the new shortcut wrapper.
 
 ## rollback
 
@@ -94,7 +95,3 @@ Windows Terminal fallback:
 ```powershell
 wt -d C:\Users\22003\linear-pi-project-admin-agent powershell.exe -NoLogo -NoExit -Command "pi"
 ```
-
-## Decision input for WEN-260
-
-Current evidence is enough to close WEN-259 and continue the local grey rollout. WEN-260 should still make the separate default-terminal decision after a normal usage window, because WEN-259 does not promote WezTerm to the final default route.

@@ -30,6 +30,8 @@ for _, binding in ipairs(managed_keys) do
 end
 
 config.keys = keys
-config.default_cwd = "C:/Users/22003/linear-pi-project-admin-agent"
+
+local runtime_root = os.getenv("LINEAR_PI_RUNTIME_ROOT") or "C:\\Users\\22003\\linear-pi-project-admin-agent-runtime"
+config.default_cwd = runtime_root:gsub("\\", "/")
 
 return config
