@@ -175,3 +175,5 @@ In interactive Pi runs, `linear_apply_write_plan` uses the tool execution contex
 Use `/reload` only to reload Pi files that are already present in the current checkout.
 
 Use `/reload-master` inside the stable WezTerm runtime when the open Pi session should update from `origin/master` first. The command refuses non-git directories, non-`master` branches, and dirty checkouts; then it runs `git fetch origin master`, `git pull --ff-only origin master`, refreshes stale npm dependencies, and reloads the Pi runtime.
+
+Runtime-local files are not owned by `master`: keep `.env`, `.env.*`, `.pi/sessions/`, `state/*.jsonl`, `state/fact-packs/*.json`, `state/pi-queue/*.md`, `state/pi-queue/*.log`, `state/repo-map.draft.yaml`, `state/repo-map-audit.jsonl`, `state/write-plans/`, and `state/audit-reports/` untracked. The launcher and `/reload-master` must not use `git clean`, `git reset --hard`, or recursive deletion of the runtime root.

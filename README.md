@@ -34,7 +34,6 @@ flowchart LR
 ## 目录结构
 
 ```text
-AGENTS.md                         # 专用总指令
 SYSTEM.md                         # Pi system override
 .pi/settings.json                 # Pi 项目级加载配置
 .pi/extensions/                   # Pi 专用 tools / guard / fact sources

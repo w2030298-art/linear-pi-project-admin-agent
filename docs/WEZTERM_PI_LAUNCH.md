@@ -129,6 +129,35 @@ Use the project command `/reload-master` when the WezTerm runtime is already ope
 
 This gives the running Pi session the same stable-branch refresh behavior as a fresh shortcut launch without switching a development repo away from its feature branch.
 
+## Local Runtime Files
+
+The runtime checkout may contain machine-local files that are not owned by `master`. These files are intentionally ignored by Git, so startup sync and `/reload-master` leave them in place:
+
+- `.env` and `.env.*`, except the tracked template `.env.example`.
+- `.pi/sessions/`.
+- `node_modules/`.
+- `state/audit.jsonl`, `state/linear-events.jsonl`, and other root `state/*.jsonl` logs.
+- `state/fact-packs/*.json`.
+- `state/pi-queue/*.md` and `state/pi-queue/*.log`.
+- `state/repo-map.draft.yaml` and `state/repo-map-audit.jsonl`.
+- `state/workspace.manifest.draft.json` and other root `state/*.draft.json` / `state/*.draft.yaml` drafts.
+- `state/write-plans/`, `state/audit-reports/`, and local `state/sessions/*` files except `.gitkeep`.
+
+The launcher and `/reload-master` use `git pull --ff-only`. This path does not run `git clean`, `git reset --hard`, or recursive deletion of the runtime root. If a local non-ignored file would be overwritten, the clean-checkout guard or Git itself blocks the sync instead of deleting the file.
+
+## Runtime Instruction Maintenance
+
+Do not restore a root `AGENTS.md` for this repository. Root `AGENTS.md` files are automatically consumed by development agents such as Codex, so keeping the Linear Project Admin runtime persona there would affect normal development work on this repo.
+
+Maintain runtime behavior instructions in explicit Pi-owned files instead:
+
+- `SYSTEM.md` for the core Linear Project Admin runtime identity and hard safety boundaries.
+- `.pi/settings.json` for loaded extensions, prompts, skills, and session paths.
+- `.pi/prompts/` and `.agents/skills/` for command-specific or skill-specific behavior.
+- `docs/` for operator-facing policy and maintenance notes.
+
+When changing runtime instructions, use a normal feature branch or worktree, update the relevant tests, merge through PR, then use the runtime launcher or `/reload-master` after `master` contains the change.
+
 ## Smoke Checks
 
 Automated checks cover:
@@ -137,6 +166,8 @@ Automated checks cover:
 - The shortcut uses `powershell.exe` to run `launch-linear-pi-runtime.ps1`.
 - The runtime branch is `master` and uses `git pull --ff-only`.
 - The `/reload-master` command pulls `origin/master` only from a clean master runtime checkout before reload.
+- Runtime-local files such as `.env`, sessions, logs, repo-map drafts, write plans, and audit reports are ignored and not cleaned by the launcher.
+- Root `AGENTS.md` is absent so development agents are not steered by the Linear Project Admin runtime persona.
 - The WezTerm config includes copy and paste shortcut bindings.
 - No token, secret, API key, or credential value is stored in shortcut docs.
 

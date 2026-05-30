@@ -171,7 +171,6 @@ pi
 - `.pi/extensions/*`
 - `.agents/skills/*`
 - `.pi/prompts/*`
-- `AGENTS.md`
 - `SYSTEM.md`
 
 常用命令：

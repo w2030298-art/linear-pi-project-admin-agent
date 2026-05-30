@@ -39,7 +39,7 @@
         "Pi interaction"
       ],
       "factRefs": [
-        "AGENTS.md Fact Pack protocol",
+        "docs/FACT_SOURCES.md Fact Pack protocol",
         "schemas/project-plan.schema.json"
       ],
       "assumptions": [
@@ -81,7 +81,7 @@
   "facts": [
     {
       "claim": "Complex planning requires a Fact Pack before writing to Linear.",
-      "source": "AGENTS.md"
+      "source": "docs/FACT_SOURCES.md"
     }
   ],
   "assumptions": [

@@ -24,6 +24,8 @@
     "test:pi-ask-user": "tsx scripts/test-pi-ask-user-repo-map.ts",
     "test:wezterm-launch": "node scripts/test-wezterm-launch-docs.mjs",
     "test:runtime-reload-master": "tsx scripts/test-runtime-reload-master.ts",
+    "test:runtime-local-protection": "node scripts/test-runtime-local-protection.mjs",
+    "test:runtime-instruction-boundary": "node scripts/test-runtime-instruction-boundary.mjs",
     "test:cycle-disabled": "tsx scripts/test-cycle-disabled.ts",
     "test:linear-apply-mode": "node scripts/test-linear-apply-mode.mjs",
     "test:linear-snapshot": "node scripts/test-linear-snapshot.mjs",

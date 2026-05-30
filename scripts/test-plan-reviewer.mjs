@@ -57,7 +57,7 @@ function baseProjectPlan() {
     facts: [
       {
         claim: 'Fact Pack is required before planning.',
-        source: 'AGENTS.md'
+        source: 'docs/FACT_SOURCES.md'
       }
     ],
     assumptions: ['PoC uses local state files.'],

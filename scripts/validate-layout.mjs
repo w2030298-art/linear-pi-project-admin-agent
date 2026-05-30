@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import { json } from './utils.mjs';
 
 const required = [
-  'AGENTS.md',
   '.pi/settings.json',
   '.pi/extensions/linear-admin-tools.ts',
   '.pi/extensions/fact-source-router.ts',
@@ -22,6 +21,8 @@ const required = [
   'scripts/test-retrieval-ux.mjs',
   'scripts/test-write-confirmation-ux.ts',
   'scripts/test-runtime-reload-master.ts',
+  'scripts/test-runtime-local-protection.mjs',
+  'scripts/test-runtime-instruction-boundary.mjs',
   'scripts/test-repo-map-drift.mjs',
   'examples/project-plan.sample.json',
   'examples/write-plan.sample.json',
