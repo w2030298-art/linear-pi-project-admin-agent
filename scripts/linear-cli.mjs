@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { LinearClient } from '@linear/sdk';
-import { json, now, ensureDir, hash } from './utils.mjs';
+import { json, now, ensureDir, hash, writeJson } from './utils.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
 import { resolveLinearProjectId } from './linear-project-resolver.mjs';
+import { resolveOperationInput } from './linear-object-resolver.mjs';
 import { normalizeProjectDescriptionFields } from './project-field-normalizer.mjs';
 import { detectHostConfirmationCapabilities, resolveApplyMode } from './write-plan-execution.mjs';
 
@@ -130,6 +131,8 @@ function pick(input, fields) {
 function stripMeta(input) {
   const meta = new Set([
     'teamKey', 'labels', 'labelNames', 'addedLabels', 'addedLabelNames', 'removedLabels', 'removedLabelNames',
+    'labelGroup', 'labelGroups', 'workflowStateName', 'workflowStateType', 'stateName', 'stateType',
+    'milestoneName', 'projectMilestoneName',
     'projectRef', 'projectMilestoneRef', 'milestoneRef', 'issueRef', 'relatedIssueRef',
     'projectUpdateRef', 'relatedProjectRef', 'relatedProjectMilestoneRef', 'relatedMilestoneRef'
   ]);
@@ -202,6 +205,23 @@ async function appendLabelIds(linear, input, fieldName, labelFields) {
   return [...new Set([...(input[fieldName] || []), ...names.map(name => byName.get(name))])];
 }
 
+function resolveLinearObjectNames(input, metadata, pathPrefix, operationType) {
+  if (!metadata?.workspaceManifest) return input;
+  const resolution = resolveOperationInput(input, {
+    manifest: metadata.workspaceManifest,
+    manifestPath: metadata.workspaceManifestPath,
+    pathPrefix,
+    operationType
+  });
+  metadata.objectResolutions.push(...resolution.resolutions);
+  metadata.objectFindings.push(...resolution.findings);
+  if (!resolution.ok) {
+    const messages = resolution.findings.map(finding => `${finding.path}: ${finding.message}`).join('; ');
+    throw new Error(`Linear object resolution blocked write plan: ${messages}`);
+  }
+  return resolution.input;
+}
+
 function normalizeHealth(health) {
   if (!health) return health;
   const map = { on_track: 'onTrack', ontrack: 'onTrack', at_risk: 'atRisk', atrisk: 'atRisk', off_track: 'offTrack', offtrack: 'offTrack' };
@@ -223,7 +243,8 @@ async function normalizeInput(linear, op, refs, index, metadata = null) {
     input = normalized.input;
     if (metadata) metadata.fieldTransforms.push(...normalized.fieldTransforms);
     if (!input.teamIds?.length) input.teamIds = [await getTeamId(linear, input.teamId || input.teamKey)];
-    const ids = await labelIds(linear, input);
+    input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
+    const ids = metadata?.workspaceManifest ? (input.labelIds || []) : await labelIds(linear, input);
     if (ids.length) input.labelIds = ids;
     return pick(stripMeta(input), PROJECT_CREATE_FIELDS);
   }
@@ -232,7 +253,8 @@ async function normalizeInput(linear, op, refs, index, metadata = null) {
     const normalized = normalizeProjectDescriptionFields(input);
     input = normalized.input;
     if (metadata) metadata.fieldTransforms.push(...normalized.fieldTransforms);
-    const ids = await labelIds(linear, input);
+    input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
+    const ids = metadata?.workspaceManifest ? (input.labelIds || []) : await labelIds(linear, input);
     if (ids.length) input.labelIds = ids;
     return pick(stripMeta(input), PROJECT_UPDATE_FIELDS);
   }
@@ -243,14 +265,17 @@ async function normalizeInput(linear, op, refs, index, metadata = null) {
 
   if (type === 'issue.create') {
     if (!input.teamId) input.teamId = await getTeamId(linear, input.teamKey);
-    const ids = await labelIds(linear, input);
+    input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
+    const ids = metadata?.workspaceManifest ? (input.labelIds || []) : await labelIds(linear, input);
     if (ids.length) input.labelIds = ids;
     return pick(stripMeta(input), ISSUE_CREATE_FIELDS);
   }
 
   if (type === 'issue.update') {
-    input.addedLabelIds = await appendLabelIds(linear, input, 'addedLabelIds', ['labels', 'labelNames', 'addedLabels', 'addedLabelNames']);
-    input.removedLabelIds = await appendLabelIds(linear, input, 'removedLabelIds', ['removedLabels', 'removedLabelNames']);
+    if (!input.teamId && input.teamKey) input.teamId = await getTeamId(linear, input.teamKey);
+    input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
+    input.addedLabelIds = metadata?.workspaceManifest ? (input.addedLabelIds || []) : await appendLabelIds(linear, input, 'addedLabelIds', ['labels', 'labelNames', 'addedLabels', 'addedLabelNames']);
+    input.removedLabelIds = metadata?.workspaceManifest ? (input.removedLabelIds || []) : await appendLabelIds(linear, input, 'removedLabelIds', ['removedLabels', 'removedLabelNames']);
     return pick(stripMeta(input), ISSUE_UPDATE_FIELDS);
   }
 
@@ -384,18 +409,36 @@ async function compileOperations(linear, plan) {
   const refs = {};
   const compiled = [];
   const planIdempotencyKey = plan.idempotencyKey || `dry-run-${hash(JSON.stringify(plan)).slice(0, 12)}`;
+  const workspaceManifest = await cachedWorkspaceObjectManifest(linear, plan);
 
   for (const [index, rawOp] of plan.operations.entries()) {
     const op = { ...rawOp, planIdempotencyKey };
     const type = normalizeType(op.type);
     const kind = typeToKind(type);
     const refKey = opRefKey(op, index);
-    const metadata = { fieldTransforms: [] };
+    const metadata = {
+      fieldTransforms: [],
+      objectResolutions: [],
+      objectFindings: [],
+      workspaceManifest: workspaceManifest.manifest,
+      workspaceManifestPath: workspaceManifest.manifestPath
+    };
     const input = await normalizeInput(linear, op, refs, index, metadata);
 
     if (isCreate(type) && input.id) refs[refKey] = { id: input.id, kind, pending: true };
 
-    compiled.push({ index, key: refKey, type, level: op.level || null, kind, input, reason: op.reason || null, fieldTransforms: metadata.fieldTransforms });
+    compiled.push({
+      index,
+      key: refKey,
+      type,
+      level: op.level || null,
+      kind,
+      input,
+      reason: op.reason || null,
+      fieldTransforms: metadata.fieldTransforms,
+      resolutions: metadata.objectResolutions,
+      evidenceRef: workspaceManifest.manifestPath
+    });
   }
   return compiled;
 }
@@ -446,6 +489,116 @@ async function workspace() {
     projects,
     workflowStates
   });
+}
+
+function projectIdsFromPlan(plan) {
+  const ids = new Set();
+  for (const op of plan.operations || []) {
+    const input = op.input || {};
+    for (const value of [input.projectId, plan.targetProjectId, plan.projectId, plan.targetProject?.id]) {
+      if (typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value)) ids.add(value);
+    }
+  }
+  return [...ids];
+}
+
+async function workspaceObjectManifest(linear, projectIds = []) {
+  const [base, statesData] = await Promise.all([
+    linear.client.rawRequest(`
+      query WorkspaceObjectManifest {
+        teams(first: 50) {
+          nodes { id key name }
+        }
+        issueLabels(first: 250) {
+          nodes {
+            id
+            name
+            color
+            team { id key name }
+            parent { id name }
+          }
+        }
+      }`),
+    linear.client.rawRequest(`
+      query WorkspaceWorkflowStates {
+        teams(first: 50) {
+          nodes {
+            id
+            key
+            name
+            states { nodes { id name type position } }
+          }
+        }
+      }`)
+  ]);
+  const teams = base.data.teams.nodes.map(team => ({ id: team.id, key: team.key, name: team.name }));
+  const labels = base.data.issueLabels.nodes.map(label => ({
+    id: label.id,
+    name: label.name,
+    color: label.color,
+    group: label.parent?.name || null,
+    teamId: label.team?.id || null,
+    teamKey: label.team?.key || null,
+    teamName: label.team?.name || null
+  }));
+  const workflowStates = statesData.data.teams.nodes.flatMap(team =>
+    team.states.nodes.map(state => ({
+      id: state.id,
+      name: state.name,
+      type: state.type,
+      position: state.position,
+      teamId: team.id,
+      teamKey: team.key,
+      teamName: team.name
+    }))
+  );
+  const projectMilestoneResults = await Promise.all(projectIds.map(projectId =>
+    linear.client.rawRequest(`
+      query ProjectMilestonesForResolver($id: String!) {
+        project(id: $id) {
+          id
+          name
+          projectMilestones(first: 100) {
+            nodes { id name targetDate sortOrder }
+          }
+        }
+      }`, { id: projectId })
+  ));
+  const projectMilestones = projectMilestoneResults.flatMap(result => {
+    const project = result.data.project;
+    if (!project) return [];
+    return project.projectMilestones.nodes.map(milestone => ({
+      id: milestone.id,
+      name: milestone.name,
+      targetDate: milestone.targetDate,
+      sortOrder: milestone.sortOrder,
+      projectId: project.id,
+      projectName: project.name
+    }));
+  });
+  const labelGroups = {};
+  for (const label of labels) {
+    if (!label.group) continue;
+    labelGroups[label.group] ||= {};
+  }
+  return {
+    version: 1,
+    sourceType: 'linear_live',
+    collectedAt: now(),
+    teams,
+    labels,
+    labelGroups,
+    workflowStates,
+    projectMilestones
+  };
+}
+
+async function cachedWorkspaceObjectManifest(linear, plan = {}) {
+  const manifestPath = process.env.LINEAR_WORKSPACE_OBJECT_MANIFEST_PATH || 'state/workspace-object-manifest.json';
+  const manifest = await workspaceObjectManifest(linear, projectIdsFromPlan(plan));
+  manifest.evidenceRef = manifestPath;
+  writeJson(manifestPath, manifest);
+  return { manifest, manifestPath };
 }
 
 async function workspaceProjectSummaries(linear) {
@@ -600,6 +753,7 @@ async function apply(planPath) {
 
   const refs = {};
   const results = [];
+  const workspaceManifest = await cachedWorkspaceObjectManifest(linear, effectivePlan);
   const confirmation = {
     channel: effectivePlan.confirmationChannel || applyMode.reason.confirmationChannel.channel,
     fallbackReason: effectivePlan.confirmationFallbackReason || null,
@@ -615,7 +769,13 @@ async function apply(planPath) {
       const type = normalizeType(op.type);
       const kind = typeToKind(type);
       const key = opRefKey(op, index);
-      const metadata = { fieldTransforms: [] };
+      const metadata = {
+        fieldTransforms: [],
+        objectResolutions: [],
+        objectFindings: [],
+        workspaceManifest: workspaceManifest.manifest,
+        workspaceManifestPath: workspaceManifest.manifestPath
+      };
       const input = await normalizeInput(linear, op, refs, index, metadata);
       if (isCreate(type) && input.id) refs[key] = { id: input.id, kind, pending: true };
 
@@ -625,7 +785,7 @@ async function apply(planPath) {
       const readbackEntity = entity?.id ? await readback(linear, kind, entity.id) : null;
       if (!readbackEntity && effectivePlan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
 
-      const result = { index, key, type, kind, success: true, skipped: mutationResult.skipped, entity, readback: readbackEntity, fieldTransforms: metadata.fieldTransforms };
+      const result = { index, key, type, kind, success: true, skipped: mutationResult.skipped, entity, readback: readbackEntity, fieldTransforms: metadata.fieldTransforms, resolutions: metadata.objectResolutions };
       results.push(result);
       appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, result });
     }
