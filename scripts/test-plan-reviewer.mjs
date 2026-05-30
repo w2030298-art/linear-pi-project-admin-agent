@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { reviewProjectPlan, reviewWritePlan } from './plan-reviewer.mjs';
 
 const resolverManifest = {
@@ -7,7 +11,9 @@ const resolverManifest = {
   teams: [{ id: 'team-wen', key: 'WEN', name: 'WENTAOXU-personal-workplace' }],
   labels: [
     { id: 'label-backend', name: 'Backend', group: 'area', teamId: 'team-wen', teamKey: 'WEN' },
-    { id: 'label-medium', name: 'Medium-difficulty', group: 'complexity', teamId: 'team-wen', teamKey: 'WEN' }
+    { id: 'label-medium', name: 'Medium-difficulty', group: 'complexity', teamId: 'team-wen', teamKey: 'WEN' },
+    { id: 'label-bug', name: 'Bug', group: 'Type', teamId: 'team-wen', teamKey: 'WEN' },
+    { id: 'label-improvement', name: 'Improvement', group: 'Type', teamId: 'team-wen', teamKey: 'WEN' }
   ],
   workflowStates: [
     { id: 'state-started', name: 'In Progress', type: 'started', teamId: 'team-wen', teamKey: 'WEN' }
@@ -195,6 +201,37 @@ function baseProjectPlan() {
 
 {
   const writePlan = {
+    idempotencyKey: 'state-and-project-update-no-milestone',
+    dryRun: true,
+    confirmedByUser: false,
+    targetProjectId: 'project-admin',
+    dependencyValidation: 'State transition and project update do not change milestone scope.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'issue.update',
+        input: {
+          issueId: 'issue-1',
+          stateId: 'state-started'
+        }
+      },
+      {
+        type: 'projectUpdate.create',
+        input: {
+          projectId: 'project-admin',
+          body: 'Status update.'
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan);
+  assert.equal(report.status, 'pass');
+  assert.deepEqual(report.findings, []);
+}
+
+{
+  const writePlan = {
     idempotencyKey: 'issue-only-milestone-project-mismatch',
     dryRun: true,
     confirmedByUser: false,
@@ -308,6 +345,85 @@ function baseProjectPlan() {
   assert.equal(report.status, 'pass');
   assert.equal(report.resolutions.length, 4);
   assert.ok(report.resolutions.every(resolution => resolution.evidenceRef === resolverManifest.evidenceRef));
+}
+
+{
+  const writePlan = {
+    idempotencyKey: 'label-group-conflict',
+    dryRun: true,
+    confirmedByUser: false,
+    targetProjectId: 'project-admin',
+    targetMilestoneId: 'milestone-m0',
+    targetMilestoneReadback: {
+      id: 'milestone-m0',
+      projectId: 'project-admin',
+      name: 'M0'
+    },
+    dependencyValidation: 'Single issue is independent.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'issue.create',
+        input: {
+          title: 'Conflicting labels',
+          teamKey: 'WEN',
+          projectId: 'project-admin',
+          projectMilestoneId: 'milestone-m0',
+          labelNames: ['Bug', 'Improvement']
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan, { workspaceManifest: resolverManifest });
+  assert.equal(report.status, 'needs_revision');
+  assert.ok(findingCodes(report).includes('linear_label_group_conflict'));
+}
+
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-reviewer-label-conflict-'));
+  const manifestPath = path.join(dir, 'workspace-manifest.json');
+  const planPath = path.join(dir, 'write-plan.json');
+  fs.writeFileSync(manifestPath, JSON.stringify(resolverManifest, null, 2));
+  fs.writeFileSync(planPath, JSON.stringify({
+    idempotencyKey: 'label-group-conflict-cli',
+    dryRun: true,
+    confirmedByUser: false,
+    targetProjectId: 'project-admin',
+    targetMilestoneId: 'milestone-m0',
+    targetMilestoneReadback: {
+      id: 'milestone-m0',
+      projectId: 'project-admin',
+      name: 'M0'
+    },
+    dependencyValidation: 'Single issue is independent.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'issue.create',
+        input: {
+          title: 'Conflicting labels',
+          teamKey: 'WEN',
+          projectId: 'project-admin',
+          projectMilestoneId: 'milestone-m0',
+          labelNames: ['Bug', 'Improvement']
+        }
+      }
+    ]
+  }, null, 2));
+  const result = spawnSync(process.execPath, [
+    'scripts/plan-reviewer.mjs',
+    planPath,
+    '--workspace-manifest',
+    manifestPath,
+    '--strict'
+  ], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /linear_label_group_conflict/);
 }
 
 console.log('plan reviewer tests passed');

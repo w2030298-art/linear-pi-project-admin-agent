@@ -147,6 +147,10 @@ function isIssueCreate(op) {
   return operationType(op) === 'issue.create';
 }
 
+function isIssueMutation(op) {
+  return /^issue\.(create|update)$/.test(operationType(op));
+}
+
 function hasOp(operations, pattern) {
   return operations.some(op => pattern.test(operationType(op)));
 }
@@ -161,10 +165,23 @@ function targetProjectId(plan) {
 
 function issueMilestoneRefs(operations) {
   return operations
-    .filter(operation => /^issue\.(create|update)$/.test(operationType(operation)))
+    .filter(isIssueMutation)
     .map(operation => operation.input || {})
     .map(input => firstText(input.projectMilestoneId, input.projectMilestoneRef, input.milestoneRef))
     .filter(Boolean);
+}
+
+function requiresMilestoneTarget(operations) {
+  return operations.some(operation => {
+    const type = operationType(operation);
+    const input = operation.input || {};
+    if (/^(projectMilestone|milestone|project\.milestone)\.(create|update)$/.test(type)) return true;
+    if (type === 'issue.create') return true;
+    if (type === 'issue.update') {
+      return !isBlank(firstText(input.projectMilestoneId, input.projectMilestoneRef, input.milestoneRef));
+    }
+    return false;
+  });
 }
 
 function targetMilestoneId(plan, operations) {
@@ -251,6 +268,7 @@ export function reviewWritePlan(plan, options = {}) {
   const hasTargetProject = hasOp(operations, /^project\.(create|update)$/) || !isBlank(targetProjectId(plan));
   const hasMilestoneTarget = hasOp(operations, /^(projectMilestone|milestone|project\.milestone)\.create$/) ||
     hasVerifiedExistingMilestone(plan, operations);
+  const mustHaveMilestoneTarget = requiresMilestoneTarget(operations);
 
   if (!hasTargetProject) {
     findings.push(makeFinding(
@@ -259,7 +277,7 @@ export function reviewWritePlan(plan, options = {}) {
       { path: '$.operations' }
     ));
   }
-  if (!hasMilestoneTarget) {
+  if (mustHaveMilestoneTarget && !hasMilestoneTarget) {
     findings.push(makeFinding(
       'write_plan_milestone_missing',
       'Write plan must create a Project Milestone or include targetMilestoneId with Linear readback evidence.',
@@ -340,10 +358,11 @@ async function main() {
   const outPath = arg('--out', '');
   const schemaPath = arg('--schema', DEFAULT_SCHEMA_PATH);
   const explicitKind = arg('--kind', '');
+  const workspaceManifestPath = arg('--workspace-manifest', '');
   const plan = readInput(filePath);
   const kind = detectKind(plan, explicitKind);
   const report = kind === 'write_plan'
-    ? reviewWritePlan(plan, { target: filePath })
+    ? reviewWritePlan(plan, { target: filePath, workspaceManifestPath: workspaceManifestPath || null })
     : reviewProjectPlan(plan, { target: filePath, schemaPath });
 
   if (outPath) {

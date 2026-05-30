@@ -23,6 +23,13 @@
 - UUID values are accepted directly. `$opRef` remains supported through `issueRef` / `relatedIssueRef`, and also works after generic `$ref` expansion into identifier fields.
 - Dry-run output includes identifier-to-ID `resolutions` with `identifier`, issue title, URL, and `evidenceRef`. Lookup failure blocks apply before any mutation.
 
+## Write Plan Review Calibration
+
+- Write plan reviewer gates milestone evidence by operation type. Issue state changes and Project Update creation do not require unrelated milestone readback.
+- Issue creation and issue milestone changes still require a Project Milestone target or verified milestone readback.
+- Pass `--workspace-manifest <path>` to `scripts/plan-reviewer.mjs` when quality review must preflight label names against Linear label groups.
+- Labels with the same Linear parent group are treated as mutually exclusive unless the manifest explicitly sets that group to `exactlyOne: false` or `mutuallyExclusive: false`.
+
 Fact Pack 的目标是保持项目理解充分，同时避免把大块原始数据塞进模型上下文。
 
 ## 分层

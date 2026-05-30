@@ -184,8 +184,11 @@ function labelGroups(manifest) {
 function groupPolicy(manifest, group) {
   const groups = labelGroups(manifest);
   const policy = groups[group] || groups[lower(group)] || {};
+  if (policy.exactlyOne === false || policy.mutuallyExclusive === false) {
+    return { exactlyOne: false };
+  }
   return {
-    exactlyOne: policy.exactlyOne === true || policy.mutuallyExclusive === true
+    exactlyOne: true
   };
 }
 
