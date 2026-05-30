@@ -10,7 +10,10 @@ export function linearWriteGuardDecision(
 ) {
   if (params.dryRun !== false) return { action: "allow" as const };
   if (params.confirmationChannel === "ask_user" && params.confirmedByUser !== true) {
-    return { action: "allow" as const };
+    return {
+      action: "block" as const,
+      message: "Blocked linear_apply_write_plan: real writes require the final approval state produced by prepareWriteConfirmation."
+    };
   }
   if (params.confirmedByUser === true) {
     const confirmationText = params.confirmationText || "";

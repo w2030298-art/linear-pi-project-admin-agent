@@ -3,7 +3,7 @@ policy:
   factPackRequiredFor:
     - create_project
     - extend_project
-    - portfolio_review
+    - project_review
     - project_report
     - issue_dispatch
   sourcePriority:

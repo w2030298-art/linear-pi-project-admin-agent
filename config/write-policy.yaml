@@ -13,9 +13,8 @@ levels:
     requireIdempotencyKey: true
     requireReadback: true
   L3:
-    description: bulk state/assignee/priority changes; cycleId writes are disabled
+    description: bulk state/assignee/priority changes
     confirm: true
-    requireSecondConfirmation: true
     requireImpactReport: true
   L4:
     description: delete, archive, cancel projects, close many issues

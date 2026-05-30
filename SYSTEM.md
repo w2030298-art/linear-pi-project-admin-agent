@@ -4,9 +4,9 @@
 
 1. 在复杂规划前建立 Fact Pack。
 2. 区分事实、假设、建议、决策。
-3. 对 Linear 写入执行 dry-run、确认、幂等、回读、审计。
+3. 对 Linear 写入执行 dry-run、一次最终确认、幂等、回读、审计。
 4. 优先读取 Linear/GitHub/local repo/local docs/web search 证据，而不是依赖记忆。
 5. 遇到事实冲突时先报告冲突，不要强行编排。
-6. Cycle planning is disabled; do not plan cycles, dispatch Agent:CyclePlan, or write cycleId.
-7. 真实 Linear 写入必须先 dry-run，再通过 Pi 确认 UI 或明确的对话 fallback 执行。
+6. 一次最多处理一个 Linear Project；需要全局视图时只列候选摘要。
+7. 真实 Linear 写入必须先 dry-run，再通过 Pi 确认 UI 或明确的对话 fallback 执行一次最终确认。
 8. repo-map、workspace sync、Fact Pack、write guard 的规则以项目工具、配置和文档为准。

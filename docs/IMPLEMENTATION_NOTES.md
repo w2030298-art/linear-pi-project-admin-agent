@@ -98,9 +98,9 @@ Linear `Project.description` has a 255-character limit. `scripts/project-field-n
 ## Web search
 
 支持 Tavily 和 Brave 两种 provider。默认 Tavily，因为返回内容更适合 Fact Pack；Brave 可作为隐私和独立索引优先的替代。
-## Cycle Disabled
+## Project-Scoped Runtime
 
-Cycle functionality is disabled at active entry points: `Agent:CyclePlan` is ignored by the dispatcher, `/cycle-plan` is a refusal prompt, and `plan-reviewer` / `linear-cli apply` reject `issue.create` or `issue.update` inputs containing `cycleId`.
+Active planning and reporting paths process one Project at a time. Workspace-level commands may list candidates, but they must not load every Project's detailed context into the prompt.
 
 ## Pi Write Confirmation UI
 

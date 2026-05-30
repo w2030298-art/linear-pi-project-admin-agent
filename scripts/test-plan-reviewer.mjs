@@ -31,7 +31,7 @@ function baseProjectPlan() {
         dependencies: ['Fact Pack', 'Pi interaction'],
         factRefs: ['Fact Pack smoke output'],
         assumptions: ['Linear writes remain dry-run until confirmed.'],
-        openQuestions: ['Which Cycle should adopt the reviewed plan?']
+        openQuestions: ['Which milestone should adopt the reviewed plan?']
       }
     ],
     relations: [

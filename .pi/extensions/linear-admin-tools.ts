@@ -81,7 +81,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_workspace_snapshot",
     label: "Linear Workspace Snapshot",
-    description: "Read teams, members, labels, workflow states, cycles and project summaries from Linear.",
+    description: "Read teams, members, labels, workflow states, and project summaries from Linear.",
     parameters: Type.Object({}),
     promptSnippet: "linear_workspace_snapshot: reads Linear workspace configuration for manifest sync.",
     async execute(_id, _params, signal) {

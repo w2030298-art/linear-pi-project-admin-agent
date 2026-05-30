@@ -12,7 +12,7 @@ import { reviewWritePlan } from './plan-reviewer.mjs';
     action: 'update',
     data: {
       labels: {
-        nodes: [{ name: 'Agent:CyclePlan' }]
+        nodes: [{ name: 'Agent:Unknown' }]
       }
     }
   };
@@ -20,12 +20,12 @@ import { reviewWritePlan } from './plan-reviewer.mjs';
   assert.equal(classified, null);
   const dispatched = await dispatchLinearEvent(payload);
   assert.equal(dispatched.queued, false);
-  assert.match(dispatched.reason, /Cycle planning disabled/i);
+  assert.match(dispatched.reason, /Unsupported Agent trigger/i);
 }
 
 {
   const report = reviewWritePlan({
-    idempotencyKey: 'cycle-disabled-test',
+    idempotencyKey: 'unsupported-issue-field-test',
     targetProjectId: 'project-1',
     targetMilestoneId: 'milestone-1',
     targetMilestoneReadback: { id: 'milestone-1', projectId: 'project-1' },
@@ -36,28 +36,28 @@ import { reviewWritePlan } from './plan-reviewer.mjs';
         type: 'issue.update',
         input: {
           issueId: 'issue-1',
-          cycleId: 'cycle-1',
+          cycleId: 'unsupported-field-value',
           stateId: 'state-1'
         }
       }
     ]
   });
   assert.equal(report.status, 'needs_revision');
-  assert.equal(report.findings.some(finding => finding.code === 'write_plan_cycle_disabled'), true);
+  assert.equal(report.findings.some(finding => finding.code === 'write_plan_unsupported_issue_field'), true);
 }
 
 {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'linear-cycle-disabled-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'linear-unsupported-field-'));
   const planPath = path.join(dir, 'write-plan.json');
   fs.writeFileSync(planPath, JSON.stringify({
-    idempotencyKey: 'cycle-disabled-cli-test',
+    idempotencyKey: 'unsupported-field-cli-test',
     dryRun: true,
     operations: [
       {
         type: 'issue.update',
         input: {
           issueId: 'issue-1',
-          cycleId: 'cycle-1'
+          cycleId: 'unsupported-field-value'
         }
       }
     ]
@@ -69,7 +69,7 @@ import { reviewWritePlan } from './plan-reviewer.mjs';
     encoding: 'utf8'
   });
   assert.equal(result.status, 1);
-  assert.match(`${result.stdout}\n${result.stderr}`, /cycleId/i);
+  assert.match(`${result.stdout}\n${result.stderr}`, /not supported by this agent write schema/i);
 }
 
 {
@@ -77,7 +77,7 @@ import { reviewWritePlan } from './plan-reviewer.mjs';
   assert.doesNotMatch(factSources, /^\s*-\s*cycle_plan\s*$/m);
 
   const orchestration = fs.readFileSync('config/orchestration-policy.yaml', 'utf8');
-  assert.match(orchestration, /^\s*enabled:\s*false\s*$/m);
+  assert.doesNotMatch(orchestration, /^\s*cycle:\s*$/m);
 }
 
-console.log('cycle disabled tests passed');
+console.log('unsupported field tests passed');

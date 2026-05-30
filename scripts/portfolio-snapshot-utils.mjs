@@ -53,44 +53,6 @@ export function countOpenIssues(issues) {
   return issues.filter(issue => !isTerminalIssue(issue)).length;
 }
 
-export function summarizeCycle(cycle, issues, blockedIdentifiers = new Set()) {
-  const cycleIssues = issues.filter(issue => issue.cycle?.id === cycle.id);
-  const completedCount = cycleIssues.filter(issue => stateBucket(issue) === 'Done').length;
-  const openIssues = cycleIssues.filter(issue => !isTerminalIssue(issue));
-  const highOpenCount = openIssues.filter(issue =>
-    (issue.labels?.nodes || []).some(label => label.name === 'High-difficulty')
-  ).length;
-  const blockedCount = openIssues.filter(issue =>
-    stateBucket(issue) === 'Blocked' || blockedIdentifiers.has(issue.identifier)
-  ).length;
-
-  return {
-    id: cycle.id,
-    number: cycle.number,
-    name: cycle.name,
-    startsAt: cycle.startsAt,
-    endsAt: cycle.endsAt,
-    issueCount: cycleIssues.length,
-    completedCount,
-    openCount: openIssues.length,
-    highOpenCount,
-    blockedCount,
-    issues: cycleIssues.map(issue => ({
-      identifier: issue.identifier,
-      title: issue.title,
-      state: issue.state?.name,
-      difficulty: (issue.labels?.nodes || []).find(label => DIFFICULTY_NAMES.has(label.name))?.name || null
-    }))
-  };
-}
-
-export function cycleWindowStatus(cycle, now = new Date()) {
-  const start = new Date(cycle.startsAt);
-  const end = new Date(cycle.endsAt);
-  if (start <= now && now < end) return 'current';
-  return start > now ? 'future' : 'past';
-}
-
 export function difficultyNames() {
   return DIFFICULTY_NAMES;
 }

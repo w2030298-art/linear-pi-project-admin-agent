@@ -21,9 +21,6 @@ issueDesign:
   recommendedLabels:
     - area
     - type
-cycle:
-  enabled: false
-  disabledReason: "Cycle planning and cycleId writes are disabled for this agent."
-  currentCycleMaxFocusIssues: 5
-  nextCycleMaxFocusIssues: 8
-  rolloverThreshold: 2
+scope:
+  maxProjectsPerRun: 1
+  projectListMode: summary_only

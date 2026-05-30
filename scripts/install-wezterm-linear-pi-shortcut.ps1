@@ -4,7 +4,8 @@ param(
   [string]$RuntimeRoot = 'C:\Users\22003\linear-pi-project-admin-agent-runtime',
   [string]$StableBranch = 'master',
   [string]$WezTermGui = 'C:\Program Files\WezTerm\wezterm-gui.exe',
-  [switch]$SkipRuntimeInit
+  [switch]$SkipRuntimeInit,
+  [switch]$SelfTestAllowedRuntimeDirty
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,6 +22,44 @@ function Invoke-GitValue([string[]]$Arguments) {
   return (($output | Out-String).Trim())
 }
 
+function Test-AllowedRuntimeDirty([string]$StatusText) {
+  $allowedPatterns = @(
+    'state/portfolio-review/*.json',
+    'state/fact-packs/*.json',
+    'state/write-plans/*',
+    'state/audit-reports/*',
+    'state/*.jsonl',
+    'state/repo-map.draft.yaml',
+    'state/repo-map-audit.jsonl',
+    '.pi/sessions/*'
+  )
+  $lines = @($StatusText -split "`r?`n" | Where-Object { $_.Trim() })
+  if (-not $lines.Length) {
+    return $true
+  }
+  foreach ($line in $lines) {
+    if ($line.Length -lt 4) {
+      return $false
+    }
+    $statusPath = $line.Substring(3).Trim()
+    if ($statusPath -match ' -> ') {
+      return $false
+    }
+    $normalized = $statusPath -replace '\\', '/'
+    $allowed = $false
+    foreach ($pattern in $allowedPatterns) {
+      if ($normalized -like $pattern) {
+        $allowed = $true
+        break
+      }
+    }
+    if (-not $allowed) {
+      return $false
+    }
+  }
+  return $true
+}
+
 $repoRootFull = (Resolve-Path -LiteralPath $RepoRoot).Path
 $configPath = Join-Path $repoRootFull 'config\wezterm-linear-pi.lua'
 $iconPath = Join-Path $repoRootFull 'assets\icons\linear-project-admin-pi.ico'
@@ -34,6 +73,15 @@ if (-not (Test-Path -LiteralPath $WezTermGui)) {
 }
 if (-not (Test-Path -LiteralPath $configPath)) {
   throw "WezTerm Pi config not found: $configPath"
+}
+
+if ($SelfTestAllowedRuntimeDirty) {
+  [pscustomobject]@{
+    ok = $true
+    ignoredRuntimeDirtyAllowed = (Test-AllowedRuntimeDirty " M state/portfolio-review/portfolio-snapshot-2026-05-28.json")
+    codeDirtyAllowed = (Test-AllowedRuntimeDirty " M scripts/linear-cli.mjs")
+  } | ConvertTo-Json -Depth 4
+  exit 0
 }
 
 New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
@@ -94,6 +142,44 @@ function Resolve-CommandFile([string]$Command) {
   throw "Command executable not found: $Command"
 }
 
+function Test-AllowedRuntimeDirty([string]$StatusText) {
+  $allowedPatterns = @(
+    'state/portfolio-review/*.json',
+    'state/fact-packs/*.json',
+    'state/write-plans/*',
+    'state/audit-reports/*',
+    'state/*.jsonl',
+    'state/repo-map.draft.yaml',
+    'state/repo-map-audit.jsonl',
+    '.pi/sessions/*'
+  )
+  $lines = @($StatusText -split "`r?`n" | Where-Object { $_.Trim() })
+  if (-not $lines.Length) {
+    return $true
+  }
+  foreach ($line in $lines) {
+    if ($line.Length -lt 4) {
+      return $false
+    }
+    $statusPath = $line.Substring(3).Trim()
+    if ($statusPath -match ' -> ') {
+      return $false
+    }
+    $normalized = $statusPath -replace '\\', '/'
+    $allowed = $false
+    foreach ($pattern in $allowedPatterns) {
+      if ($normalized -like $pattern) {
+        $allowed = $true
+        break
+      }
+    }
+    if (-not $allowed) {
+      return $false
+    }
+  }
+  return $true
+}
+
 function Invoke-CheckedCommand([string]$Command, [string[]]$Arguments, [string]$WorkingDirectory = '') {
   $process = New-Object System.Diagnostics.Process
   $process.StartInfo.FileName = Resolve-CommandFile $Command
@@ -133,7 +219,11 @@ function Ensure-RuntimeCheckout {
   } else {
     $dirty = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'status', '--porcelain')
     if (($dirty | Out-String).Trim()) {
-      throw "Runtime checkout is dirty; refusing to overwrite runtime state: $RuntimeRoot"
+      if (Test-AllowedRuntimeDirty $dirty) {
+        Write-LaunchLog "Runtime checkout has allowed local state changes; skipping git update before launch."
+        return
+      }
+      throw "Runtime checkout has code/config changes; refusing to overwrite runtime state: $RuntimeRoot"
     }
     $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'fetch', 'origin', $StableBranch)
     $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'checkout', $StableBranch)

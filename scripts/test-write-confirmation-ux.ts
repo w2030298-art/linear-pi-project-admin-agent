@@ -71,7 +71,8 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
     { confirmedByUser: false, dryRun: false, confirmationChannel: 'ask_user' },
     { ALLOW_LINEAR_WRITES: 'true' }
   );
-  assert.deepEqual(decision, { action: 'allow' });
+  assert.equal(decision.action, 'block');
+  assert.match(decision.message, /final approval state/i);
 }
 
 {

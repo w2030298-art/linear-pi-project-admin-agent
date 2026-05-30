@@ -11,7 +11,7 @@ const system = fs.readFileSync('SYSTEM.md', 'utf8');
 assert.match(system, /Linear Project Admin Runtime/);
 assert.match(system, /Fact Pack/);
 assert.match(system, /dry-run/);
-assert.match(system, /Cycle.*disabled/i);
+assert.match(system, /一.*Project|one.*Project/i);
 
 const readme = fs.readFileSync('README.md', 'utf8');
 const deployment = fs.readFileSync('docs/DEPLOYMENT.md', 'utf8');

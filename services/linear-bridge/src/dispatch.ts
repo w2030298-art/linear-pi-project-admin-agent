@@ -17,8 +17,6 @@ export function classifyLinearEvent(payload: any): { task: string; prompt: strin
 
   const trigger = labelNames.find((l: string) => l.startsWith("Agent:"));
   if (trigger) {
-    if (trigger === "Agent:CyclePlan") return null;
-
     const map: Record<string, string> = {
       "Agent:PlanProject": "create_project",
       "Agent:ExtendProject": "extend_project",
@@ -28,7 +26,9 @@ export function classifyLinearEvent(payload: any): { task: string; prompt: strin
       "Agent:HygieneCheck": "hygiene_check",
       "Agent:SyncWorkspace": "workspace_sync"
     };
-    return { task: map[trigger] || "linear_trigger", requiresFactPack: true, prompt: `Linear ${trigger} label detected on ${type}/${action}: ${JSON.stringify(payload).slice(0, 5000)}` };
+    const task = map[trigger];
+    if (!task) return null;
+    return { task, requiresFactPack: true, prompt: `Linear ${trigger} label detected on ${type}/${action}: ${JSON.stringify(payload).slice(0, 5000)}` };
   }
 
   return null;
@@ -37,10 +37,8 @@ export function classifyLinearEvent(payload: any): { task: string; prompt: strin
 export async function dispatchLinearEvent(payload: any) {
   const classified = classifyLinearEvent(payload);
   if (!classified) {
-    if (labelNamesFromPayload(payload).includes("Agent:CyclePlan")) {
-      return { queued: false, reason: "Cycle planning disabled" };
-    }
-    return { queued: false, reason: "No Agent trigger" };
+    const trigger = labelNamesFromPayload(payload).find((label: string) => label.startsWith("Agent:"));
+    return { queued: false, reason: trigger ? "Unsupported Agent trigger" : "No Agent trigger" };
   }
   await runPiTask(classified);
   return { queued: true, task: classified.task };
