@@ -91,6 +91,33 @@ repos:
 }
 
 {
+  const result = spawnSync(process.execPath, ['scripts/fact-pack.mjs', '--task', 'single project task', '--no-github', '--no-local', '--no-linear'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      REPO_MAP_PATH: repoMapPath,
+      GITHUB_DEFAULT_OWNER: 'fallback-owner',
+      GITHUB_DEFAULT_REPO: 'fallback-repo',
+      LOCAL_REPO_ROOTS: localPath
+    },
+    encoding: 'utf8'
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.factPack.piAskUser.flow, 'project_select');
+  assert.deepEqual(
+    output.factPack.piAskUser.options.filter(option => !option.custom).map(option => option.projectId),
+    ['linear-pi-project-admin-agent', 'linear-bridge']
+  );
+  assert.equal(output.factPack.piAskUser.options.at(-1).custom, true);
+  assert.match(output.factPack.openQuestions.join('\n'), /local project ID/i);
+  assert.doesNotMatch(output.factPack.openQuestions.join('\n'), /workspace/i);
+  assert.equal(output.factPack.scope.repo, undefined);
+  assert.doesNotMatch(JSON.stringify(output.factPack), /fallback-owner|fallback-repo/);
+  assert.doesNotMatch(output.factPack.evidenceGaps.join('\n'), /No Linear project key\/id/);
+}
+
+{
   const missing = resolveRepoMapEntry('incomplete', {
     cwd: process.cwd(),
     repoMapPath,

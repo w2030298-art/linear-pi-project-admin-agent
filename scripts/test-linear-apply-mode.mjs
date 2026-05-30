@@ -69,7 +69,7 @@ import {
   });
   assert.equal(fallbackChannel.channel, 'conversation_fallback');
   assert.equal(fallbackChannel.label, 'current conversation explicit approval fallback');
-  assert.match(fallbackChannel.fallbackReason, /pi_ask_user is repo-map only/i);
+  assert.match(fallbackChannel.fallbackReason, /pi_ask_user is project-selection\/repo-map only/i);
 
   const unavailableChannel = resolveConfirmationChannel({
     hostCapabilities: {

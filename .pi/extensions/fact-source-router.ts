@@ -22,7 +22,7 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: "fact_pack_build: builds a cited Fact Pack before Linear planning.",
     promptGuidelines: [
       "Use fact_pack_build before create_project, extend_project, single_project_review, project_report, and issue_dispatch tasks.",
-      "When no project is specified, return a compact project-selection gap instead of scanning the whole workspace.",
+      "When no project is specified, call pi_ask_user with flow=project_select first; its options come from the local repo-map, not Linear.",
       "fact_pack_build does not write to Linear; it returns facts, assumptions, conflicts, evidence gaps, and planning implications."
     ],
     async execute(_toolCallId, params, signal) {

@@ -354,6 +354,8 @@ Fact Pack 优先级：
 
 Drift governance:
 
+Before any single-Project task without an explicit target, use `pi_ask_user(flow=project_select)`. It lists project IDs from the local three-source repo-map, appends `User input`, and only then allows Linear project context reads for the selected target.
+
 1. Run `npm run repo-map:drift -- check --repo <repoKey>` with explicit GitHub/Linear/local facts when available.
 2. The check command writes only `state/repo-map.draft.yaml` and reports `drifts`, `missingFields`, `diff`, and `piAskUser` seeds when clarification is needed.
 3. If fields are missing, use `pi_ask_user(flow=repo_map)` with the returned Linear Project context. Do not fabricate GitHub URL, localPath, repoKey, defaultBranch, or Linear Project ID.

@@ -4,8 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   buildRepoMapDraft,
+  CUSTOM_PROJECT_INPUT_LABEL,
   createNonInteractiveRepoMapResult,
   findLinearProjectInWorkspace,
+  listRegisteredProjectChoices,
+  runProjectSelectionFlow,
   runRepoMapAskFlow,
   validateRepoMapInputs
 } from '../.pi/extensions/pi-ask-user.ts';
@@ -22,6 +25,99 @@ const validAnswers = {
   repoKey: 'linear-bridge',
   defaultBranch: 'main'
 };
+
+const repoMapPath = path.join(tempRoot, 'repo-map.yaml');
+const projectAPath = path.join(tempRoot, 'selection-project-a');
+const projectBPath = path.join(tempRoot, 'selection-project-b');
+fs.mkdirSync(projectAPath);
+fs.mkdirSync(projectBPath);
+fs.writeFileSync(repoMapPath, `
+version: 1
+repos:
+  - repoKey: project-a
+    github:
+      owner: w2030298-art
+      repo: project-a
+      defaultBranch: main
+    linear:
+      projectId: linear-project-a
+      projectName: Project A
+      projectPrefix: project-a
+    localPath: ${JSON.stringify(projectAPath)}
+    docs:
+      - README.md
+    evidenceWeight: high
+  - repoKey: project-b
+    github:
+      owner: w2030298-art
+      repo: project-b
+      defaultBranch: main
+    linear:
+      projectId: linear-project-b
+      projectName: Project B
+      projectPrefix: project-b
+    localPath: ${JSON.stringify(projectBPath)}
+    docs:
+      - README.md
+    evidenceWeight: high
+`);
+
+{
+  const choices = listRegisteredProjectChoices({ cwd: process.cwd(), repoMapPath });
+  assert.deepEqual(choices.map(choice => choice.projectId), ['project-a', 'project-b']);
+  assert.equal(choices[0].localPath, path.resolve(projectAPath));
+  assert.equal(choices[1].linearProjectId, 'linear-project-b');
+}
+
+{
+  const selectCalls: string[][] = [];
+  const ctx = {
+    hasUI: true,
+    ui: {
+      async select(_title: string, options: string[]) {
+        selectCalls.push(options);
+        return 'project-b';
+      },
+      async input() {
+        throw new Error('custom input should not be requested for a repo-map selection');
+      },
+      notify() {}
+    }
+  };
+  const result = await runProjectSelectionFlow(ctx, { cwd: process.cwd(), repoMapPath });
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'project_selected');
+  assert.equal(result.source, 'repo_map');
+  assert.equal(result.selectedProjectId, 'project-b');
+  assert.equal(result.repoKey, 'project-b');
+  assert.equal(result.localPath, path.resolve(projectBPath));
+  assert.equal(result.linearProjectIdOrKey, 'linear-project-b');
+  assert.deepEqual(selectCalls[0], ['project-a', 'project-b', CUSTOM_PROJECT_INPUT_LABEL]);
+}
+
+{
+  const ctx = {
+    hasUI: true,
+    ui: {
+      async select(_title: string, options: string[]) {
+        assert.deepEqual(options, ['project-a', 'project-b', CUSTOM_PROJECT_INPUT_LABEL]);
+        return CUSTOM_PROJECT_INPUT_LABEL;
+      },
+      async input(title: string) {
+        assert.match(title, /Project ID/i);
+        return 'manual-project-id';
+      },
+      notify() {}
+    }
+  };
+  const result = await runProjectSelectionFlow(ctx, { cwd: process.cwd(), repoMapPath });
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'custom_project_input');
+  assert.equal(result.source, 'user_input');
+  assert.equal(result.selectedProjectId, 'manual-project-id');
+  assert.equal(result.repoKey, 'manual-project-id');
+  assert.equal(result.writesPerformed, false);
+}
 
 {
   const project = findLinearProjectInWorkspace('linear-bridge Linear dispatch bridge', [
