@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { reloadMasterPreflight, runtimeGitArgs, runtimeNpmArgs, shouldInstallDependencies } from '../.pi/extensions/runtime-master-reload.ts';
+import {
+  isAllowedRuntimeDirtyStatus,
+  reloadMasterPreflight,
+  runtimeGitArgs,
+  runtimeNpmArgs,
+  shouldInstallDependencies
+} from '../.pi/extensions/runtime-master-reload.ts';
 
 {
   const clean = reloadMasterPreflight({
@@ -12,13 +18,28 @@ import { reloadMasterPreflight, runtimeGitArgs, runtimeNpmArgs, shouldInstallDep
 }
 
 {
-  const dirty = reloadMasterPreflight({
+  const generatedDirty = reloadMasterPreflight({
+    insideWorkTree: true,
+    branch: 'master',
+    dirtyStatus: ' M state/portfolio-review/portfolio-snapshot-2026-05-28.json'
+  });
+  assert.equal(generatedDirty.ok, true);
+}
+
+{
+  assert.equal(isAllowedRuntimeDirtyStatus(' M state/fact-packs/evidence/fact-1/local-repo.json'), true);
+  assert.equal(isAllowedRuntimeDirtyStatus(' M .pi/sessions/session.jsonl'), true);
+  assert.equal(isAllowedRuntimeDirtyStatus(' M scripts/linear-cli.mjs'), false);
+}
+
+{
+  const sourceDirty = reloadMasterPreflight({
     insideWorkTree: true,
     branch: 'master',
     dirtyStatus: ' M docs/OPERATIONS.md'
   });
-  assert.equal(dirty.ok, false);
-  assert.match(dirty.reason, /dirty/i);
+  assert.equal(sourceDirty.ok, false);
+  assert.match(sourceDirty.reason, /dirty/i);
 }
 
 {
@@ -34,6 +55,15 @@ import { reloadMasterPreflight, runtimeGitArgs, runtimeNpmArgs, shouldInstallDep
 {
   assert.deepEqual(runtimeGitArgs('C:\\runtime', 'fetch'), ['-C', 'C:\\runtime', 'fetch', 'origin', 'master']);
   assert.deepEqual(runtimeGitArgs('C:\\runtime', 'pull'), ['-C', 'C:\\runtime', 'pull', '--ff-only', 'origin', 'master']);
+  assert.deepEqual(runtimeGitArgs('C:\\runtime', 'stash-generated-state'), [
+    '-C',
+    'C:\\runtime',
+    'stash',
+    'push',
+    '--include-untracked',
+    '-m',
+    'linear-pi-runtime-generated-state-before-reload'
+  ]);
   assert.deepEqual(runtimeNpmArgs(true), ['ci']);
   assert.deepEqual(runtimeNpmArgs(false), ['install']);
 }
@@ -75,6 +105,7 @@ import { reloadMasterPreflight, runtimeGitArgs, runtimeNpmArgs, shouldInstallDep
   assert.match(source, /registerCommand\(["']reload-master["']/);
   assert.match(source, /ctx\.reload\(\)/);
   assert.match(source, /--ff-only/);
+  assert.match(source, /stash.*push/s);
   assert.match(source, /npm/);
   assert.match(source, /branch.*master/i);
   assert.match(source, /dirty/i);

@@ -59,7 +59,7 @@ Shortcut arguments:
 The shortcut runs the external launcher. The launcher:
 
 1. Ensures `C:\Users\22003\linear-pi-project-admin-agent-runtime` exists as a clone of the GitHub repo.
-2. Checks the runtime checkout is clean.
+2. Stashes allowed generated runtime state if present, while still blocking code/config dirty changes.
 3. Checks out `master`.
 4. Runs `git pull --ff-only origin master`.
 5. Runs `npm ci` only when dependencies are missing or package manifests changed.
@@ -121,7 +121,7 @@ Use the project command `/reload-master` when the WezTerm runtime is already ope
 
 1. Refuses to run outside a git worktree.
 2. Refuses to run unless the current branch is `master`.
-3. Refuses to run unless the checkout is clean.
+3. Stashes allowed generated runtime state if present, while still blocking code/config dirty changes.
 4. Runs `git fetch origin master`.
 5. Runs `git pull --ff-only origin master`.
 6. Runs `npm ci` when dependency files are missing or stale, or `npm install` if no lockfile exists.

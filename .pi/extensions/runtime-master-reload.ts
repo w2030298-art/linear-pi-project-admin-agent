@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExecResult } from "@earendil-works/pi-coding-agent";
 import fs from "node:fs";
 import path from "node:path";
 
-type RuntimeGitAction = "inside" | "branch" | "status" | "fetch" | "pull";
+type RuntimeGitAction = "inside" | "branch" | "status" | "stash-generated-state" | "fetch" | "pull";
 
 type RuntimePreflightInput = {
   insideWorkTree: boolean;
@@ -28,11 +28,25 @@ const GIT_TIMEOUT_MS = 120000;
 const NPM_TIMEOUT_MS = 300000;
 const STABLE_BRANCH = "master";
 const DEPENDENCY_STAMP = ".linear-pi-runtime-deps.stamp";
+const ALLOWED_RUNTIME_DIRTY_PATTERNS = [
+  /^state\/portfolio-review\/[^/]+\.json$/,
+  /^state\/fact-packs\/[^/]+\.json$/,
+  /^state\/fact-packs\/evidence\/.+$/,
+  /^state\/write-plans\/.+$/,
+  /^state\/audit-reports\/.+$/,
+  /^state\/[^/]+\.jsonl$/,
+  /^state\/repo-map\.draft\.yaml$/,
+  /^state\/repo-map-audit\.jsonl$/,
+  /^\.pi\/sessions\/.+$/
+];
 
 export function runtimeGitArgs(cwd: string, action: RuntimeGitAction): string[] {
   if (action === "inside") return ["-C", cwd, "rev-parse", "--is-inside-work-tree"];
   if (action === "branch") return ["-C", cwd, "branch", "--show-current"];
   if (action === "status") return ["-C", cwd, "status", "--porcelain"];
+  if (action === "stash-generated-state") {
+    return ["-C", cwd, "stash", "push", "--include-untracked", "-m", "linear-pi-runtime-generated-state-before-reload"];
+  }
   if (action === "fetch") return ["-C", cwd, "fetch", "origin", STABLE_BRANCH];
   return ["-C", cwd, "pull", "--ff-only", "origin", STABLE_BRANCH];
 }
@@ -41,9 +55,24 @@ export function runtimeNpmArgs(hasPackageLock: boolean): string[] {
   return [hasPackageLock ? "ci" : "install"];
 }
 
+function dirtyPath(line: string): string | null {
+  if (line.length < 4) return null;
+  if (line.includes(" -> ")) return null;
+  return line.slice(3).trim().replace(/\\/g, "/");
+}
+
+export function isAllowedRuntimeDirtyStatus(dirtyStatus: string): boolean {
+  const lines = dirtyStatus.split(/\r?\n/).map(line => line.trimEnd()).filter(Boolean);
+  if (!lines.length) return true;
+  return lines.every(line => {
+    const changedPath = dirtyPath(line);
+    return Boolean(changedPath && ALLOWED_RUNTIME_DIRTY_PATTERNS.some(pattern => pattern.test(changedPath)));
+  });
+}
+
 export function reloadMasterPreflight(input: RuntimePreflightInput): RuntimePreflightResult {
   const branch = input.branch.trim();
-  const dirtyStatus = input.dirtyStatus.trim();
+  const dirtyStatus = input.dirtyStatus;
 
   if (!input.insideWorkTree) {
     return { ok: false, reason: "Current directory is not a git worktree." };
@@ -56,7 +85,7 @@ export function reloadMasterPreflight(input: RuntimePreflightInput): RuntimePref
     };
   }
 
-  if (dirtyStatus) {
+  if (dirtyStatus.trim() && !isAllowedRuntimeDirtyStatus(dirtyStatus)) {
     return {
       ok: false,
       reason: "Runtime checkout is dirty; commit, stash, or discard local changes before pulling origin/master."
@@ -141,6 +170,10 @@ export default function runtimeMasterReload(pi: ExtensionAPI) {
         throw new Error(`/reload-master blocked: ${preflight.reason}`);
       }
 
+      if (dirtyStatus.trim()) {
+        if (ctx.hasUI) ctx.ui.notify("Stashing generated runtime state before pulling origin/master...", "info");
+        await gitOutput(pi, ctx.cwd, "stash-generated-state");
+      }
       if (ctx.hasUI) ctx.ui.notify("Pulling latest origin/master before reload...", "info");
       await gitOutput(pi, ctx.cwd, "fetch");
       await gitOutput(pi, ctx.cwd, "pull");

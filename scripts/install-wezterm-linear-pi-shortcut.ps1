@@ -220,10 +220,11 @@ function Ensure-RuntimeCheckout {
     $dirty = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'status', '--porcelain')
     if (($dirty | Out-String).Trim()) {
       if (Test-AllowedRuntimeDirty $dirty) {
-        Write-LaunchLog "Runtime checkout has allowed local state changes; skipping git update before launch."
-        return
+        Write-LaunchLog "Runtime checkout has allowed local state changes; stashing generated state before update."
+        $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'stash', 'push', '--include-untracked', '-m', 'linear-pi-runtime-generated-state-before-launch')
+      } else {
+        throw "Runtime checkout has code/config changes; refusing to overwrite runtime state: $RuntimeRoot"
       }
-      throw "Runtime checkout has code/config changes; refusing to overwrite runtime state: $RuntimeRoot"
     }
     $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'fetch', 'origin', $StableBranch)
     $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'checkout', $StableBranch)
