@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
+import { resolveLinearProjectId } from './linear-project-resolver.mjs';
 import { normalizeProjectDescriptionFields } from './project-field-normalizer.mjs';
 import { detectHostConfirmationCapabilities, resolveApplyMode } from './write-plan-execution.mjs';
 
@@ -411,22 +412,7 @@ async function workspace() {
   const teams = await linear.teams();
   const labels = await linear.issueLabels();
   const users = await linear.users();
-  const projectsData = await linear.client.rawRequest(`
-    query WorkspaceProjects {
-      projects(first: 100) {
-        nodes {
-          id
-          name
-          url
-          state
-          createdAt
-          updatedAt
-          startDate
-          targetDate
-          archivedAt
-        }
-      }
-    }`);
+  const projects = await workspaceProjectSummaries(linear);
   let workflowStates = [];
   try {
     const statesData = await linear.client.rawRequest(`
@@ -457,20 +443,40 @@ async function workspace() {
     teams: teams.nodes.map(t => ({ id: t.id, key: t.key, name: t.name })),
     labels: labels.nodes.map(l => ({ id: l.id, name: l.name, color: l.color })),
     users: users.nodes.slice(0, 100).map(u => ({ id: u.id, name: u.name, active: u.active, admin: u.admin })),
-    projects: projectsData.data.projects.nodes.map(project => ({
-      id: project.id,
-      name: project.name,
-      url: project.url,
-      state: project.state,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      startDate: project.startDate,
-      targetDate: project.targetDate,
-      archivedAt: project.archivedAt,
-      active: !project.archivedAt && !['canceled', 'completed'].includes(project.state)
-    })),
+    projects,
     workflowStates
   });
+}
+
+async function workspaceProjectSummaries(linear) {
+  const projectsData = await linear.client.rawRequest(`
+    query WorkspaceProjects {
+      projects(first: 100) {
+        nodes {
+          id
+          name
+          url
+          state
+          createdAt
+          updatedAt
+          startDate
+          targetDate
+          archivedAt
+        }
+      }
+    }`);
+  return projectsData.data.projects.nodes.map(project => ({
+    id: project.id,
+    name: project.name,
+    url: project.url,
+    state: project.state,
+    createdAt: project.createdAt,
+    updatedAt: project.updatedAt,
+    startDate: project.startDate,
+    targetDate: project.targetDate,
+    archivedAt: project.archivedAt,
+    active: !project.archivedAt && !['canceled', 'completed'].includes(project.state)
+  }));
 }
 
 async function project(projectIdOrKey) {
@@ -490,8 +496,41 @@ async function project(projectIdOrKey) {
         } }
       }
     }`;
-  const res = await linear.client.rawRequest(query, { id: projectIdOrKey });
-  json({ ok: true, sourceType: 'linear_live', collectedAt: now(), data: res.data });
+  const resolution = await resolveLinearProjectId(projectIdOrKey, {
+    directLookup: async locator => {
+      const res = await linear.client.rawRequest(query, { id: locator });
+      return res.data?.project || null;
+    },
+    workspaceProjects: () => workspaceProjectSummaries(linear)
+  });
+
+  if (!resolution.ok) {
+    json({
+      ok: false,
+      error: resolution.message,
+      sourceType: 'linear_live',
+      collectedAt: now(),
+      resolution
+    });
+    process.exitCode = 1;
+    return;
+  }
+
+  const projectData = resolution.source === 'direct'
+    ? resolution.project
+    : (await linear.client.rawRequest(query, { id: resolution.resolvedProjectId })).data?.project;
+  json({
+    ok: true,
+    sourceType: 'linear_live',
+    collectedAt: now(),
+    resolvedProject: {
+      input: projectIdOrKey,
+      resolvedProjectId: resolution.resolvedProjectId,
+      source: resolution.source,
+      directError: resolution.directError || null
+    },
+    data: { project: projectData }
+  });
 }
 
 async function issues() {

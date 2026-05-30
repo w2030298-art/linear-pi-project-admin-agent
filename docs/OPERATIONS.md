@@ -11,6 +11,7 @@ npm run test:repo-map-drift
 npm run test:pi-ask-user
 npm run test:wezterm-launch
 npm run test:linear-apply-mode
+npm run test:project-resolver
 npm run test:retrieval-ux
 npm run test:write-confirmation
 npm run test:pipeline-refactor-goals
@@ -72,6 +73,13 @@ npm run bridge:dev
 - `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from `config/repo-map.yaml` first.
 - If a repoKey is missing or incomplete, record an evidence gap instead of falling back to another repo.
 - Run `npm run test:repo-map` after changing repo-map behavior.
+
+## Linear Project Locator Resolution
+
+- `linear_get_project_context` and `fact_pack_build --linear` accept a Project ID, Linear Project URL, `/overview` URL, or exact Project name.
+- The resolver first attempts direct Project lookup, then falls back to workspace matching by normalized Project URL, URL slug, ID, or exact name.
+- If no unique match exists, return a compact `project_selection_gap`; do not silently fall back to another repo-map project.
+- Run `npm run test:project-resolver` and a live smoke such as `node scripts/linear-cli.mjs project "<linear-project-overview-url>"` after changing this behavior.
 
 ## Repo-Map Drift Governance
 
