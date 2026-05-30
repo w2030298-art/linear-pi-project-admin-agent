@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 
 const guidePath = 'docs/WEZTERM_PI_LAUNCH.md';
@@ -57,9 +58,15 @@ assert.match(report, /rollback/i);
 assert.match(config, /require\(["']wezterm["']\)/);
 assert.match(config, /CopyTo\(["']Clipboard["']\)/);
 assert.match(config, /PasteFrom\(["']Clipboard["']\)/);
+assert.match(config, /action_callback/);
+assert.match(config, /get_selection_text_for_pane/);
+assert.match(config, /ClearSelection/);
+assert.match(config, /SendKey/);
 assert.match(config, /ActivateCommandPalette/);
 assert.match(config, /SpawnTab/);
 assert.match(config, /LINEAR_PI_RUNTIME_ROOT/);
+assert.match(config, /key\s*=\s*["']c["']/);
+assert.match(config, /key\s*=\s*["']C["']/);
 
 assert.match(installer, /--config-file/);
 assert.match(installer, /wezterm-linear-pi\.lua/);
@@ -75,5 +82,19 @@ assert.match(installer, /\$Command\.cmd/);
 assert.match(installer, /\$process\.StartInfo\.FileName\s*=\s*Resolve-CommandFile \$Command/);
 assert.match(installer, /LOCALAPPDATA|LocalAppData/i);
 assert.match(installer, /powershell\.exe/i);
+
+const weztermExe = 'C:\\Program Files\\WezTerm\\wezterm.exe';
+if (fs.existsSync(weztermExe)) {
+  const shown = spawnSync(weztermExe, ['--config-file', configPath, 'show-keys', '--lua'], {
+    encoding: 'utf8'
+  });
+  assert.equal(shown.status, 0, shown.stderr || shown.stdout);
+  assert.match(shown.stdout, /key = 'c', mods = 'CTRL'/);
+  assert.match(shown.stdout, /key = 'v', mods = 'CTRL'/);
+  assert.match(shown.stdout, /key = 'C', mods = 'CTRL'/);
+  assert.match(shown.stdout, /key = 'V', mods = 'CTRL'/);
+  assert.match(shown.stdout, /EmitEvent/);
+  assert.match(shown.stdout, /PasteFrom 'Clipboard'/);
+}
 
 console.log('wezterm launch docs tests passed');
