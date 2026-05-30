@@ -113,6 +113,22 @@ To make a feature available in the runtime launcher:
 2. Start `Linear Project Admin Pi (WezTerm)` again.
 3. The launcher fast-forwards the runtime checkout to the new `master`.
 
+## Refresh While Running
+
+Use Pi's built-in `/reload` when local files are already updated and only the in-process extensions, skills, prompts, and themes need to reload.
+
+Use the project command `/reload-master` when the WezTerm runtime is already open and should pull latest origin/master before reloading. The command:
+
+1. Refuses to run outside a git worktree.
+2. Refuses to run unless the current branch is `master`.
+3. Refuses to run unless the checkout is clean.
+4. Runs `git fetch origin master`.
+5. Runs `git pull --ff-only origin master`.
+6. Runs `npm ci` when dependency files are missing or stale, or `npm install` if no lockfile exists.
+7. Calls `ctx.reload()`.
+
+This gives the running Pi session the same stable-branch refresh behavior as a fresh shortcut launch without switching a development repo away from its feature branch.
+
 ## Smoke Checks
 
 Automated checks cover:
@@ -120,6 +136,7 @@ Automated checks cover:
 - The launcher script name and runtime root are documented.
 - The shortcut uses `powershell.exe` to run `launch-linear-pi-runtime.ps1`.
 - The runtime branch is `master` and uses `git pull --ff-only`.
+- The `/reload-master` command pulls `origin/master` only from a clean master runtime checkout before reload.
 - The WezTerm config includes copy and paste shortcut bindings.
 - No token, secret, API key, or credential value is stored in shortcut docs.
 

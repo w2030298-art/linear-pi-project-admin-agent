@@ -31,6 +31,7 @@ for (const text of [guide, report]) {
   assert.match(text, runtimeRootPattern);
   assert.match(text, /--config-file/i);
   assert.match(text, /wezterm-linear-pi\.lua/i);
+  assert.match(text, /\/reload-master/i);
   assert.match(text, /C:\\Users\\22003\\linear-pi-project-admin-agent/);
   assert.match(text, /\bpi\b/);
   assert.doesNotMatch(text, /(LINEAR_API_KEY|LINEAR_API_TOKEN|GITHUB_TOKEN|OPENAI_API_KEY)\s*=/i);

@@ -12,6 +12,7 @@
     "extensions/linear-write-guard.ts",
     "extensions/linear-plan-reviewer.ts",
     "extensions/workspace-sync.ts",
+    "extensions/runtime-master-reload.ts",
     "extensions/observability.ts"
   ],
   "enableSkillCommands": true,
