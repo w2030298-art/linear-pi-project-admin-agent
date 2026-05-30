@@ -232,6 +232,30 @@ function baseProjectPlan() {
 
 {
   const writePlan = {
+    idempotencyKey: 'project-update-only-governance',
+    dryRun: true,
+    confirmedByUser: false,
+    targetProjectId: 'project-admin',
+    dependencyValidation: 'Project governance update does not need issue or relation changes.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'projectUpdate.create',
+        input: {
+          projectId: 'project-admin',
+          body: 'Freeze notice.'
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan);
+  assert.equal(report.status, 'pass');
+  assert.deepEqual(report.findings, []);
+}
+
+{
+  const writePlan = {
     idempotencyKey: 'issue-only-milestone-project-mismatch',
     dryRun: true,
     confirmedByUser: false,
