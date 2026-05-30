@@ -37,6 +37,20 @@
         }
       }
     },
+    "projectBaseline": {
+      "type": ["object", "null"],
+      "properties": {
+        "kind": { "const": "linear_project_baseline" },
+        "collectedAt": { "type": "string" },
+        "rawEvidenceRef": { "type": ["string", "null"] },
+        "project": { "type": "object" },
+        "counts": { "type": "object" },
+        "latestUpdatedAt": { "type": ["string", "null"] },
+        "issueSample": { "type": "array" },
+        "milestoneSample": { "type": "array" },
+        "updateSample": { "type": "array" }
+      }
+    },
     "assumptions": { "type": "array", "items": { "type": "string" } },
     "openQuestions": { "type": "array", "items": { "type": "string" } },
     "conflicts": { "type": "array", "items": { "type": "string" } },

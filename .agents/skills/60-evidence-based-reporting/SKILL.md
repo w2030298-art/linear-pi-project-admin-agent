@@ -5,6 +5,13 @@ description: 基于 Linear、GitHub、本地 repo/docs 和 web 事实生成单 P
 
 # Evidence Based Reporting
 
+## Project Baseline Reuse
+
+- For Project reports, first load `projectBaseline` from the Fact Pack with `fact_project_baseline_load`.
+- Use the compact baseline and raw `evidenceRef` when `shouldReadLive=false`.
+- Re-read full Linear Project context only when the baseline is absent, stale, or missing report fields.
+- Report output should include baseline loader status and evidenceRef, not full raw JSON.
+
 ## 目的
 
 基于 Linear、GitHub、本地和 web 事实生成项目报告。

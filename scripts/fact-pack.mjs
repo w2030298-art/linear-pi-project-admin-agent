@@ -4,9 +4,10 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { arg, has, json, now, ensureDir, writeJson, hash } from './utils.mjs';
 import { listRepoMapProjectOptions, resolveRepoMapEntry } from './repo-map.mjs';
-import { buildEvidenceBackedFact, compactFactPack, writeEvidenceFile } from './fact-pack-utils.mjs';
+import { buildEvidenceBackedFact, compactFactPack, loadProjectBaselineFromFactPack, writeEvidenceFile } from './fact-pack-utils.mjs';
 
-const cmd = process.argv[2] === 'conflicts' ? 'conflicts' : 'build';
+const rawCmd = process.argv[2];
+const cmd = rawCmd === 'conflicts' || rawCmd === 'baseline' ? rawCmd : 'build';
 const task = arg('--task', 'unspecified');
 const linear = arg('--linear', '');
 const repoKey = arg('--repo', '');
@@ -35,6 +36,17 @@ if (cmd === 'conflicts') {
   const pack = JSON.parse(fs.readFileSync(p, 'utf8'));
   json({ path: p, conflicts: pack.conflicts, recommendedResolution: pack.conflicts.length ? 'Report conflicts before planning; Linear wins for project state, GitHub main wins for remote engineering state, local repo wins for working-copy state.' : 'No conflicts recorded.' });
   process.exit(0);
+}
+
+if (cmd === 'baseline') {
+  const p = process.argv[3] || latestFactPackPath();
+  if (!p) { json({ ok: false, error: 'no fact pack found' }); process.exit(1); }
+  const maxAgeHours = Number(arg('--max-age-hours', '24'));
+  const result = loadProjectBaselineFromFactPack(p, {
+    maxAgeMs: Number.isFinite(maxAgeHours) ? maxAgeHours * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+  });
+  json({ ok: !result.shouldReadLive, path: p, ...result });
+  process.exit(result.status === 'present' ? 0 : 2);
 }
 
 const pack = {

@@ -30,6 +30,7 @@
     "test:linear-apply-mode": "node scripts/test-linear-apply-mode.mjs",
     "test:linear-snapshot": "node scripts/test-linear-snapshot.mjs",
     "test:project-resolver": "node scripts/test-linear-project-resolver.mjs",
+    "test:project-baseline": "node scripts/test-project-baseline-loader.mjs",
     "test:retrieval-ux": "node scripts/test-retrieval-ux.mjs",
     "test:write-confirmation": "tsx scripts/test-write-confirmation-ux.ts",
     "test:pipeline-refactor-goals": "tsx scripts/test-pipeline-refactor-goals.mjs"
