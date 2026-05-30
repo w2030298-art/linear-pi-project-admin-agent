@@ -8,7 +8,7 @@ export function detectHostConfirmationCapabilities(env = process.env, cwd = proc
     piAskUserAvailable: env.PI_ASK_USER_AVAILABLE === 'false'
       ? false
       : true,
-    conversationFallbackAllowed: env.CONVERSATION_APPROVAL_FALLBACK !== 'false',
+    conversationFallbackAllowed: env.CONVERSATION_APPROVAL_FALLBACK === 'true' || env.ALLOW_CONVERSATION_APPROVAL_FALLBACK === 'true',
     cwd
   };
 }
@@ -16,7 +16,7 @@ export function detectHostConfirmationCapabilities(env = process.env, cwd = proc
 export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
   const askUserAvailable = hostCapabilities.askUserAvailable === true;
   const piAskUserAvailable = hostCapabilities.piAskUserAvailable === true;
-  const conversationFallbackAllowed = hostCapabilities.conversationFallbackAllowed !== false;
+  const conversationFallbackAllowed = hostCapabilities.conversationFallbackAllowed === true;
 
   if (askUserAvailable) {
     return {
@@ -25,11 +25,11 @@ export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
       canApplyAfterExplicitApproval: true,
       fallbackReason: null,
       userPrompt:
-        'Trigger one ask_user approve/cancel UI for the exact dry-run write plan before real apply.'
+        'Click Approve in the ask_user approve/cancel UI for the exact dry-run write plan; do not type a confirmation phrase.'
     };
   }
 
-  if (conversationFallbackAllowed) {
+  if (conversationFallbackAllowed === true) {
     return {
       channel: 'conversation_fallback',
       label: 'current conversation explicit approval fallback',
@@ -44,11 +44,11 @@ export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
 
   return {
     channel: 'unavailable',
-    label: 'not writable until ask_user or explicit conversation approval is available',
+    label: 'interactive confirmation unavailable; real write not applied',
     canApplyAfterExplicitApproval: false,
-    fallbackReason: 'No generic ask_user is available and current-conversation fallback is disabled.',
+    fallbackReason: 'interactive confirmation unavailable; real write not applied. Generic ask_user is unavailable and current-conversation fallback is not explicitly allowed.',
     userPrompt:
-      'Real apply is blocked until ask_user or an explicit current-conversation approval fallback is available.'
+      'Real apply is blocked until ask_user approve/cancel is available or the user explicitly allows current-conversation text fallback.'
   };
 }
 
@@ -76,7 +76,7 @@ export function buildConfirmationRecord({ channel, confirmationText, writePlanPa
       confirmationFallbackReason: null,
       confirmationText: [
         'Confirmation channel: ask_user approve/cancel UI.',
-        `User approval: ${userApproval || 'ask_user approved the exact dry-run write plan.'}`,
+        'User approval: ask_user approved the exact dry-run write plan.',
         `Write plan: ${planPath}`,
         `Idempotency key: ${key}`
       ].join('\n')

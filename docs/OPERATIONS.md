@@ -63,8 +63,8 @@ npm run bridge:dev
 
 - `linear_apply_write_plan` with `dryRun=true` is allowed without user approval and only compiles the plan.
 - Real writes still require `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and `confirmedByUser=true`.
-- In interactive Pi runs, `linear_apply_write_plan` uses `ctx.ui.confirm()` as the final approve/cancel channel before real Linear writes.
-- If `ctx.hasUI` is false, the agent may use current conversation explicit approval fallback after saying no generic confirmation UI is available.
+- In interactive Pi runs, `linear_apply_write_plan` uses `ctx.ui.confirm()` exactly once as the final approve/cancel channel before real Linear writes.
+- If `ctx.hasUI` is false, real writes are blocked with `interactive confirmation unavailable; real write not applied` unless the user explicitly allows current-conversation text fallback and the call passes `allowConversationFallback=true`.
 
 ## Fact Pack Repo-Map Mismatch
 

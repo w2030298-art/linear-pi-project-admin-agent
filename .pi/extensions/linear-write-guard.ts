@@ -5,7 +5,7 @@ const MUTATING_LINEAR_TOOLS = new Set([
 ]);
 
 export function linearWriteGuardDecision(
-  params: { confirmedByUser?: boolean; dryRun?: boolean; confirmationText?: string; confirmationChannel?: string },
+  params: { confirmedByUser?: boolean; dryRun?: boolean; confirmationText?: string; confirmationChannel?: string; allowConversationFallback?: boolean },
   _env: Record<string, string | undefined> = process.env
 ) {
   if (params.dryRun !== false) return { action: "allow" as const };
@@ -18,6 +18,13 @@ export function linearWriteGuardDecision(
   if (params.confirmedByUser === true) {
     const confirmationText = params.confirmationText || "";
     if (params.confirmationChannel === "conversation_fallback") {
+      if (params.allowConversationFallback !== true) {
+        return {
+          action: "block" as const,
+          message:
+            "Blocked linear_apply_write_plan: interactive confirmation unavailable; real write not applied unless the user explicitly allows current-conversation text fallback."
+        };
+      }
       if (!confirmationText.trim()) {
         return {
           action: "block" as const,
@@ -32,7 +39,7 @@ export function linearWriteGuardDecision(
   return {
     action: "block" as const,
     message:
-      "Blocked linear_apply_write_plan: use ask_user exactly once to approve the exact dry-run plan, or explicitly tell the user that current conversation approval fallback will be used when generic ask_user is unavailable. Then call with confirmedByUser=true and confirmationText."
+      "Blocked linear_apply_write_plan: use ask_user exactly once to approve the exact dry-run plan. If generic ask_user is unavailable, real writes are blocked unless the user explicitly allows current-conversation text fallback and the call includes allowConversationFallback=true, confirmationChannel=conversation_fallback, and confirmationText."
   };
 }
 
