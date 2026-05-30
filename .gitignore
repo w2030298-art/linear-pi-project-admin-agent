@@ -11,6 +11,7 @@ state/*.draft.yaml
 state/linear-events.jsonl
 state/seen-linear-deliveries.json
 state/fact-packs/*.json
+state/fact-packs/evidence/
 state/audit.jsonl
 state/audit-reports/
 state/pi-queue/*.md
@@ -18,6 +19,7 @@ state/pi-queue/*.log
 state/repo-map.draft.yaml
 state/repo-map-audit.jsonl
 state/write-plans/
+state/portfolio-review/*.json
 state/sessions/*
 !state/sessions/.gitkeep
 state/workspace.manifest.draft.json

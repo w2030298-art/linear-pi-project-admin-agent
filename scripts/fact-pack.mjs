@@ -4,13 +4,14 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { arg, has, json, now, ensureDir, writeJson, hash } from './utils.mjs';
 import { resolveRepoMapEntry } from './repo-map.mjs';
+import { buildEvidenceBackedFact, compactFactPack, writeEvidenceFile } from './fact-pack-utils.mjs';
 
 const cmd = process.argv[2] === 'conflicts' ? 'conflicts' : 'build';
 const task = arg('--task', 'unspecified');
 const linear = arg('--linear', '');
 const repoKey = arg('--repo', '');
 const query = arg('--query', task);
-const includePortfolio = !has('--no-portfolio') && (has('--portfolio') || /portfolio|组合巡检|项目巡检/i.test(`${task} ${query}`));
+const requestedWorkspaceReview = has('--portfolio') || /portfolio|组合巡检|项目巡检|全局项目巡检/i.test(`${task} ${query}`);
 
 function runNode(args) {
   const r = spawnSync('node', args, { encoding: 'utf8', env: process.env });
@@ -48,6 +49,11 @@ const pack = {
   planningImplications: []
 };
 
+function evidenceFact(claim, sourceType, source, confidence, raw, evidenceKey) {
+  writeEvidenceFile(pack.id, evidenceKey, raw);
+  return buildEvidenceBackedFact({ claim, sourceType, source, confidence, raw, factPackId: pack.id, evidenceKey });
+}
+
 pack.facts.push(fact(`Task scope received: ${task}`, 'user_input', 'current prompt', 'high'));
 
 const repoMapping = resolveRepoMapEntry(repoKey);
@@ -71,7 +77,7 @@ if (repoMapping.ok) {
   };
   pack.scope.linearProjectIdOrKey = linear || repoMapping.linear.projectId || repoMapping.linear.projectName || repoMapping.linear.projectPrefix || null;
   if (repoKey) {
-    pack.facts.push(fact(`Repo map resolved ${repoKey} to ${repoMapping.github.owner}/${repoMapping.github.repo}.`, 'repo_map', process.env.REPO_MAP_PATH || 'config/repo-map.yaml', repoMapping.evidenceWeight || 'high', JSON.stringify(pack.scope.repo)));
+    pack.facts.push(evidenceFact(`Repo map resolved ${repoKey} to ${repoMapping.github.owner}/${repoMapping.github.repo}.`, 'repo_map', process.env.REPO_MAP_PATH || 'config/repo-map.yaml', repoMapping.evidenceWeight || 'high', pack.scope.repo, 'repo-map'));
   }
 } else if (repoKey) {
   if (!repoMapping.evidenceGaps?.length && repoMapping.error) pack.evidenceGaps.push(repoMapping.error);
@@ -81,25 +87,14 @@ const effectiveLinear = linear || (repoMapping.ok ? (repoMapping.linear.projectI
 if (effectiveLinear && !has('--no-linear')) {
   const linearData = runNode(['scripts/linear-cli.mjs', 'project', effectiveLinear]);
   if (!linearData.ok && linearData.error) pack.evidenceGaps.push(`Linear project context unavailable: ${linearData.error}`);
-  else pack.facts.push(fact(`Linear project context was retrieved for ${effectiveLinear}.`, 'linear_live', `linear:${effectiveLinear}`, 'high', JSON.stringify(linearData).slice(0, 5000)));
+  else pack.facts.push(evidenceFact(`Linear project context was retrieved for ${effectiveLinear}.`, 'linear_live', `linear:${effectiveLinear}`, 'high', linearData, 'linear-project'));
 } else {
-  pack.evidenceGaps.push('No Linear project key/id provided; project state may be incomplete for extend/report/cycle tasks.');
+  pack.evidenceGaps.push('No Linear project key/id provided; project state may be incomplete for extend/report tasks.');
 }
 
-if (includePortfolio) {
-  const portfolio = runNode(['state/portfolio-review/build-portfolio-snapshot.mjs']);
-  if (!portfolio.ok && portfolio.error) {
-    pack.evidenceGaps.push(`Linear portfolio snapshot unavailable: ${portfolio.error}`);
-  } else {
-    pack.facts.push(fact(
-      `Linear portfolio snapshot collected: ${portfolio.activeProjects || 0} active projects scanned.`,
-      'linear_live',
-      portfolio.outPath || 'state/portfolio-review/portfolio-snapshot-2026-05-28.json',
-      'high',
-      JSON.stringify(portfolio).slice(0, 5000)
-    ));
-    pack.planningImplications.push('Portfolio review must use the structured snapshot summary instead of oversized single-project context dumps.');
-  }
+if (requestedWorkspaceReview && !effectiveLinear) {
+  pack.evidenceGaps.push('Workspace-wide Project review is not loaded into a Fact Pack. Choose one Linear Project with --linear before detailed review.');
+  pack.openQuestions.push('Which single Linear Project should this review target?');
 }
 
 if (!has('--no-github')) {
@@ -111,7 +106,7 @@ if (!has('--no-github')) {
     const gh = runNode(ghArgs);
     if (gh.error) pack.evidenceGaps.push(`GitHub evidence unavailable: ${gh.error}`);
     else {
-      pack.facts.push(fact(`GitHub repo ${owner}/${repo} snapshot collected.`, 'github_remote', `github:${owner}/${repo}`, 'high', JSON.stringify(gh).slice(0, 5000)));
+      pack.facts.push(evidenceFact(`GitHub repo ${owner}/${repo} snapshot collected.`, 'github_remote', `github:${owner}/${repo}`, 'high', gh, 'github-repo'));
       if (gh.repoInfo?.pushedAt) pack.planningImplications.push(`Repo last pushed at ${gh.repoInfo.pushedAt}; use this to assess implementation freshness.`);
     }
   } else {
@@ -127,7 +122,7 @@ if (!has('--no-local')) {
     const local = runNode(['scripts/local-evidence.mjs', '--root', localRoot]);
     if (local.error) pack.evidenceGaps.push(`Local repo evidence unavailable: ${local.error}`);
     else {
-      pack.facts.push(fact(`Local repo snapshot collected at ${local.root}.`, 'local_repo', `local:${local.root}`, 'high', JSON.stringify(local).slice(0, 5000)));
+      pack.facts.push(evidenceFact(`Local repo snapshot collected at ${local.root}.`, 'local_repo', `local:${local.root}`, 'high', local, 'local-repo'));
       if (local.dirty) pack.conflicts.push('Local repo has uncommitted changes; planning must distinguish working-copy facts from GitHub remote facts.');
     }
   } else {
@@ -140,7 +135,7 @@ if (!has('--no-local')) {
 if (has('--web') && process.env.ALLOW_WEB_SEARCH !== 'false') {
   const web = runNode(['scripts/web-search.mjs', '--query', query, '--max', process.env.WEB_SEARCH_MAX_RESULTS || '8']);
   if (web.error) pack.evidenceGaps.push(`Web search unavailable: ${web.error}`);
-  else pack.facts.push(fact(`Web search collected for query: ${query}`, 'web_search', web.provider || 'web', 'medium', JSON.stringify(web).slice(0, 5000)));
+  else pack.facts.push(evidenceFact(`Web search collected for query: ${query}`, 'web_search', web.provider || 'web', 'medium', web, 'web-search'));
 }
 
 if (!pack.facts.some(f => f.sourceType === 'linear_live') && !pack.scope.linearProjectIdOrKey) {
@@ -155,5 +150,6 @@ pack.planningImplications.push('Linear writes must remain dry-run until explicit
 
 ensureDir('state/fact-packs');
 const out = `state/fact-packs/${pack.id}.json`;
-writeJson(out, pack);
-json({ ok: true, path: out, factPack: pack });
+const compact = compactFactPack(pack);
+writeJson(out, compact);
+json({ ok: true, path: out, factPack: compact });

@@ -1,6 +1,6 @@
 ---
 name: evidence-based-reporting
-description: 基于 Linear、GitHub、本地 repo/docs 和 web 事实生成项目报告、周报、风险摘要和状态更新草案。用于证据驱动汇报。
+description: 基于 Linear、GitHub、本地 repo/docs 和 web 事实生成单 Project 报告、周报、风险摘要和状态更新草案。用于证据驱动汇报。
 ---
 
 # Evidence Based Reporting

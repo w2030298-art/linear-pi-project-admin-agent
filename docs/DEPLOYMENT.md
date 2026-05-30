@@ -179,8 +179,7 @@ pi
 /create-project 把这个需求规划成 Linear 项目
 /extend-project 给已有项目增加这个能力
 /fact-pack 为项目 X 建立事实包
-/portfolio-review 审查所有活跃项目
-/cycle-plan cycle disabled; do not use for active planning
+/portfolio-review 先选择一个 Project，再执行单 Project 审查
 /project-report 生成周报草案
 /workspace-sync 同步 labels/members/states
 ```
@@ -208,7 +207,7 @@ https://YOUR_PUBLIC_URL/hooks/linear
 Webhook resource types 建议第一版：
 
 ```text
-Issue, Comment, IssueLabel, Project, ProjectUpdate, Cycle
+Issue, Comment, IssueLabel, Project, ProjectUpdate
 ```
 
 触发方式：
@@ -317,7 +316,7 @@ node scripts/fact-pack.mjs --task "smoke test" --web
 - 把 `state/audit.jsonl`、`state/linear-events.jsonl` 纳入备份。
 - 为 GitHub MCP 只启用必要 toolsets。
 - 为 web search 设置域名白名单。
-- 每周执行 `/workspace-sync` 与 `/portfolio-review`。
+- 每周执行 `/workspace-sync`，再为一个指定 Project 执行 `/portfolio-review`。
 
 ---
 

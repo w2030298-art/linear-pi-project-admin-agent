@@ -44,7 +44,7 @@
 ### 阶段 0：读取 Issue（如工具可用）
 
 1. 使用 Linear 工具读取 `{{issue.identifier}}` 的完整信息。
-2. 核对标题、描述、验收标准、依赖关系、labels、Milestone 与 Cycle 归属。
+2. 核对标题、描述、验收标准、依赖关系、labels 与 Milestone 归属。
 3. 若下方「需求详情」与 Linear 读取结果冲突，以 Linear 为准，并说明差异。
 
 ### 阶段 1：理解需求
@@ -139,7 +139,7 @@ Agent 在阶段 5 写入 Issue 时使用：
 ### 与当前工作流的对应关系
 
 ```text
-Linear Issue（规划、验收标准、Milestone/Cycle）
+Linear Issue（规划、验收标准、Milestone）
     ↓ 派发 Prompt
 Cursor Agent（实现、本地验证、commit、PR）
     ↓ 阶段 5

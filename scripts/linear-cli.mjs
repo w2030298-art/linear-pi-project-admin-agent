@@ -4,7 +4,6 @@ import { json, now, ensureDir, hash } from './utils.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { cycleWindowStatus } from './portfolio-snapshot-utils.mjs';
 import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
 import { normalizeProjectDescriptionFields } from './project-field-normalizer.mjs';
 import { detectHostConfirmationCapabilities, resolveApplyMode } from './write-plan-execution.mjs';
@@ -46,7 +45,7 @@ const PROJECT_UPDATE_FIELDS = [
 const MILESTONE_CREATE_FIELDS = ['id', 'name', 'description', 'descriptionData', 'targetDate', 'projectId', 'sortOrder'];
 const ISSUE_CREATE_FIELDS = [
   'id', 'title', 'description', 'descriptionData', 'assigneeId', 'delegateId', 'parentId',
-  'priority', 'estimate', 'subscriberIds', 'labelIds', 'teamId', 'cycleId', 'projectId',
+  'priority', 'estimate', 'subscriberIds', 'labelIds', 'teamId', 'projectId',
   'projectMilestoneId', 'lastAppliedTemplateId', 'stateId', 'referenceCommentId',
   'sourceCommentId', 'sourcePullRequestCommentId', 'sortOrder', 'prioritySortOrder',
   'subIssueSortOrder', 'dueDate', 'createAsUser', 'displayIconUrl',
@@ -56,7 +55,7 @@ const ISSUE_CREATE_FIELDS = [
 const ISSUE_UPDATE_FIELDS = [
   'title', 'description', 'descriptionData', 'assigneeId', 'delegateId', 'parentId',
   'priority', 'estimate', 'subscriberIds', 'labelIds', 'addedLabelIds', 'removedLabelIds',
-  'releaseIds', 'addedReleaseIds', 'removedReleaseIds', 'teamId', 'cycleId', 'projectId',
+  'releaseIds', 'addedReleaseIds', 'removedReleaseIds', 'teamId', 'projectId',
   'projectMilestoneId', 'lastAppliedTemplateId', 'stateId', 'sortOrder', 'prioritySortOrder',
   'subIssueSortOrder', 'dueDate', 'inheritsSharedAccess', 'trashed', 'snoozedUntilAt', 'snoozedById'
 ];
@@ -362,7 +361,7 @@ function validateWritePlan(plan, dryRun) {
     if (!op?.type) throw new Error(`operations[${index}].type is required.`);
     if (!typeToKind(op.type)) throw new Error(`operations[${index}] unsupported type: ${op.type}`);
     if (/^issue\.(create|update)$/.test(normalizeType(op.type)) && op.input?.cycleId) {
-      throw new Error(`operations[${index}].input.cycleId is not allowed because cycle planning is disabled for this agent.`);
+      throw new Error(`operations[${index}].input.cycleId is not supported by this agent write schema.`);
     }
   }
   if (!dryRun) {
@@ -428,20 +427,6 @@ async function workspace() {
         }
       }
     }`);
-  const cyclesData = await linear.client.rawRequest(`
-    query WorkspaceCycles {
-      cycles(first: 50) {
-        nodes {
-          id
-          number
-          name
-          startsAt
-          endsAt
-          completedAt
-          team { id key name }
-        }
-      }
-    }`);
   let workflowStates = [];
   try {
     const statesData = await linear.client.rawRequest(`
@@ -484,10 +469,6 @@ async function workspace() {
       archivedAt: project.archivedAt,
       active: !project.archivedAt && !['canceled', 'completed'].includes(project.state)
     })),
-    cycles: cyclesData.data.cycles.nodes.map(cycle => ({
-      ...cycle,
-      status: cycleWindowStatus(cycle, collected)
-    })),
     workflowStates
   });
 }
@@ -505,7 +486,6 @@ async function project(projectIdOrKey) {
           state { id name type }
           labels { nodes { id name } }
           assignee { id name }
-          cycle { id name startsAt endsAt }
           projectMilestone { id name }
         } }
       }
@@ -533,7 +513,6 @@ async function issue(identifierOrId) {
         state { id name type }
         labels { nodes { id name } }
         assignee { id name }
-        cycle { id name startsAt endsAt }
         project { id name url }
         projectMilestone { id name }
       }

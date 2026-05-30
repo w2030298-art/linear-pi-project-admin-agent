@@ -18,7 +18,22 @@
           "source": { "type": "string" },
           "timestamp": { "type": ["string", "null"] },
           "confidence": { "enum": ["high", "medium", "low"] },
-          "rawRef": { "type": ["string", "null"] }
+          "rawRef": { "type": ["string", "null"] },
+          "evidenceRef": { "type": ["string", "null"] },
+          "summary": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "evidenceManifest": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sourceType", "source", "path"],
+        "properties": {
+          "sourceType": { "type": "string" },
+          "source": { "type": "string" },
+          "path": { "type": "string" },
+          "summary": { "type": ["string", "null"] }
         }
       }
     },

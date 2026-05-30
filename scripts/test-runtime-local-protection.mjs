@@ -26,6 +26,8 @@ const protectedIgnoredPaths = [
   'state/pi-queue/test.md',
   'state/pi-queue/test.out.log',
   'state/fact-packs/fact-test.json',
+  'state/fact-packs/evidence/fact-test/local.json',
+  'state/portfolio-review/portfolio-snapshot-test.json',
   'state/sessions/session.jsonl',
   '.pi/sessions/session.jsonl',
   'node_modules/.linear-pi-runtime-deps.stamp'
@@ -36,7 +38,7 @@ for (const path of protectedIgnoredPaths) {
 }
 
 assert.equal(isIgnored('.env.example'), false, '.env.example should stay trackable as a template');
-assert.equal(isIgnored('state/portfolio-review/build-portfolio-snapshot.mjs'), false, 'versioned portfolio helper should remain master-owned');
+assert.equal(fs.existsSync('state/portfolio-review/build-portfolio-snapshot.mjs'), false, 'workspace-wide portfolio snapshot helper should not remain an active fact source');
 
 const trackedProtected = git([
   'ls-files',

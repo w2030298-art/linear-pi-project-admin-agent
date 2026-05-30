@@ -212,15 +212,15 @@ function reviewProjectFieldLimits(operations) {
   return findings;
 }
 
-function reviewCycleDisabled(operations) {
+function reviewUnsupportedIssueFields(operations) {
   const findings = [];
   operations.forEach((operation, index) => {
     if (!/^issue\.(create|update)$/.test(operationType(operation))) return;
     const input = operation.input || {};
     if (isBlank(input.cycleId)) return;
     findings.push(makeFinding(
-      'write_plan_cycle_disabled',
-      'Cycle planning is disabled for this agent; write plans must not create or update issue.cycleId.',
+      'write_plan_unsupported_issue_field',
+      'issue.cycleId is not supported by this agent write schema.',
       { path: `$.operations[${index}].input.cycleId` }
     ));
   });
@@ -307,7 +307,7 @@ export function reviewWritePlan(plan, options = {}) {
     ));
   }
   findings.push(...reviewProjectFieldLimits(operations));
-  findings.push(...reviewCycleDisabled(operations));
+  findings.push(...reviewUnsupportedIssueFields(operations));
 
   return finish('write_plan', options.target || null, findings);
 }

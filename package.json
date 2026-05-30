@@ -26,11 +26,12 @@
     "test:runtime-reload-master": "tsx scripts/test-runtime-reload-master.ts",
     "test:runtime-local-protection": "node scripts/test-runtime-local-protection.mjs",
     "test:runtime-instruction-boundary": "node scripts/test-runtime-instruction-boundary.mjs",
-    "test:cycle-disabled": "tsx scripts/test-cycle-disabled.ts",
+    "test:unsupported-fields": "tsx scripts/test-write-plan-unsupported-fields.ts",
     "test:linear-apply-mode": "node scripts/test-linear-apply-mode.mjs",
     "test:linear-snapshot": "node scripts/test-linear-snapshot.mjs",
     "test:retrieval-ux": "node scripts/test-retrieval-ux.mjs",
-    "test:write-confirmation": "tsx scripts/test-write-confirmation-ux.ts"
+    "test:write-confirmation": "tsx scripts/test-write-confirmation-ux.ts",
+    "test:pipeline-refactor-goals": "tsx scripts/test-pipeline-refactor-goals.mjs"
   },
   "dependencies": {
     "@linear/sdk": "latest",
