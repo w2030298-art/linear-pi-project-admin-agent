@@ -67,6 +67,8 @@ assert.match(installer, launchScriptPattern);
 assert.match(installer, /RuntimeRoot/);
 assert.match(installer, /StableBranch/);
 assert.match(installer, /git clone/i);
+assert.match(installer, /stash.+push/s);
+assert.match(installer, /generated state before update/i);
 assert.match(installer, /pull --ff-only/i);
 assert.match(installer, /Resolve-CommandFile/);
 assert.match(installer, /\$Command\.cmd/);
