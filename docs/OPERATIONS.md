@@ -76,8 +76,9 @@ npm run bridge:dev
 
 ## Linear Project Locator Resolution
 
-- `linear_get_project_context` and `fact_pack_build --linear` accept a Project ID, Linear Project URL, `/overview` URL, or exact Project name.
-- The resolver first attempts direct Project lookup, then falls back to workspace matching by normalized Project URL, URL slug, ID, or exact name.
+- `linear_get_project_context` and `fact_pack_build --linear` accept a Project ID, Linear Project URL, `/overview` URL, exact Project name, normalized Project name, or Project slug.
+- The resolver first attempts direct Project lookup, then falls back to workspace matching by normalized Project URL, URL slug, ID, exact name, or normalized name.
+- Normalized name matching only folds case, whitespace, and fullwidth/ASCII separator differences such as `｜` vs `|`; it does not perform fuzzy or contains matching.
 - If no unique match exists, return a compact `project_selection_gap`; do not silently fall back to another repo-map project.
 - Run `npm run test:project-resolver` and a live smoke such as `node scripts/linear-cli.mjs project "<linear-project-overview-url>"` after changing this behavior.
 

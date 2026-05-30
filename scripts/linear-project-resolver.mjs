@@ -8,6 +8,15 @@ function lower(value) {
   return clean(value).toLowerCase();
 }
 
+function normalizedText(value) {
+  return clean(value)
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\s*\|\s*/g, '|')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function decodeSegment(segment) {
   try {
     return decodeURIComponent(segment);
@@ -49,6 +58,13 @@ function projectSlug(project) {
   return linearProjectUrlParts(project.url).slug;
 }
 
+function normalizedSlug(value) {
+  const input = clean(value);
+  const parts = linearProjectUrlParts(input);
+  const slug = parts.slug || input.split(/[?#]/, 1)[0].split('/').filter(Boolean)[0] || '';
+  return normalizedText(decodeSegment(slug));
+}
+
 function projectUrl(project) {
   return linearProjectUrlParts(project.url).normalizedProjectUrl;
 }
@@ -57,7 +73,8 @@ export function matchWorkspaceProjects(locator, projects = []) {
   const input = clean(locator);
   const normalized = lower(input);
   const urlParts = linearProjectUrlParts(input);
-  const slug = lower(urlParts.slug || input);
+  const slug = normalizedSlug(urlParts.slug || input);
+  const name = normalizedText(input);
 
   const matchers = [
     {
@@ -70,26 +87,40 @@ export function matchWorkspaceProjects(locator, projects = []) {
     },
     {
       source: 'workspace_slug',
-      test: project => Boolean(slug && lower(projectSlug(project)) === slug)
+      test: project => Boolean(slug && normalizedSlug(projectSlug(project)) === slug)
     },
     {
       source: 'workspace_exact_name',
       test: project => lower(project.name) === normalized
+    },
+    {
+      source: 'workspace_normalized_name',
+      test: project => Boolean(name && normalizedText(project.name) === name)
     }
   ];
 
+  const matchesByProjectId = new Map();
   for (const matcher of matchers) {
-    const matches = projects.filter(project => matcher.test(project)).map(project => ({ source: matcher.source, project }));
-    if (matches.length) return matches;
+    for (const project of projects) {
+      if (!matcher.test(project)) continue;
+      const key = project.id || JSON.stringify(project);
+      const existing = matchesByProjectId.get(key);
+      if (existing) existing.sources.push(matcher.source);
+      else matchesByProjectId.set(key, { source: matcher.source, sources: [matcher.source], project });
+    }
   }
-  return [];
+  return [...matchesByProjectId.values()];
 }
 
 function selectionGap(locator, matches, projects, directError = null) {
   const hasMatches = matches.length > 0;
-  const candidates = (hasMatches ? matches.map(match => match.project) : projects)
+  const candidates = (hasMatches ? matches : projects.map(project => ({ project })))
     .slice(0, 8)
-    .map(compactProject);
+    .map(match => ({
+      ...compactProject(match.project),
+      matchSource: match.source || null,
+      matchSources: match.sources || []
+    }));
   return {
     ok: false,
     type: 'project_selection_gap',
@@ -137,12 +168,13 @@ export async function resolveLinearProjectId(locator, options) {
 
   if (matches.length === 1) {
     const match = matches[0];
-    return {
-      ok: true,
-      source: match.source,
-      locator: input,
-      resolvedProjectId: match.project.id,
-      project: match.project,
+      return {
+        ok: true,
+        source: match.source,
+        matchSources: match.sources || [match.source],
+        locator: input,
+        resolvedProjectId: match.project.id,
+        project: match.project,
       directError
     };
   }

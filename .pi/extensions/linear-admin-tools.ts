@@ -98,9 +98,9 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_get_project_context",
     label: "Linear Project Context",
-    description: "Read a Linear project with milestones, issues, relations, updates and comments. Accepts Project ID, Project URL, /overview URL, or exact Project name.",
+    description: "Read a Linear project with milestones, issues, relations, updates and comments. Accepts Project ID, Project URL, /overview URL, exact/normalized Project name, or slug.",
     parameters: Type.Object({ projectIdOrKey: Type.String() }),
-    promptSnippet: "linear_get_project_context: resolves Project ID/URL/overview URL/exact name, then reads current project management facts from Linear.",
+    promptSnippet: "linear_get_project_context: resolves Project ID/URL/overview URL/exact or normalized name/slug, then reads current project management facts from Linear.",
     async execute(_id, params, signal) {
       return callLinear(signal, ["project", params.projectIdOrKey]);
     }

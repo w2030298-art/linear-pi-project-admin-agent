@@ -12,7 +12,7 @@ export default function (pi: ExtensionAPI) {
     description: "Build a Fact Pack from Linear, GitHub, local repo/docs, and optional web search before planning.",
     parameters: Type.Object({
       task: Type.String({ description: "Planning/reporting task that needs evidence." }),
-      linearProjectIdOrKey: Type.Optional(Type.String({ description: "Project ID, Linear Project URL, /overview URL, or exact Project name." })),
+      linearProjectIdOrKey: Type.Optional(Type.String({ description: "Project ID, Linear Project URL, /overview URL, exact/normalized Project name, or slug." })),
       repoKey: Type.Optional(Type.String()),
       includeGitHub: Type.Optional(Type.Boolean({ default: true })),
       includeLocal: Type.Optional(Type.Boolean({ default: true })),
@@ -22,7 +22,7 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: "fact_pack_build: builds a cited Fact Pack before Linear planning.",
     promptGuidelines: [
       "Use fact_pack_build before create_project, extend_project, single_project_review, project_report, and issue_dispatch tasks.",
-      "linearProjectIdOrKey accepts a Project ID, Linear Project URL, /overview URL, or exact Project name; unresolved or ambiguous locators must stay as project-selection evidence gaps.",
+      "linearProjectIdOrKey accepts a Project ID, Linear Project URL, /overview URL, exact/normalized Project name, or slug; unresolved or ambiguous locators must stay as project-selection evidence gaps.",
       "When no project is specified, call pi_ask_user with flow=project_select first; its options come from the local repo-map, not Linear.",
       "fact_pack_build does not write to Linear; it returns facts, assumptions, conflicts, evidence gaps, and planning implications."
     ],
