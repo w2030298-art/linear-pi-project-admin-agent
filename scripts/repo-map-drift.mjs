@@ -5,9 +5,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import { ensureDir, hash, json, now } from './utils.mjs';
-import { validateRepoMap } from './repo-map.mjs';
+import { mergeRepoMaps, repoMapPaths, validateRepoMap } from './repo-map.mjs';
 
-const DEFAULT_REPO_MAP_PATH = 'config/repo-map.yaml';
 const DEFAULT_STATE_DIR = 'state';
 const DRAFT_FILE_NAME = 'repo-map.draft.yaml';
 
@@ -266,7 +265,14 @@ function draftPathFor(options) {
   return path.join(options.stateDir || DEFAULT_STATE_DIR, DRAFT_FILE_NAME);
 }
 
-function rollbackAdvice(repoMapPath) {
+function rollbackAdvice(repoMapPath, writeTracked = false) {
+  if (!writeTracked) {
+    return [
+      `Review the repo-map local overlay with: ${repoMapPath}`,
+      `Before commit, revert by editing or removing the repo-map local overlay: ${repoMapPath}`,
+      'After commit, no git rollback is needed for this machine-local overlay.'
+    ];
+  }
   return [
     `Review the repo-map change with: git diff -- ${repoMapPath}`,
     `Before commit, revert with: git checkout -- ${repoMapPath}`,
@@ -274,11 +280,14 @@ function rollbackAdvice(repoMapPath) {
   ];
 }
 
-function prospectiveValidation(cwd, repoMapPath, repoMap) {
-  const tmpPath = path.join(path.dirname(repoMapPath), `.repo-map-validate-${process.pid}-${Date.now()}.yaml`);
+function prospectiveValidation(cwd, repoMapPath, localRepoMapPath, targetMap, writeTracked = false) {
+  const targetPath = writeTracked ? repoMapPath : localRepoMapPath;
+  const tmpPath = path.join(path.dirname(targetPath), `.repo-map-validate-${process.pid}-${Date.now()}.yaml`);
   try {
-    writeYaml(tmpPath, repoMap);
-    return validateRepoMap({ cwd, repoMapPath: tmpPath, env: {} });
+    writeYaml(tmpPath, targetMap);
+    return writeTracked
+      ? validateRepoMap({ cwd, repoMapPath: tmpPath, localRepoMapPath, env: {} })
+      : validateRepoMap({ cwd, repoMapPath, localRepoMapPath: tmpPath, env: {} });
   } finally {
     try { fs.unlinkSync(tmpPath); } catch {}
   }
@@ -289,8 +298,14 @@ export function checkRepoMapDrift(options = {}) {
   const repoKey = clean(options.repoKey || options.repo);
   if (!repoKey) throw new Error('repoKey is required for repo-map drift detection.');
 
-  const repoMapPath = options.repoMapPath || DEFAULT_REPO_MAP_PATH;
-  const repoMap = readYaml(repoMapPath, { version: 1, repos: [] });
+  const { repoMapPath, localRepoMapPath } = repoMapPaths({
+    repoMapPath: options.repoMapPath,
+    localRepoMapPath: options.localRepoMapPath,
+    env: options.env || process.env
+  });
+  const baseRepoMap = readYaml(repoMapPath, { version: 1, repos: [] });
+  const localRepoMap = readYaml(localRepoMapPath, { version: 1, repos: [] });
+  const repoMap = mergeRepoMaps(baseRepoMap, localRepoMap);
   const repos = Array.isArray(repoMap.repos) ? repoMap.repos : [];
   const currentRaw = repos.find(item => repoKeyOf(item) === repoKey) || { repoKey };
   const current = normalizeEntryForDraft(currentRaw, cwd);
@@ -357,10 +372,14 @@ export function checkRepoMapDrift(options = {}) {
     missingFields.push({ field: 'evidenceWeight', detected: sourceFacts.evidenceWeight, needsUserInput: !clean(sourceFacts.evidenceWeight) });
   }
 
-  const nextRepoMap = buildUpdatedRepoMap(repoMap, repoKey, draftEntry);
-  const beforeText = fs.existsSync(repoMapPath) ? fs.readFileSync(repoMapPath, 'utf8') : YAML.stringify(repoMap);
-  const afterText = YAML.stringify(nextRepoMap);
-  const diff = lcsDiff(beforeText, afterText, repoMapPath, 'repo-map draft');
+  const nextLocalRepoMap = buildUpdatedRepoMap(localRepoMap, repoKey, draftEntry);
+  const nextEffectiveRepoMap = mergeRepoMaps(baseRepoMap, nextLocalRepoMap);
+  const diff = lcsDiff(
+    YAML.stringify(repoMap),
+    YAML.stringify(nextEffectiveRepoMap),
+    'repo-map effective current',
+    'repo-map effective after local overlay'
+  );
   const needsInteractiveInput = missingFields.some(field => field.needsUserInput);
   const hasChanges = drifts.length > 0 || missingFields.length > 0;
   const status = needsInteractiveInput
@@ -381,6 +400,8 @@ export function checkRepoMapDrift(options = {}) {
     repoKey,
     createdAt: now(),
     repoMapPath,
+    localRepoMapPath,
+    applyTargetPath: localRepoMapPath,
     sourceFacts,
     drifts,
     missingFields,
@@ -397,6 +418,7 @@ export function checkRepoMapDrift(options = {}) {
     status,
     repoKey,
     repoMapPath,
+    localRepoMapPath,
     draftPath,
     draft,
     sourceFacts,
@@ -406,17 +428,22 @@ export function checkRepoMapDrift(options = {}) {
     openQuestions,
     piAskUser: needsInteractiveInput ? { flow: 'repo_map', seed: piAskUserSeed(repoKey, current, sourceFacts) } : null,
     diff,
-    rollbackAdvice: rollbackAdvice(repoMapPath),
+    rollbackAdvice: rollbackAdvice(localRepoMapPath),
     writesPerformed: false
   };
 }
 
 export function applyRepoMapDraft(options = {}) {
   const cwd = options.cwd || process.cwd();
-  const repoMapPath = options.repoMapPath || DEFAULT_REPO_MAP_PATH;
   const draftPath = options.draftPath || path.join(DEFAULT_STATE_DIR, DRAFT_FILE_NAME);
   const confirmed = options.confirmed === true;
   const draft = readYaml(draftPath, null);
+  const { repoMapPath, localRepoMapPath } = repoMapPaths({
+    repoMapPath: options.repoMapPath || draft?.repoMapPath,
+    localRepoMapPath: options.localRepoMapPath || draft?.localRepoMapPath,
+    env: options.env || process.env
+  });
+  const writeTracked = options.writeTracked === true;
   if (!draft?.entry || !draft?.repoKey) {
     return {
       ok: false,
@@ -426,11 +453,22 @@ export function applyRepoMapDraft(options = {}) {
     };
   }
 
-  const repoMap = readYaml(repoMapPath, { version: 1, repos: [] });
-  const nextRepoMap = buildUpdatedRepoMap(repoMap, draft.repoKey, draft.entry);
-  const beforeText = fs.existsSync(repoMapPath) ? fs.readFileSync(repoMapPath, 'utf8') : YAML.stringify(repoMap);
-  const afterText = YAML.stringify(nextRepoMap);
-  const diff = lcsDiff(beforeText, afterText, repoMapPath, 'repo-map confirmed');
+  const baseRepoMap = readYaml(repoMapPath, { version: 1, repos: [] });
+  const localRepoMap = readYaml(localRepoMapPath, { version: 1, repos: [] });
+  const currentEffectiveRepoMap = mergeRepoMaps(baseRepoMap, localRepoMap);
+  const targetRepoMapPath = writeTracked ? repoMapPath : localRepoMapPath;
+  const targetRepoMap = writeTracked ? baseRepoMap : localRepoMap;
+  const nextTargetRepoMap = buildUpdatedRepoMap(targetRepoMap, draft.repoKey, draft.entry);
+  const nextEffectiveRepoMap = writeTracked
+    ? mergeRepoMaps(nextTargetRepoMap, localRepoMap)
+    : mergeRepoMaps(baseRepoMap, nextTargetRepoMap);
+  const afterText = YAML.stringify(nextTargetRepoMap);
+  const diff = lcsDiff(
+    YAML.stringify(currentEffectiveRepoMap),
+    YAML.stringify(nextEffectiveRepoMap),
+    'repo-map effective current',
+    writeTracked ? 'repo-map effective after tracked config' : 'repo-map effective after local overlay'
+  );
 
   if (!confirmed) {
     return {
@@ -438,21 +476,29 @@ export function applyRepoMapDraft(options = {}) {
       status: 'confirmation_required',
       repoKey: draft.repoKey,
       repoMapPath,
+      localRepoMapPath,
+      targetRepoMapPath,
       draftPath,
       diff,
-      rollbackAdvice: rollbackAdvice(repoMapPath),
+      rollbackAdvice: rollbackAdvice(targetRepoMapPath, writeTracked),
       writesPerformed: false,
-      evidenceGaps: ['Explicit user confirmation is required before modifying config/repo-map.yaml.']
+      evidenceGaps: [
+        writeTracked
+          ? 'Explicit user confirmation is required before modifying config/repo-map.yaml.'
+          : 'Explicit user confirmation is required before modifying the repo-map local overlay.'
+      ]
     };
   }
 
-  const validation = prospectiveValidation(cwd, repoMapPath, nextRepoMap);
+  const validation = prospectiveValidation(cwd, repoMapPath, localRepoMapPath, nextTargetRepoMap, writeTracked);
   if (!validation.ok) {
     return {
       ok: false,
       status: 'validation_failed',
       repoKey: draft.repoKey,
       repoMapPath,
+      localRepoMapPath,
+      targetRepoMapPath,
       draftPath,
       diff,
       validation,
@@ -462,9 +508,9 @@ export function applyRepoMapDraft(options = {}) {
     };
   }
 
-  ensureDir(path.dirname(repoMapPath));
-  fs.writeFileSync(repoMapPath, afterText);
-  const postValidation = validateRepoMap({ cwd, repoMapPath, env: {} });
+  ensureDir(path.dirname(targetRepoMapPath));
+  fs.writeFileSync(targetRepoMapPath, afterText);
+  const postValidation = validateRepoMap({ cwd, repoMapPath, localRepoMapPath, env: {} });
   const auditLogPath = options.auditLogPath || path.join(path.dirname(draftPath), 'repo-map-audit.jsonl');
   ensureDir(path.dirname(auditLogPath));
   const auditRecord = {
@@ -472,6 +518,9 @@ export function applyRepoMapDraft(options = {}) {
     event: 'repo_map_draft_applied',
     repoKey: draft.repoKey,
     repoMapPath,
+    localRepoMapPath,
+    targetRepoMapPath,
+    writeTracked,
     draftPath,
     confirmationText: clean(options.confirmationText) || null,
     idempotencyKey: `repo-map-${draft.repoKey}-${hash({ draftPath, diff }).slice(0, 12)}`,
@@ -486,11 +535,13 @@ export function applyRepoMapDraft(options = {}) {
     status: postValidation.ok ? 'applied' : 'applied_with_validation_errors',
     repoKey: draft.repoKey,
     repoMapPath,
+    localRepoMapPath,
+    targetRepoMapPath,
     draftPath,
     auditLogPath,
     diff,
     validation: postValidation,
-    rollbackAdvice: rollbackAdvice(repoMapPath),
+    rollbackAdvice: rollbackAdvice(targetRepoMapPath, writeTracked),
     writesPerformed: true
   };
 }
@@ -527,8 +578,8 @@ function cliSourceFacts() {
 function printUsageAndExit() {
   console.error([
     'Usage:',
-    '  node scripts/repo-map-drift.mjs check --repo <repoKey> [--repo-map config/repo-map.yaml] [--state-dir state]',
-    '  node scripts/repo-map-drift.mjs apply --draft state/repo-map.draft.yaml --confirmed --confirmation-text "..."]'
+    '  node scripts/repo-map-drift.mjs check --repo <repoKey> [--repo-map config/repo-map.yaml] [--local-repo-map state/repo-map.local.yaml] [--state-dir state]',
+    '  node scripts/repo-map-drift.mjs apply --draft state/repo-map.draft.yaml --confirmed [--local-repo-map state/repo-map.local.yaml] [--write-tracked] --confirmation-text "..."]'
   ].join('\n'));
   process.exit(1);
 }
@@ -539,7 +590,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (command === 'check') {
       const result = checkRepoMapDrift({
         repoKey: arg('--repo') || arg('--repo-key'),
-        repoMapPath: arg('--repo-map', DEFAULT_REPO_MAP_PATH),
+        repoMapPath: arg('--repo-map'),
+        localRepoMapPath: arg('--local-repo-map'),
         stateDir: arg('--state-dir', DEFAULT_STATE_DIR),
         draftPath: arg('--draft'),
         sourceFacts: cliSourceFacts()
@@ -549,10 +601,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     }
     if (command === 'apply') {
       const result = applyRepoMapDraft({
-        repoMapPath: arg('--repo-map', DEFAULT_REPO_MAP_PATH),
+        repoMapPath: arg('--repo-map'),
+        localRepoMapPath: arg('--local-repo-map'),
         draftPath: arg('--draft', path.join(DEFAULT_STATE_DIR, DRAFT_FILE_NAME)),
         auditLogPath: arg('--audit-log'),
         confirmed: has('--confirmed'),
+        writeTracked: has('--write-tracked'),
         confirmationText: arg('--confirmation-text', '')
       });
       json(result);

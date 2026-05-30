@@ -12,6 +12,9 @@ const task = arg('--task', 'unspecified');
 const linear = arg('--linear', '');
 const repoKey = arg('--repo', '');
 const query = arg('--query', task);
+const configuredRepoMapPath = process.env.REPO_MAP_PATH || 'config/repo-map.yaml';
+const configuredLocalRepoMapPath = process.env.REPO_MAP_LOCAL_PATH || 'state/repo-map.local.yaml';
+const repoMapSource = `${configuredRepoMapPath} + ${configuredLocalRepoMapPath}`;
 const requestedWorkspaceReview = has('--portfolio') || /portfolio|组合巡检|项目巡检|全局项目巡检/i.test(`${task} ${query}`);
 
 function runNode(args) {
@@ -85,7 +88,8 @@ if (needsProjectSelection) {
   pack.piAskUser = {
     flow: 'project_select',
     source: 'repo_map',
-    repoMapPath: process.env.REPO_MAP_PATH || 'config/repo-map.yaml',
+    repoMapPath: configuredRepoMapPath,
+    localRepoMapPath: configuredLocalRepoMapPath,
     options: [
       ...listRepoMapProjectOptions().map(option => ({
         projectId: option.projectId,
@@ -107,7 +111,7 @@ if (needsProjectSelection) {
       }
     ]
   };
-  pack.openQuestions.push('Choose one local project ID from config/repo-map.yaml, or provide custom input before reading Linear project context.');
+  pack.openQuestions.push(`Choose one local project ID from ${repoMapSource}, or provide custom input before reading Linear project context.`);
   pack.evidenceGaps.push('No project selected yet; confirm a local project ID before Linear project context is read.');
   pack.planningImplications.push('Do not read Linear, GitHub, or local repo evidence until the user selects a local project ID or custom target.');
 }
@@ -129,7 +133,7 @@ if (repoMapping.ok) {
   };
   pack.scope.linearProjectIdOrKey = linear || repoMapping.linear.projectId || repoMapping.linear.projectName || repoMapping.linear.projectPrefix || null;
   if (repoKey) {
-    pack.facts.push(evidenceFact(`Repo map resolved ${repoKey} to ${repoMapping.github.owner}/${repoMapping.github.repo}.`, 'repo_map', process.env.REPO_MAP_PATH || 'config/repo-map.yaml', repoMapping.evidenceWeight || 'high', pack.scope.repo, 'repo-map'));
+    pack.facts.push(evidenceFact(`Repo map resolved ${repoKey} to ${repoMapping.github.owner}/${repoMapping.github.repo}.`, 'repo_map', repoMapSource, repoMapping.evidenceWeight || 'high', pack.scope.repo, 'repo-map'));
   }
 } else if (repoKey) {
   if (!repoMapping.evidenceGaps?.length && repoMapping.error) pack.evidenceGaps.push(repoMapping.error);
@@ -156,7 +160,7 @@ if (effectiveLinear && !has('--no-linear')) {
 
 if (requestedWorkspaceReview && !effectiveLinear) {
   pack.evidenceGaps.push('Project review is not loaded into a Fact Pack until one local project ID is selected.');
-  if (!pack.piAskUser) pack.openQuestions.push('Choose one local project ID from config/repo-map.yaml before detailed review.');
+  if (!pack.piAskUser) pack.openQuestions.push(`Choose one local project ID from ${repoMapSource} before detailed review.`);
 }
 
 if (!has('--no-github') && !needsProjectSelection && !skipRepoEvidenceWithoutRepoKey) {

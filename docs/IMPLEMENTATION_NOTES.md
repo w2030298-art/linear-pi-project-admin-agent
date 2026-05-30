@@ -8,7 +8,7 @@
 
 `.pi/extensions/pi-ask-user.ts` registers `pi_ask_user` for two narrow clarification flows:
 
-- `project_select`: first step for single-Project planning/reporting/review when the user did not specify a target. Options are loaded only from the local three-source repo-map (`config/repo-map.yaml` or `REPO_MAP_PATH`): every entry with a local project directory is listed by repoKey/project ID, followed by `User input`. Linear is not queried until after this selection.
+- `project_select`: first step for single-Project planning/reporting/review when the user did not specify a target. Options are loaded only from the merged local three-source repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`): every entry with a local project directory is listed by repoKey/project ID, followed by `User input`. Local overlay entries override tracked config entries with the same repoKey. Linear is not queried until after this selection.
 - `repo_map`: stepwise repo-map repair/draft flow.
 
 For `repo_map`:
@@ -16,7 +16,7 @@ For `repo_map`:
 - It anchors the flow on Linear Project ID first. If the seed does not include `linearProjectId` or `linearProject`, it asks for the target Linear Project before any GitHub or local repo field.
 - After the Linear Project is resolved, every GitHub URL, local path, repoKey, and defaultBranch prompt includes the target Project name and ID.
 - It validates GitHub URL shape, local path existence, repoKey/defaultBranch shape, and Linear Project resolvability through `scripts/linear-cli.mjs project`.
-- It returns a review-only repo-map draft and YAML preview. The draft stores `linear.projectId` as the primary anchor; Project name and prefix are display/matching helpers. It never writes `config/repo-map.yaml` by itself.
+- It returns a review-only repo-map draft and YAML preview. The draft stores `linear.projectId` as the primary anchor; Project name and prefix are display/matching helpers. It never writes repo-map files by itself.
 - If the user cancels, it returns `cancelled` with open questions and `writesPerformed=false`.
 - If the user cancels or Pi UI is unavailable, it returns the target Project context in `openQuestions` / `evidenceGaps` so the flow can be resumed safely.
 
@@ -24,11 +24,12 @@ For `repo_map`:
 
 `scripts/repo-map-drift.mjs` is the repo-map governance CLI:
 
-- `check` compares `config/repo-map.yaml` with source facts from Git remote/local path and explicit Linear/GitHub CLI flags.
+- `check` compares the merged repo-map with source facts from Git remote/local path and explicit Linear/GitHub CLI flags.
 - Drift or missing data produces `state/repo-map.draft.yaml`, a JSON/YAML-compatible report, a diff preview, and `writesPerformed=false`.
 - Missing facts that cannot be derived from source evidence return `piAskUser: { flow: "repo_map", seed }`, preserving the Linear Project ID/name context for the stepwise clarification UI.
-- `apply` refuses to edit `config/repo-map.yaml` unless `--confirmed` is present. Confirmed apply writes the map, validates it through `scripts/repo-map.mjs`, appends `state/repo-map-audit.jsonl`, and returns rollback advice.
-- The draft is the only bridge between check and apply; `config/repo-map.yaml` is never changed during check.
+- `apply` refuses to write unless `--confirmed` is present. Confirmed apply writes the local overlay by default, validates the merged map through `scripts/repo-map.mjs`, appends `state/repo-map-audit.jsonl`, and returns rollback advice.
+- Use `--write-tracked` only for intentional repo-map config changes that will be committed and reviewed.
+- The draft is the only bridge between check and apply; `config/repo-map.yaml` and the local overlay are never changed during check.
 
 ## Linear apply
 

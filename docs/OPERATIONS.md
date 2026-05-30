@@ -77,8 +77,8 @@ npm run bridge:dev
 
 ## Fact Pack Repo-Map Mismatch
 
-- For single-Project tasks without an explicit target, call `pi_ask_user` with `flow=project_select` first. The options must come from local `config/repo-map.yaml`/`REPO_MAP_PATH` and include `User input` last; do not query Linear for the candidate list before the user chooses.
-- `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from `config/repo-map.yaml` first.
+- For single-Project tasks without an explicit target, call `pi_ask_user` with `flow=project_select` first. The options must come from the merged repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`) and include `User input` last; do not query Linear for the candidate list before the user chooses.
+- `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from the merged repo-map first. Local overlay entries override tracked config entries with the same repoKey.
 - If a repoKey is missing or incomplete, record an evidence gap instead of falling back to another repo.
 - Run `npm run test:repo-map` after changing repo-map behavior.
 
@@ -93,15 +93,17 @@ npm run bridge:dev
 ## Repo-Map Drift Governance
 
 - Detect drift with `npm run repo-map:drift -- check --repo <repoKey>`.
-- The check command may write `state/repo-map.draft.yaml`, but it must not modify `config/repo-map.yaml`.
+- The check command may write `state/repo-map.draft.yaml`, but it must not modify `config/repo-map.yaml` or the local overlay.
 - If output contains `piAskUser.flow=repo_map`, call `pi_ask_user` with that seed and keep missing fields as evidence gaps until the user answers.
 - Apply only after explicit confirmation: `npm run repo-map:drift -- apply --draft state/repo-map.draft.yaml --confirmed --confirmation-text "<approval>"`.
+- Confirmed apply writes the local overlay by default. In the installed runtime, the launcher sets `REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml`, so machine-local mappings do not dirty the runtime checkout. Use `--write-tracked` only when intentionally preparing a repo-map config change for PR review.
 - Run `npm run test:repo-map-drift`, `npm run test:repo-map`, and a Fact Pack smoke after changing this flow.
 
 ## WezTerm Pi Launch
 
 - The shortcut target should call the installed launcher under `%LOCALAPPDATA%\LinearProjectAdminPi`.
 - The launcher starts WezTerm with `--cwd "C:\Users\22003\linear-pi-project-admin-agent-runtime"`.
+- The launcher exports `REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml` before starting Pi.
 - Keep tokens and credential values out of shortcut targets, WezTerm config, and docs.
 - Runtime-local state changes must not make the launcher exit before WezTerm opens.
 - Run `npm run test:wezterm-launch` and `npm run test:pipeline-refactor-goals` after changing launcher behavior.

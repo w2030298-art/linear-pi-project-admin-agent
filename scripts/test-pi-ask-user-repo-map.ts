@@ -27,10 +27,13 @@ const validAnswers = {
 };
 
 const repoMapPath = path.join(tempRoot, 'repo-map.yaml');
+const localRepoMapPath = path.join(tempRoot, 'repo-map.local.yaml');
 const projectAPath = path.join(tempRoot, 'selection-project-a');
 const projectBPath = path.join(tempRoot, 'selection-project-b');
+const projectCPath = path.join(tempRoot, 'selection-project-c');
 fs.mkdirSync(projectAPath);
 fs.mkdirSync(projectBPath);
+fs.mkdirSync(projectCPath);
 fs.writeFileSync(repoMapPath, `
 version: 1
 repos:
@@ -61,12 +64,44 @@ repos:
       - README.md
     evidenceWeight: high
 `);
+fs.writeFileSync(localRepoMapPath, `
+version: 1
+repos:
+  - repoKey: project-b
+    github:
+      owner: w2030298-art
+      repo: project-b-local
+      defaultBranch: master
+    linear:
+      projectId: linear-project-b-local
+      projectName: Project B Local
+      projectPrefix: project-b
+    localPath: ${JSON.stringify(projectBPath)}
+    docs:
+      - README.md
+    evidenceWeight: high
+  - repoKey: project-c
+    github:
+      owner: w2030298-art
+      repo: project-c
+      defaultBranch: main
+    linear:
+      projectId: linear-project-c
+      projectName: Project C
+      projectPrefix: project-c
+    localPath: ${JSON.stringify(projectCPath)}
+    docs:
+      - README.md
+    evidenceWeight: high
+`);
 
 {
-  const choices = listRegisteredProjectChoices({ cwd: process.cwd(), repoMapPath });
-  assert.deepEqual(choices.map(choice => choice.projectId), ['project-a', 'project-b']);
+  const choices = listRegisteredProjectChoices({ cwd: process.cwd(), repoMapPath, localRepoMapPath });
+  assert.deepEqual(choices.map(choice => choice.projectId), ['project-a', 'project-b', 'project-c']);
   assert.equal(choices[0].localPath, path.resolve(projectAPath));
-  assert.equal(choices[1].linearProjectId, 'linear-project-b');
+  assert.equal(choices[1].linearProjectId, 'linear-project-b-local');
+  assert.equal(choices[1].githubRepo, 'project-b-local');
+  assert.equal(choices[2].linearProjectId, 'linear-project-c');
 }
 
 {
@@ -84,15 +119,15 @@ repos:
       notify() {}
     }
   };
-  const result = await runProjectSelectionFlow(ctx, { cwd: process.cwd(), repoMapPath });
+  const result = await runProjectSelectionFlow(ctx, { cwd: process.cwd(), repoMapPath, localRepoMapPath });
   assert.equal(result.ok, true);
   assert.equal(result.status, 'project_selected');
   assert.equal(result.source, 'repo_map');
   assert.equal(result.selectedProjectId, 'project-b');
   assert.equal(result.repoKey, 'project-b');
   assert.equal(result.localPath, path.resolve(projectBPath));
-  assert.equal(result.linearProjectIdOrKey, 'linear-project-b');
-  assert.deepEqual(selectCalls[0], ['project-a', 'project-b', CUSTOM_PROJECT_INPUT_LABEL]);
+  assert.equal(result.linearProjectIdOrKey, 'linear-project-b-local');
+  assert.deepEqual(selectCalls[0], ['project-a', 'project-b', 'project-c', CUSTOM_PROJECT_INPUT_LABEL]);
 }
 
 {
@@ -100,7 +135,7 @@ repos:
     hasUI: true,
     ui: {
       async select(_title: string, options: string[]) {
-        assert.deepEqual(options, ['project-a', 'project-b', CUSTOM_PROJECT_INPUT_LABEL]);
+        assert.deepEqual(options, ['project-a', 'project-b', 'project-c', CUSTOM_PROJECT_INPUT_LABEL]);
         return CUSTOM_PROJECT_INPUT_LABEL;
       },
       async input(title: string) {
@@ -110,7 +145,7 @@ repos:
       notify() {}
     }
   };
-  const result = await runProjectSelectionFlow(ctx, { cwd: process.cwd(), repoMapPath });
+  const result = await runProjectSelectionFlow(ctx, { cwd: process.cwd(), repoMapPath, localRepoMapPath });
   assert.equal(result.ok, true);
   assert.equal(result.status, 'custom_project_input');
   assert.equal(result.source, 'user_input');

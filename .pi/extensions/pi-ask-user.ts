@@ -33,6 +33,7 @@ interface LinearProjectSummary {
 interface FlowOptions {
   cwd?: string;
   repoMapPath?: string;
+  localRepoMapPath?: string;
   seed?: RepoMapInputs;
   maxRetries?: number;
   linearProjectResolved?: boolean;
@@ -42,6 +43,7 @@ interface FlowOptions {
 interface ProjectSelectionOptions {
   cwd?: string;
   repoMapPath?: string;
+  localRepoMapPath?: string;
   seed?: Pick<RepoMapInputs, "projectId" | "repoKey">;
   customLabel?: string;
 }
@@ -100,13 +102,19 @@ function resolveConfiguredPath(cwd: string, configuredPath: string) {
   return path.resolve(path.isAbsolute(configuredPath) ? configuredPath : path.resolve(cwd, configuredPath));
 }
 
-function repoMapPath(options: Pick<ProjectSelectionOptions, "cwd" | "repoMapPath"> = {}) {
+function repoMapPaths(options: Pick<ProjectSelectionOptions, "cwd" | "repoMapPath" | "localRepoMapPath"> = {}) {
   const cwd = options.cwd || process.cwd();
-  return resolveConfiguredPath(cwd, options.repoMapPath || process.env.REPO_MAP_PATH || "config/repo-map.yaml");
+  return {
+    repoMapPath: resolveConfiguredPath(cwd, options.repoMapPath || process.env.REPO_MAP_PATH || "config/repo-map.yaml"),
+    localRepoMapPath: resolveConfiguredPath(cwd, options.localRepoMapPath || process.env.REPO_MAP_LOCAL_PATH || "state/repo-map.local.yaml")
+  };
 }
 
-function readRepoMapEntries(options: Pick<ProjectSelectionOptions, "cwd" | "repoMapPath"> = {}) {
-  const file = repoMapPath(options);
+function repoKeyOf(entry: any) {
+  return clean(entry?.repoKey) || clean(entry?.key);
+}
+
+function readYamlRepos(file: string) {
   if (!fs.existsSync(file)) return [];
   try {
     const parsed = YAML.parse(fs.readFileSync(file, "utf8")) || {};
@@ -116,11 +124,37 @@ function readRepoMapEntries(options: Pick<ProjectSelectionOptions, "cwd" | "repo
   }
 }
 
-export function listRegisteredProjectChoices(options: Pick<ProjectSelectionOptions, "cwd" | "repoMapPath"> = {}): RegisteredProjectChoice[] {
+function readRepoMapEntries(options: Pick<ProjectSelectionOptions, "cwd" | "repoMapPath" | "localRepoMapPath"> = {}) {
+  const paths = repoMapPaths(options);
+  const merged: any[] = [];
+  const byKey = new Map<string, number>();
+  for (const entry of readYamlRepos(paths.repoMapPath)) {
+    const key = repoKeyOf(entry);
+    if (key) byKey.set(key, merged.length);
+    merged.push(entry);
+  }
+  for (const entry of readYamlRepos(paths.localRepoMapPath)) {
+    const key = repoKeyOf(entry);
+    if (key && byKey.has(key)) merged[byKey.get(key)!] = entry;
+    else {
+      if (key) byKey.set(key, merged.length);
+      merged.push(entry);
+    }
+  }
+  return merged;
+}
+
+function repoMapSourceLabel(options: Pick<ProjectSelectionOptions, "repoMapPath" | "localRepoMapPath"> = {}) {
+  const base = options.repoMapPath || process.env.REPO_MAP_PATH || "config/repo-map.yaml";
+  const local = options.localRepoMapPath || process.env.REPO_MAP_LOCAL_PATH || "state/repo-map.local.yaml";
+  return `${base} + ${local}`;
+}
+
+export function listRegisteredProjectChoices(options: Pick<ProjectSelectionOptions, "cwd" | "repoMapPath" | "localRepoMapPath"> = {}): RegisteredProjectChoice[] {
   const cwd = options.cwd || process.cwd();
   return readRepoMapEntries(options)
     .map((entry: any): RegisteredProjectChoice | null => {
-      const projectId = clean(entry?.repoKey) || clean(entry?.key);
+      const projectId = repoKeyOf(entry);
       if (!projectId) return null;
       const configuredLocalPath = clean(entry?.localPath) || clean(entry?.local?.path) || clean(entry?.local?.root);
       if (!configuredLocalPath) return null;
@@ -195,7 +229,8 @@ function projectSelectionResult(choice: RegisteredProjectChoice) {
   };
 }
 
-function customProjectSelectionResult(projectId: string) {
+function customProjectSelectionResult(projectId: string, options: Pick<ProjectSelectionOptions, "repoMapPath" | "localRepoMapPath"> = {}) {
+  const source = repoMapSourceLabel(options);
   return {
     ok: true,
     status: "custom_project_input" as const,
@@ -208,7 +243,7 @@ function customProjectSelectionResult(projectId: string) {
     writesPerformed: false,
     confirmationRequired: false,
     evidenceGaps: [
-      `Custom project ID is not confirmed against ${process.env.REPO_MAP_PATH || "config/repo-map.yaml"}: ${projectId}`
+      `Custom project ID is not confirmed against ${source}: ${projectId}`
     ],
     openQuestions: [
       "Register this project in the local three-source repo-map if it should become a durable project directory mapping."
@@ -221,13 +256,14 @@ function customProjectSelectionResult(projectId: string) {
 
 export function createNonInteractiveProjectSelectionResult(options: ProjectSelectionOptions = {}) {
   const optionsForUser = projectSelectionOptions(options);
+  const source = repoMapSourceLabel(options);
   return {
     ok: false,
     status: "needs_project_selection" as const,
     writesPerformed: false,
     projectOptions: optionsForUser,
     evidenceGaps: [
-      `Pi UI is not available; choose one local project ID from ${options.repoMapPath || process.env.REPO_MAP_PATH || "config/repo-map.yaml"} before reading Linear project context.`
+      `Pi UI is not available; choose one local project ID from ${source} before reading Linear project context.`
     ],
     openQuestions: [
       "Choose one local project ID from the repo-map options, or provide custom input."
@@ -236,7 +272,7 @@ export function createNonInteractiveProjectSelectionResult(options: ProjectSelec
 }
 
 function selectionTitle(options: ProjectSelectionOptions = {}) {
-  const source = options.repoMapPath || process.env.REPO_MAP_PATH || "config/repo-map.yaml";
+  const source = repoMapSourceLabel(options);
   return `Choose local project ID from ${source} before Linear read`;
 }
 
@@ -245,7 +281,7 @@ export async function runProjectSelectionFlow(ctx: RepoMapAskContext, options: P
   const seededProjectId = clean(options.seed?.projectId) || clean(options.seed?.repoKey);
   if (seededProjectId) {
     const seededChoice = choices.find(choice => choice.projectId === seededProjectId);
-    return seededChoice ? projectSelectionResult(seededChoice) : customProjectSelectionResult(seededProjectId);
+    return seededChoice ? projectSelectionResult(seededChoice) : customProjectSelectionResult(seededProjectId, options);
   }
 
   if (!ctx.hasUI) return createNonInteractiveProjectSelectionResult(options);
@@ -278,11 +314,11 @@ export async function runProjectSelectionFlow(ctx: RepoMapAskContext, options: P
         openQuestions: ["Provide a custom project ID, or choose one local repo-map project ID."]
       };
     }
-    return customProjectSelectionResult(custom);
+    return customProjectSelectionResult(custom, options);
   }
 
   const choice = choices.find(choice => choice.label === selected || choice.projectId === selected);
-  return choice ? projectSelectionResult(choice) : customProjectSelectionResult(selected);
+  return choice ? projectSelectionResult(choice) : customProjectSelectionResult(selected, options);
 }
 
 function projectSummary(project: unknown): { id?: string; name?: string; url?: string } {
@@ -427,7 +463,7 @@ export function buildRepoMapDraft(inputs: RepoMapInputs, options: FlowOptions = 
     confirmationRequired: true,
     writesPerformed: false,
     evidenceGaps: [] as string[],
-    openQuestions: ["Review the repo-map draft and confirm before writing config/repo-map.yaml."]
+    openQuestions: ["Review the repo-map draft and confirm before writing the repo-map local overlay."]
   };
 }
 
@@ -608,6 +644,7 @@ export default function (pi: ExtensionAPI) {
         defaultBranch: Type.Optional(Type.String())
       })),
       repoMapPath: Type.Optional(Type.String()),
+      localRepoMapPath: Type.Optional(Type.String()),
       customLabel: Type.Optional(Type.String()),
       maxRetries: Type.Optional(Type.Number({ default: 2 }))
     }),
@@ -617,14 +654,15 @@ export default function (pi: ExtensionAPI) {
       "Project selection options must come from the local repo-map, with User input as the last option; do not list projects from Linear before the user selects one.",
       "Use pi_ask_user for repo-map gaps when GitHub, Linear Project, and local repo facts do not line up.",
       "Ask one field at a time; do not present a multi-field table.",
-      "If the result is cancelled or needs_interactive_input, do not modify config/repo-map.yaml.",
-      "The returned repo-map draft is review-only; write config/repo-map.yaml only after separate explicit confirmation."
+      "If the result is cancelled or needs_interactive_input, do not modify repo-map files.",
+      "The returned repo-map draft is review-only; apply it with repo-map-drift only after separate explicit confirmation; the default target is the local overlay, not tracked config."
     ],
     async execute(_id, params, signal, _onUpdate, ctx) {
       if (params.flow === "project_select") {
         const result = await runProjectSelectionFlow(ctx, {
           cwd: process.cwd(),
           repoMapPath: params.repoMapPath,
+          localRepoMapPath: params.localRepoMapPath,
           seed: params.seed,
           customLabel: params.customLabel
         });
@@ -637,6 +675,8 @@ export default function (pi: ExtensionAPI) {
 
       const result = await runRepoMapAskFlow(ctx, {
         cwd: process.cwd(),
+        repoMapPath: params.repoMapPath,
+        localRepoMapPath: params.localRepoMapPath,
         seed: params.seed,
         maxRetries: params.maxRetries,
         resolveLinearProject: project => resolveLinearProjectWithCli(pi, signal, project)

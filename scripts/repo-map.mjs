@@ -3,8 +3,10 @@ import path from 'node:path';
 import YAML from 'yaml';
 
 const VALID_EVIDENCE_WEIGHTS = new Set(['high', 'medium', 'low']);
+const DEFAULT_REPO_MAP_PATH = 'config/repo-map.yaml';
+const DEFAULT_LOCAL_REPO_MAP_PATH = 'state/repo-map.local.yaml';
 
-function readRepoMap(repoMapPath) {
+export function readRepoMap(repoMapPath) {
   if (!fs.existsSync(repoMapPath)) return { repos: [] };
   return YAML.parse(fs.readFileSync(repoMapPath, 'utf8')) || { repos: [] };
 }
@@ -31,7 +33,52 @@ function repoKeyOf(entry) {
   return text(entry.repoKey) || text(entry.key);
 }
 
-function normalizeEntry(entry, cwd) {
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+export function mergeRepoMaps(baseMap = {}, localMap = {}) {
+  const repos = [];
+  const byKey = new Map();
+  for (const entry of Array.isArray(baseMap.repos) ? baseMap.repos : []) {
+    const copied = clone(entry);
+    const key = repoKeyOf(copied);
+    if (key) byKey.set(key, repos.length);
+    repos.push(copied);
+  }
+  for (const entry of Array.isArray(localMap.repos) ? localMap.repos : []) {
+    const copied = clone(entry);
+    const key = repoKeyOf(copied);
+    if (key && byKey.has(key)) repos[byKey.get(key)] = copied;
+    else {
+      if (key) byKey.set(key, repos.length);
+      repos.push(copied);
+    }
+  }
+  return { version: baseMap.version || localMap.version || 1, repos };
+}
+
+export function repoMapPaths(options = {}) {
+  const env = options.env || process.env;
+  return {
+    repoMapPath: options.repoMapPath || env.REPO_MAP_PATH || DEFAULT_REPO_MAP_PATH,
+    localRepoMapPath: options.localRepoMapPath || env.REPO_MAP_LOCAL_PATH || DEFAULT_LOCAL_REPO_MAP_PATH
+  };
+}
+
+export function readMergedRepoMap(options = {}) {
+  const { repoMapPath, localRepoMapPath } = repoMapPaths(options);
+  const baseMap = readRepoMap(repoMapPath);
+  const localMap = readRepoMap(localRepoMapPath);
+  return {
+    repoMap: mergeRepoMaps(baseMap, localMap),
+    repoMapPath,
+    localRepoMapPath,
+    localRepoMapExists: fs.existsSync(localRepoMapPath)
+  };
+}
+
+function normalizeEntry(entry, cwd, sourcePath = null) {
   const localPath = text(entry.localPath) || text(entry.local?.path) || text(entry.local?.root);
   const localRoot = resolveLocalPath(localPath, cwd);
   return {
@@ -52,7 +99,8 @@ function normalizeEntry(entry, cwd) {
       projectPrefix: text(entry.linear?.projectPrefix) || text(entry.linearProjectPrefix)
     },
     docs: docsList(entry.docs),
-    evidenceWeight: text(entry.evidenceWeight)
+    evidenceWeight: text(entry.evidenceWeight),
+    sourcePath
   };
 }
 
@@ -123,14 +171,13 @@ function envConflicts(normalized, env, cwd) {
 export function validateRepoMap(options = {}) {
   const cwd = options.cwd || process.cwd();
   const env = options.env || process.env;
-  const repoMapPath = options.repoMapPath || env.REPO_MAP_PATH || 'config/repo-map.yaml';
-  const repoMap = readRepoMap(repoMapPath);
-  const entries = Array.isArray(repoMap.repos) ? repoMap.repos.map(entry => normalizeEntry(entry, cwd)) : [];
+  const { repoMap, repoMapPath, localRepoMapPath } = readMergedRepoMap({ ...options, env });
+  const entries = Array.isArray(repoMap.repos) ? repoMap.repos.map(entry => normalizeEntry(entry, cwd, repoMapPath)) : [];
   const evidenceGaps = [];
   const conflicts = [];
   const seen = new Set();
 
-  if (!Array.isArray(repoMap.repos)) evidenceGaps.push(`repo-map ${repoMapPath} is missing repos array.`);
+  if (!Array.isArray(repoMap.repos)) evidenceGaps.push(`repo-map ${repoMapPath} plus ${localRepoMapPath} is missing repos array.`);
   for (const entry of entries) {
     evidenceGaps.push(...validateEntry(entry, repoMapPath));
     if (entry.key) {
@@ -139,16 +186,15 @@ export function validateRepoMap(options = {}) {
     }
   }
 
-  return { ok: !evidenceGaps.length && !conflicts.length, entries, evidenceGaps, conflicts };
+  return { ok: !evidenceGaps.length && !conflicts.length, entries, repoMapPath, localRepoMapPath, evidenceGaps, conflicts };
 }
 
 export function listRepoMapProjectOptions(options = {}) {
   const cwd = options.cwd || process.cwd();
   const env = options.env || process.env;
-  const repoMapPath = options.repoMapPath || env.REPO_MAP_PATH || 'config/repo-map.yaml';
   let repoMap;
   try {
-    repoMap = readRepoMap(repoMapPath);
+    repoMap = readMergedRepoMap({ ...options, env }).repoMap;
   } catch {
     return [];
   }
@@ -176,7 +222,7 @@ export function listRepoMapProjectOptions(options = {}) {
 export function resolveRepoMapEntry(repoKey, options = {}) {
   const cwd = options.cwd || process.cwd();
   const env = options.env || process.env;
-  const repoMapPath = options.repoMapPath || env.REPO_MAP_PATH || 'config/repo-map.yaml';
+  const paths = repoMapPaths({ ...options, env });
 
   if (!repoKey) {
     const fallback = envFallback(env, cwd);
@@ -189,14 +235,14 @@ export function resolveRepoMapEntry(repoKey, options = {}) {
 
   let repoMap;
   try {
-    repoMap = readRepoMap(repoMapPath);
+    repoMap = readMergedRepoMap({ ...options, env }).repoMap;
   } catch (error) {
     return {
       ok: false,
       source: 'repo_map',
       key: repoKey,
-      error: `repo-map ${repoMapPath} could not be read: ${error.message}`,
-      evidenceGaps: [`repo-map ${repoMapPath} could not be read: ${error.message}`],
+      error: `repo-map ${paths.repoMapPath} plus ${paths.localRepoMapPath} could not be read: ${error.message}`,
+      evidenceGaps: [`repo-map ${paths.repoMapPath} plus ${paths.localRepoMapPath} could not be read: ${error.message}`],
       conflicts: []
     };
   }
@@ -209,16 +255,16 @@ export function resolveRepoMapEntry(repoKey, options = {}) {
       ok: false,
       source: 'repo_map',
       key: repoKey,
-      error: `repoKey not found in ${repoMapPath}: ${repoKey}`,
-      evidenceGaps: [`repoKey not found in ${repoMapPath}: ${repoKey}`],
+      error: `repoKey not found in ${paths.repoMapPath} or ${paths.localRepoMapPath}: ${repoKey}`,
+      evidenceGaps: [`repoKey not found in ${paths.repoMapPath} or ${paths.localRepoMapPath}: ${repoKey}`],
       conflicts: []
     };
   }
 
   const normalized = normalizeEntry(entry, cwd);
-  const evidenceGaps = validateEntry(normalized, repoMapPath);
+  const evidenceGaps = validateEntry(normalized, `${paths.repoMapPath} + ${paths.localRepoMapPath}`);
   const conflicts = envConflicts(normalized, env, cwd);
-  if (matches.length > 1) conflicts.push(`repo-map ${repoMapPath} has duplicate repoKey: ${repoKey}.`);
+  if (matches.length > 1) conflicts.push(`repo-map ${paths.repoMapPath} plus ${paths.localRepoMapPath} has duplicate repoKey: ${repoKey}.`);
 
   return {
     ok: true,

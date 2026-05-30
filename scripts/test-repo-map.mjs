@@ -8,8 +8,11 @@ import { resolveRepoMapEntry } from './repo-map.mjs';
 
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-map-'));
 const repoMapPath = path.join(fixtureDir, 'repo-map.yaml');
+const localRepoMapPath = path.join(fixtureDir, 'repo-map.local.yaml');
 const localPath = path.join(fixtureDir, 'linear-bridge');
+const overlayPath = path.join(fixtureDir, 'overlay-project');
 fs.mkdirSync(localPath);
+fs.mkdirSync(overlayPath);
 fs.writeFileSync(repoMapPath, `
 version: 1
 repos:
@@ -43,11 +46,29 @@ repos:
     github:
       owner: w2030298-art
 `);
+fs.writeFileSync(localRepoMapPath, `
+version: 1
+repos:
+  - repoKey: overlay-project
+    github:
+      owner: w2030298-art
+      repo: overlay-project
+      defaultBranch: master
+    localPath: ${JSON.stringify(overlayPath)}
+    linear:
+      projectId: overlay-linear-project
+      projectName: Overlay Project
+      projectPrefix: overlay-project
+    docs:
+      - README.md
+    evidenceWeight: high
+`);
 
 {
   const resolved = resolveRepoMapEntry('linear-bridge', {
     cwd: process.cwd(),
     repoMapPath,
+    localRepoMapPath,
     env: {
       GITHUB_DEFAULT_OWNER: 'wrong-owner',
       GITHUB_DEFAULT_REPO: 'linear-pi-project-admin-agent',
@@ -67,11 +88,26 @@ repos:
 }
 
 {
+  const resolved = resolveRepoMapEntry('overlay-project', {
+    cwd: process.cwd(),
+    repoMapPath,
+    localRepoMapPath,
+    env: {}
+  });
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.github.repo, 'overlay-project');
+  assert.equal(resolved.linear.projectId, 'overlay-linear-project');
+  assert.equal(resolved.local.root, path.resolve(overlayPath));
+  assert.deepEqual(resolved.evidenceGaps, []);
+}
+
+{
   const result = spawnSync(process.execPath, ['scripts/fact-pack.mjs', '--task', 'repo map test', '--repo', 'linear-bridge', '--no-github', '--no-local', '--no-linear'], {
     cwd: process.cwd(),
     env: {
       ...process.env,
       REPO_MAP_PATH: repoMapPath,
+      REPO_MAP_LOCAL_PATH: localRepoMapPath,
       GITHUB_DEFAULT_OWNER: 'wrong-owner',
       GITHUB_DEFAULT_REPO: 'linear-pi-project-admin-agent',
       LOCAL_REPO_ROOTS: 'wrong-local-path'
@@ -91,11 +127,29 @@ repos:
 }
 
 {
+  const result = spawnSync(process.execPath, ['scripts/fact-pack.mjs', '--task', 'repo map overlay test', '--repo', 'overlay-project', '--no-github', '--no-local', '--no-linear'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      REPO_MAP_PATH: repoMapPath,
+      REPO_MAP_LOCAL_PATH: localRepoMapPath
+    },
+    encoding: 'utf8'
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.factPack.scope.repo.repo, 'overlay-project');
+  assert.equal(output.factPack.scope.repo.linearProjectId, 'overlay-linear-project');
+  assert.equal(output.factPack.scope.repo.localPath, path.resolve(overlayPath));
+}
+
+{
   const result = spawnSync(process.execPath, ['scripts/fact-pack.mjs', '--task', 'single project task', '--no-github', '--no-local', '--no-linear'], {
     cwd: process.cwd(),
     env: {
       ...process.env,
       REPO_MAP_PATH: repoMapPath,
+      REPO_MAP_LOCAL_PATH: localRepoMapPath,
       GITHUB_DEFAULT_OWNER: 'fallback-owner',
       GITHUB_DEFAULT_REPO: 'fallback-repo',
       LOCAL_REPO_ROOTS: localPath
@@ -107,7 +161,7 @@ repos:
   assert.equal(output.factPack.piAskUser.flow, 'project_select');
   assert.deepEqual(
     output.factPack.piAskUser.options.filter(option => !option.custom).map(option => option.projectId),
-    ['linear-pi-project-admin-agent', 'linear-bridge']
+    ['linear-pi-project-admin-agent', 'linear-bridge', 'overlay-project']
   );
   assert.equal(output.factPack.piAskUser.options.at(-1).custom, true);
   assert.match(output.factPack.openQuestions.join('\n'), /local project ID/i);
@@ -121,6 +175,7 @@ repos:
   const missing = resolveRepoMapEntry('incomplete', {
     cwd: process.cwd(),
     repoMapPath,
+    localRepoMapPath,
     env: {
       GITHUB_DEFAULT_OWNER: 'fallback-owner',
       GITHUB_DEFAULT_REPO: 'fallback-repo',

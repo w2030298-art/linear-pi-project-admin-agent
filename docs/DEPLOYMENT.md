@@ -322,6 +322,8 @@ node scripts/fact-pack.mjs --task "smoke test" --web
 
 ## 13. Repo-map 部署边界
 
+Current policy: `config/repo-map.yaml` is the tracked base map. Machine-local additions or overrides belong in the local overlay pointed to by `REPO_MAP_LOCAL_PATH`; the installed launcher sets this to `%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml`. Fact Pack and project selection read the merged map, and local overlay entries override tracked entries with the same repoKey. Confirmed drift apply writes the local overlay by default. Use `--write-tracked` only when intentionally preparing a tracked config change for PR review.
+
 `config/repo-map.yaml` 是 Fact Pack 的 GitHub / Linear / Local 三方路由事实源。推荐配置：
 
 ```yaml
@@ -346,11 +348,11 @@ repos:
 
 Fact Pack 优先级：
 
-1. 传入 `--repo <repoKey>` 时，优先读取 `config/repo-map.yaml`。
+1. 传入 `--repo <repoKey>` 时，优先读取合并后的 repo-map：`config/repo-map.yaml` / `REPO_MAP_PATH` 加 `REPO_MAP_LOCAL_PATH`。
 2. 未传入 repoKey 时，才使用 `GITHUB_DEFAULT_OWNER`、`GITHUB_DEFAULT_REPO`、`GITHUB_DEFAULT_BRANCH`、`LOCAL_REPO_ROOTS` 兼容路径。
 3. repo-map 缺失或字段不完整时，写入 `evidenceGaps`，不借用其他 repo 的 env fallback。
 
-如果 repo-map 与 env fallback 不一致，repo-map 胜出，差异写入 `conflicts`。不要把 token 或 secret 写入 repo-map；不要自动扫描整盘寻找 repo。路径或项目映射缺失/漂移时，通过 `pi_ask_user flow=repo_map` 生成审阅草案，并只在用户确认后写入 `config/repo-map.yaml`。
+如果 repo-map 与 env fallback 不一致，repo-map 胜出，差异写入 `conflicts`。不要把 token 或 secret 写入 repo-map；不要自动扫描整盘寻找 repo。路径或项目映射缺失/漂移时，通过 `pi_ask_user flow=repo_map` 生成审阅草案，并只在用户确认后写入本机 local overlay；只有准备 PR 时才使用 `--write-tracked` 写入 `config/repo-map.yaml`。
 
 Drift governance:
 
@@ -360,7 +362,7 @@ Before any single-Project task without an explicit target, use `pi_ask_user(flow
 2. The check command writes only `state/repo-map.draft.yaml` and reports `drifts`, `missingFields`, `diff`, and `piAskUser` seeds when clarification is needed.
 3. If fields are missing, use `pi_ask_user(flow=repo_map)` with the returned Linear Project context. Do not fabricate GitHub URL, localPath, repoKey, defaultBranch, or Linear Project ID.
 4. After review and explicit confirmation, run `npm run repo-map:drift -- apply --draft state/repo-map.draft.yaml --confirmed --confirmation-text "<approval>"`.
-5. Confirmed apply writes `config/repo-map.yaml`, appends `state/repo-map-audit.jsonl`, validates the map, and prints rollback commands.
+5. Confirmed apply writes the local overlay by default, appends `state/repo-map-audit.jsonl`, validates the merged map, and prints rollback commands. Use `--write-tracked` only when intentionally preparing a tracked config change for PR review.
 
 验证：
 
