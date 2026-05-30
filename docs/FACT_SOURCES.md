@@ -1,5 +1,12 @@
 # Fact Sources
 
+## Project Baseline Reuse
+
+- Fact Pack includes `projectBaseline` when Linear Project evidence is present.
+- `projectBaseline.rawEvidenceRef` points to the raw Project evidence file under `state/fact-packs/evidence/<fact-id>/`.
+- Report, extend_project, and issue_dispatch flows must load the compact baseline first.
+- Call `linear_get_project_context` only when the baseline is absent, stale, or missing fields required by the task.
+
 Fact Pack 的目标是保持项目理解充分，同时避免把大块原始数据塞进模型上下文。
 
 ## 分层

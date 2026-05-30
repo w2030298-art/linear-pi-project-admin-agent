@@ -17,10 +17,11 @@ Report on exactly one Linear Project at a time. Use compact evidence summaries a
 ## Flow
 
 1. Build or read a compact Fact Pack for the target Project.
-2. Read Project baseline, milestones, issues, relations, and latest Project updates.
-3. Compare Linear state with GitHub/local repo facts when mapped.
-4. Identify progress, stale status, blockers, missing labels, missing acceptance criteria, dependency risks, and decisions.
-5. Draft a Project update if useful; do not write it without the final write flow.
+2. Load `projectBaseline` with `fact_project_baseline_load` and reuse it when `shouldReadLive=false`.
+3. Call `linear_get_project_context` only when the Fact Pack baseline is absent, stale, or missing fields needed for the report.
+4. Compare Linear state with GitHub/local repo facts when mapped.
+5. Identify progress, stale status, blockers, missing labels, missing acceptance criteria, dependency risks, and decisions.
+6. Draft a Project update if useful; do not write it without the final write flow.
 
 ## Report Shape
 
@@ -38,3 +39,4 @@ Report on exactly one Linear Project at a time. Use compact evidence summaries a
 
 - Do not summarize all workspace Projects in one report.
 - Do not claim a Linear write happened unless readback proves it.
+- Do not paste raw Project JSON when an evidenceRef is available.
