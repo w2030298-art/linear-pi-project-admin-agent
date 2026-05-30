@@ -534,7 +534,10 @@ async function apply(planPath) {
   const allow = process.env.ALLOW_LINEAR_WRITES === 'true';
   const hostCapabilities = detectHostConfirmationCapabilities(process.env, process.cwd());
   if (confirmationChannelOverride === 'ask_user') hostCapabilities.askUserAvailable = true;
-  if (confirmationChannelOverride === 'conversation_fallback') hostCapabilities.askUserAvailable = false;
+  if (confirmationChannelOverride === 'conversation_fallback') {
+    hostCapabilities.askUserAvailable = false;
+    hostCapabilities.conversationFallbackAllowed = true;
+  }
   if (confirmationChannelOverride === 'unavailable') hostCapabilities.conversationFallbackAllowed = false;
   const applyMode = resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, confirmationText, writePlanPath: planPath, hostCapabilities });
   const dryRun = applyMode.dryRun;

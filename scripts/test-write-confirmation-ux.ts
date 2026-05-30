@@ -11,7 +11,7 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
       dryRun: false,
       writePlanPath: 'state/write-plans/test.json',
       confirmedByUser: false,
-      confirmationText: ''
+      confirmationText: 'Fallback reason: stale conversation fallback text must not survive ask_user approval.'
     },
     {
       hasUI: true,
@@ -29,6 +29,41 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
   assert.equal(prepared.confirmedByUser, true);
   assert.equal(prepared.confirmationChannel, 'ask_user');
   assert.match(prepared.confirmationText, /ask_user approved/i);
+  assert.doesNotMatch(prepared.confirmationText, /Fallback reason|conversation fallback/i);
+}
+
+{
+  await assert.rejects(
+    () => prepareWriteConfirmation(
+      {},
+      {
+        dryRun: false,
+        writePlanPath: 'state/write-plans/test.json',
+        confirmedByUser: true,
+        confirmationText: 'user typed confirm',
+        confirmationChannel: 'conversation_fallback'
+      },
+      { hasUI: false }
+    ),
+    /interactive confirmation unavailable; real write not applied/i
+  );
+}
+
+{
+  const prepared = await prepareWriteConfirmation(
+    {},
+    {
+      dryRun: false,
+      writePlanPath: 'state/write-plans/test.json',
+      confirmedByUser: true,
+      confirmationText: 'user explicitly allowed text fallback and approved.',
+      confirmationChannel: 'conversation_fallback',
+      allowConversationFallback: true
+    },
+    { hasUI: false }
+  );
+  assert.equal(prepared.confirmationChannel, 'conversation_fallback');
+  assert.equal(prepared.confirmationText, 'user explicitly allowed text fallback and approved.');
 }
 
 {
@@ -49,8 +84,9 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
     {
       confirmedByUser: true,
       dryRun: false,
-      confirmationText: 'Fallback reason: Generic ask_user is unavailable; pi_ask_user is project-selection/repo-map only. User approval: 用户回复确认。 Write plan: plan.json. Idempotency key: key.',
-      confirmationChannel: 'conversation_fallback'
+      confirmationText: 'Fallback reason: Generic ask_user is unavailable. User approval: user approved. Write plan: plan.json. Idempotency key: key.',
+      confirmationChannel: 'conversation_fallback',
+      allowConversationFallback: true
     },
     { ALLOW_LINEAR_WRITES: 'false' }
   );
@@ -77,7 +113,27 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
 
 {
   const decision = linearWriteGuardDecision(
-    { confirmedByUser: true, dryRun: false, confirmationText: '用户回复确认。', confirmationChannel: 'conversation_fallback' },
+    {
+      confirmedByUser: true,
+      dryRun: false,
+      confirmationText: 'user typed confirm',
+      confirmationChannel: 'conversation_fallback'
+    },
+    { ALLOW_LINEAR_WRITES: 'true' }
+  );
+  assert.equal(decision.action, 'block');
+  assert.match(decision.message, /interactive confirmation unavailable; real write not applied/i);
+}
+
+{
+  const decision = linearWriteGuardDecision(
+    {
+      confirmedByUser: true,
+      dryRun: false,
+      confirmationText: 'user typed confirm',
+      confirmationChannel: 'conversation_fallback',
+      allowConversationFallback: true
+    },
     { ALLOW_LINEAR_WRITES: 'true' }
   );
   assert.deepEqual(decision, { action: 'allow' });
@@ -85,7 +141,13 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
 
 {
   const decision = linearWriteGuardDecision(
-    { confirmedByUser: true, dryRun: false, confirmationText: '', confirmationChannel: 'conversation_fallback' },
+    {
+      confirmedByUser: true,
+      dryRun: false,
+      confirmationText: '',
+      confirmationChannel: 'conversation_fallback',
+      allowConversationFallback: true
+    },
     { ALLOW_LINEAR_WRITES: 'true' }
   );
   assert.equal(decision.action, 'block');
@@ -102,8 +164,9 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
 
 const adminTools = fs.readFileSync('.pi/extensions/linear-admin-tools.ts', 'utf8');
 assert.match(adminTools, /ask_user exactly once/i);
-assert.match(adminTools, /current conversation explicit approval fallback/i);
+assert.match(adminTools, /current conversation text fallback/i);
 assert.match(adminTools, /pi_ask_user is project-selection\/repo-map only/i);
+assert.match(adminTools, /interactive confirmation unavailable; real write not applied/i);
 assert.doesNotMatch(adminTools, /type .*确认执行/i);
 
 console.log('write confirmation UX tests passed');

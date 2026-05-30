@@ -52,10 +52,16 @@ export async function prepareWriteConfirmation(pi: ExtensionAPI | Record<string,
       ...params,
       confirmedByUser: true,
       confirmationChannel: "ask_user",
-      confirmationText: params.confirmationText || "ask_user approved the exact dry-run write plan."
+      confirmationFallbackReason: null,
+      confirmationText: "ask_user approved the exact dry-run write plan."
     };
   }
 
+  if (params.allowConversationFallback !== true) {
+    throw new Error(
+      "interactive confirmation unavailable; real write not applied. Generic ask_user is unavailable and current-conversation fallback was not explicitly allowed."
+    );
+  }
   if (params.confirmedByUser !== true) {
     throw new Error(
       "Generic ask_user is unavailable; pi_ask_user is project-selection/repo-map only and cannot confirm Linear writes. Request one explicit approval in the current conversation before real apply."
@@ -132,6 +138,7 @@ export default function (pi: ExtensionAPI) {
       confirmedByUser: Type.Boolean(),
       confirmationText: Type.String(),
       confirmationChannel: Type.Optional(Type.String()),
+      allowConversationFallback: Type.Optional(Type.Boolean({ default: false })),
       dryRun: Type.Optional(Type.Boolean({ default: true }))
     }),
     promptSnippet: "linear_apply_write_plan: applies a confirmed Linear write plan with guardrails.",
@@ -139,14 +146,19 @@ export default function (pi: ExtensionAPI) {
       "Dry-run compilation does not require user approval and should be called with dryRun=true.",
       "Use ask_user exactly once through the Pi UI confirmation channel before real Linear writes to ask the user to approve or reject the exact dry-run write plan.",
       "Do not ask the user to type a fixed confirmation phrase; the ask_user approval is the confirmation.",
-      "If ask_user is not available in the current host, say that generic ask_user is unavailable, pi_ask_user is project-selection/repo-map only, and current conversation explicit approval fallback will be used.",
-      "When using current conversation explicit approval fallback, call linear_apply_write_plan with dryRun=false, confirmedByUser=true, confirmationChannel=conversation_fallback, and confirmationText containing the user's exact approval.",
-      "After ask_user approval, call linear_apply_write_plan with dryRun=false, confirmedByUser=true, confirmationChannel=ask_user, and a confirmationText that summarizes the ask_user approval.",
+      "If ask_user is not available in the current host and text fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",
+      "When the user explicitly allows current conversation text fallback, call linear_apply_write_plan with dryRun=false, confirmedByUser=true, confirmationChannel=conversation_fallback, allowConversationFallback=true, and confirmationText containing the user's exact approval.",
+      "After ask_user approval, call linear_apply_write_plan with dryRun=false, confirmedByUser=true and confirmationChannel=ask_user; ignore any previous conversation fallback text.",
       "Never call linear_apply_write_plan with confirmedByUser=true unless the user approval is present in the current conversation or Linear comment."
     ],
     async execute(_id, params, signal, _onUpdate, ctx) {
       const prepared = await prepareWriteConfirmation(pi, params, ctx);
-      const inferredChannel = genericAskUser(pi, ctx) ? "ask_user" : "conversation_fallback";
+      const askUserAvailable = Boolean(genericAskUser(pi, ctx));
+      const inferredChannel = askUserAvailable
+        ? "ask_user"
+        : (params.allowConversationFallback === true || params.confirmationChannel === "conversation_fallback")
+          ? "conversation_fallback"
+          : "unavailable";
       const args = ["apply", prepared.writePlanPath, prepared.confirmedByUser ? "--confirmed" : "--not-confirmed"];
       args.push("--confirmation-channel", prepared.confirmationChannel || inferredChannel);
       if (prepared.confirmationText) args.push("--confirmation-text", prepared.confirmationText);
