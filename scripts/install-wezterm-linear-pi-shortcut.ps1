@@ -72,9 +72,31 @@ function Join-ProcessArguments([string[]]$Arguments) {
   }) -join ' '
 }
 
+function Resolve-CommandFile([string]$Command) {
+  if ([System.IO.Path]::IsPathRooted($Command) -or $Command -match '[\\/]') {
+    return $Command
+  }
+
+  $extension = [System.IO.Path]::GetExtension($Command)
+  $candidateNames = if ($extension) {
+    @($Command)
+  } else {
+    @("$Command.exe", "$Command.cmd", "$Command.bat", $Command)
+  }
+
+  foreach ($candidateName in $candidateNames) {
+    $resolved = Get-Command $candidateName -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  throw "Command executable not found: $Command"
+}
+
 function Invoke-CheckedCommand([string]$Command, [string[]]$Arguments, [string]$WorkingDirectory = '') {
   $process = New-Object System.Diagnostics.Process
-  $process.StartInfo.FileName = $Command
+  $process.StartInfo.FileName = Resolve-CommandFile $Command
   $process.StartInfo.Arguments = Join-ProcessArguments $Arguments
   if ($WorkingDirectory) {
     $process.StartInfo.WorkingDirectory = $WorkingDirectory

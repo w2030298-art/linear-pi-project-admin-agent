@@ -68,6 +68,9 @@ assert.match(installer, /RuntimeRoot/);
 assert.match(installer, /StableBranch/);
 assert.match(installer, /git clone/i);
 assert.match(installer, /pull --ff-only/i);
+assert.match(installer, /Resolve-CommandFile/);
+assert.match(installer, /\$Command\.cmd/);
+assert.match(installer, /\$process\.StartInfo\.FileName\s*=\s*Resolve-CommandFile \$Command/);
 assert.match(installer, /LOCALAPPDATA|LocalAppData/i);
 assert.match(installer, /powershell\.exe/i);
 
