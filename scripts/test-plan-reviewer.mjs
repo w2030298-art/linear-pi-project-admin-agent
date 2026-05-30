@@ -2,6 +2,21 @@
 import assert from 'node:assert/strict';
 import { reviewProjectPlan, reviewWritePlan } from './plan-reviewer.mjs';
 
+const resolverManifest = {
+  evidenceRef: 'state/workspace-object-manifest.json',
+  teams: [{ id: 'team-wen', key: 'WEN', name: 'WENTAOXU-personal-workplace' }],
+  labels: [
+    { id: 'label-backend', name: 'Backend', group: 'area', teamId: 'team-wen', teamKey: 'WEN' },
+    { id: 'label-medium', name: 'Medium-difficulty', group: 'complexity', teamId: 'team-wen', teamKey: 'WEN' }
+  ],
+  workflowStates: [
+    { id: 'state-started', name: 'In Progress', type: 'started', teamId: 'team-wen', teamKey: 'WEN' }
+  ],
+  projectMilestones: [
+    { id: 'milestone-m0', name: 'M0', projectId: 'project-admin' }
+  ]
+};
+
 function findingCodes(report) {
   return report.findings.map(finding => finding.code);
 }
@@ -257,6 +272,42 @@ function baseProjectPlan() {
   const report = reviewProjectPlan(baseProjectPlan());
   assert.equal(report.status, 'pass');
   assert.deepEqual(report.findings, []);
+}
+
+{
+  const writePlan = {
+    idempotencyKey: 'resolver-review',
+    dryRun: true,
+    confirmedByUser: false,
+    targetProjectId: 'project-admin',
+    targetMilestoneId: 'milestone-m0',
+    targetMilestoneReadback: {
+      id: 'milestone-m0',
+      projectId: 'project-admin',
+      name: 'M0'
+    },
+    dependencyValidation: 'Single issue is independent.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'issue.create',
+        input: {
+          title: 'Resolve object names',
+          teamKey: 'WEN',
+          projectId: 'project-admin',
+          milestoneName: 'M0',
+          workflowStateName: 'In Progress',
+          workflowStateType: 'started',
+          labelNames: ['Backend', 'Medium-difficulty']
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan, { workspaceManifest: resolverManifest });
+  assert.equal(report.status, 'pass');
+  assert.equal(report.resolutions.length, 4);
+  assert.ok(report.resolutions.every(resolution => resolution.evidenceRef === resolverManifest.evidenceRef));
 }
 
 console.log('plan reviewer tests passed');

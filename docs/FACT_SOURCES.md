@@ -7,6 +7,15 @@
 - Report, extend_project, and issue_dispatch flows must load the compact baseline first.
 - Call `linear_get_project_context` only when the baseline is absent, stale, or missing fields required by the task.
 
+## Linear Object Exact Resolver
+
+- Write plans may use `labelNames`, `workflowStateName` / `workflowStateType`, and `milestoneName` when a workspace object manifest is available.
+- Labels resolve by `teamKey` or team ID plus exact label name and optional group. Duplicate matches or mutually exclusive label-group conflicts are blocking findings.
+- Workflow states resolve only inside the requested team; cross-team fallback is not allowed.
+- Project Milestones resolve by exact `projectId` plus milestone name; workspace-level milestone-name matching is not allowed.
+- Dry-run output includes each name-to-ID `resolutions` entry with the workspace manifest `evidenceRef`. Missing or ambiguous resolutions block real apply.
+- The cached manifest defaults to `state/workspace-object-manifest.json` and can be redirected with `LINEAR_WORKSPACE_OBJECT_MANIFEST_PATH`.
+
 Fact Pack 的目标是保持项目理解充分，同时避免把大块原始数据塞进模型上下文。
 
 ## 分层

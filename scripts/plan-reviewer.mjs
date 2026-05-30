@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { Check, Errors } from 'typebox/value';
 import { arg, ensureDir, json, now } from './utils.mjs';
 import { PROJECT_DESCRIPTION_MAX_LENGTH, projectDescriptionLimit } from './project-field-normalizer.mjs';
+import { resolveWritePlanObjects } from './linear-object-resolver.mjs';
 
 const DEFAULT_SCHEMA_PATH = 'schemas/project-plan.schema.json';
 
@@ -30,7 +31,7 @@ function makeFinding(code, message, options = {}) {
   };
 }
 
-function finish(kind, target, findings) {
+function finish(kind, target, findings, extra = {}) {
   return {
     ok: findings.every(finding => !finding.blocking),
     kind,
@@ -38,7 +39,8 @@ function finish(kind, target, findings) {
     status: findings.some(finding => finding.blocking) ? 'needs_revision' : 'pass',
     executedMutation: false,
     reviewedAt: now(),
-    findings
+    findings,
+    ...extra
   };
 }
 
@@ -230,6 +232,7 @@ function reviewUnsupportedIssueFields(operations) {
 export function reviewWritePlan(plan, options = {}) {
   const findings = [];
   const operations = asArray(plan.operations);
+  const resolutions = [];
 
   if (isBlank(plan.idempotencyKey)) {
     findings.push(makeFinding(
@@ -309,7 +312,16 @@ export function reviewWritePlan(plan, options = {}) {
   findings.push(...reviewProjectFieldLimits(operations));
   findings.push(...reviewUnsupportedIssueFields(operations));
 
-  return finish('write_plan', options.target || null, findings);
+  if (options.workspaceManifest || options.workspaceManifestPath) {
+    const resolved = resolveWritePlanObjects(plan, {
+      manifest: options.workspaceManifest || null,
+      manifestPath: options.workspaceManifestPath || null
+    });
+    findings.push(...resolved.findings);
+    resolutions.push(...resolved.resolutions);
+  }
+
+  return finish('write_plan', options.target || null, findings, { resolutions });
 }
 
 function readInput(filePath) {
