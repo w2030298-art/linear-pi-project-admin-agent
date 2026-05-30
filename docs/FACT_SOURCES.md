@@ -16,6 +16,13 @@
 - Dry-run output includes each name-to-ID `resolutions` entry with the workspace manifest `evidenceRef`. Missing or ambiguous resolutions block real apply.
 - The cached manifest defaults to `state/workspace-object-manifest.json` and can be redirected with `LINEAR_WORKSPACE_OBJECT_MANIFEST_PATH`.
 
+## Issue Relation Exact Resolver
+
+- `issueRelation.create` and `issue.relation.create` may use `issueIdentifier` and `relatedIssueIdentifier` for exact issue targets.
+- WEN-style identifiers use exact `issue(id: "...")` lookup semantics only; full-text issue search is not a fallback.
+- UUID values are accepted directly. `$opRef` remains supported through `issueRef` / `relatedIssueRef`, and also works after generic `$ref` expansion into identifier fields.
+- Dry-run output includes identifier-to-ID `resolutions` with `identifier`, issue title, URL, and `evidenceRef`. Lookup failure blocks apply before any mutation.
+
 Fact Pack 的目标是保持项目理解充分，同时避免把大块原始数据塞进模型上下文。
 
 ## 分层

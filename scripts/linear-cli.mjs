@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
 import { resolveLinearProjectId } from './linear-project-resolver.mjs';
 import { resolveOperationInput } from './linear-object-resolver.mjs';
+import { resolveIssueRelationIdentifiers } from './linear-issue-resolver.mjs';
 import { normalizeProjectDescriptionFields } from './project-field-normalizer.mjs';
 import { detectHostConfirmationCapabilities, resolveApplyMode } from './write-plan-execution.mjs';
 
@@ -134,6 +135,7 @@ function stripMeta(input) {
     'labelGroup', 'labelGroups', 'workflowStateName', 'workflowStateType', 'stateName', 'stateType',
     'milestoneName', 'projectMilestoneName',
     'projectRef', 'projectMilestoneRef', 'milestoneRef', 'issueRef', 'relatedIssueRef',
+    'issueIdentifier', 'relatedIssueIdentifier',
     'projectUpdateRef', 'relatedProjectRef', 'relatedProjectMilestoneRef', 'relatedMilestoneRef'
   ]);
   return Object.fromEntries(Object.entries(input).filter(([k]) => !meta.has(k)));
@@ -222,6 +224,21 @@ function resolveLinearObjectNames(input, metadata, pathPrefix, operationType) {
   return resolution.input;
 }
 
+async function resolveIssueRelationTargets(input, metadata, pathPrefix) {
+  if (!metadata?.issueExactLookup) return input;
+  const resolution = await resolveIssueRelationIdentifiers(input, {
+    exactLookup: metadata.issueExactLookup,
+    pathPrefix
+  });
+  metadata.objectResolutions.push(...resolution.resolutions);
+  metadata.objectFindings.push(...resolution.findings);
+  if (!resolution.ok) {
+    const messages = resolution.findings.map(finding => `${finding.path}: ${finding.message}`).join('; ');
+    throw new Error(`Linear issue relation resolution blocked write plan: ${messages}`);
+  }
+  return resolution.input;
+}
+
 function normalizeHealth(health) {
   if (!health) return health;
   const map = { on_track: 'onTrack', ontrack: 'onTrack', at_risk: 'atRisk', atrisk: 'atRisk', off_track: 'offTrack', offtrack: 'offTrack' };
@@ -280,6 +297,7 @@ async function normalizeInput(linear, op, refs, index, metadata = null) {
   }
 
   if (type === 'issueRelation.create' || type === 'issue.relation.create') {
+    input = await resolveIssueRelationTargets(input, metadata, `$.operations[${index}].input`);
     if (input.type === 'blocked_by' || input.type === 'blockedBy') {
       input.type = 'blocks';
       [input.issueId, input.relatedIssueId] = [input.relatedIssueId, input.issueId];
@@ -328,6 +346,24 @@ async function readback(linear, kind, id) {
     return res.data?.[key] || null;
   } catch (err) {
     if (/not found|Could not find|Entity not found/i.test(err.message || '')) return null;
+    throw err;
+  }
+}
+
+async function exactIssueLookup(linear, identifierOrId) {
+  try {
+    const res = await linear.client.rawRequest(`
+      query IssueExactForResolver($id: String!) {
+        issue(id: $id) {
+          id
+          identifier
+          title
+          url
+        }
+      }`, { id: identifierOrId });
+    return res.data?.issue || null;
+  } catch (err) {
+    if (/not found|could not find|entity not found/i.test(err.message || '')) return null;
     throw err;
   }
 }
@@ -421,7 +457,8 @@ async function compileOperations(linear, plan) {
       objectResolutions: [],
       objectFindings: [],
       workspaceManifest: workspaceManifest.manifest,
-      workspaceManifestPath: workspaceManifest.manifestPath
+      workspaceManifestPath: workspaceManifest.manifestPath,
+      issueExactLookup: identifierOrId => exactIssueLookup(linear, identifierOrId)
     };
     const input = await normalizeInput(linear, op, refs, index, metadata);
 
@@ -774,7 +811,8 @@ async function apply(planPath) {
         objectResolutions: [],
         objectFindings: [],
         workspaceManifest: workspaceManifest.manifest,
-        workspaceManifestPath: workspaceManifest.manifestPath
+        workspaceManifestPath: workspaceManifest.manifestPath,
+        issueExactLookup: identifierOrId => exactIssueLookup(linear, identifierOrId)
       };
       const input = await normalizeInput(linear, op, refs, index, metadata);
       if (isCreate(type) && input.id) refs[key] = { id: input.id, kind, pending: true };

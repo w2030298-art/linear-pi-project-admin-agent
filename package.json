@@ -29,6 +29,7 @@
     "test:unsupported-fields": "tsx scripts/test-write-plan-unsupported-fields.ts",
     "test:linear-apply-mode": "node scripts/test-linear-apply-mode.mjs",
     "test:linear-snapshot": "node scripts/test-linear-snapshot.mjs",
+    "test:issue-resolver": "node scripts/test-linear-issue-resolver.mjs",
     "test:project-resolver": "node scripts/test-linear-project-resolver.mjs",
     "test:object-resolver": "node scripts/test-linear-object-resolver.mjs",
     "test:project-baseline": "node scripts/test-project-baseline-loader.mjs",
