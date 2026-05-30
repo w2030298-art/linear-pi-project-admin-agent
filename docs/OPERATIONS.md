@@ -67,6 +67,14 @@ npm run bridge:dev
 - In interactive Pi runs, `linear_apply_write_plan` uses `ctx.ui.confirm()` exactly once as the final approve/cancel channel before real Linear writes.
 - If `ctx.hasUI` is false, real writes are blocked with `interactive confirmation unavailable; real write not applied` unless the user explicitly allows current-conversation text fallback and the call passes `allowConversationFallback=true`.
 
+## Project Freeze / Unfreeze Templates
+
+- Generate a freeze dry-run plan with `npm run project:freeze -- --project-url "<linear-project-url>"`.
+- Add `--move-active-issues-to-backlog` only when Ready/In Progress issues should be moved to the workspace Backlog state. Completed, canceled, and duplicate issues are never changed.
+- The freeze Project Update must document scope, recovery conditions, risks, and non-changes. The template does not change repo mappings, create milestones, alter target date, or forge a paused Project status ID.
+- Generate unfreeze only after a fresh Project read and an explicit recovery entry: `npm run project:unfreeze -- --project-url "<linear-project-url>" --recovery-entry "resume-ready"`.
+- Without `--recovery-entry`, unfreeze returns a blocking `unfreeze_recovery_entry_required` result instead of a write plan.
+
 ## Fact Pack Repo-Map Mismatch
 
 - For single-Project tasks without an explicit target, call `pi_ask_user` with `flow=project_select` first. The options must come from local `config/repo-map.yaml`/`REPO_MAP_PATH` and include `User input` last; do not query Linear for the candidate list before the user chooses.

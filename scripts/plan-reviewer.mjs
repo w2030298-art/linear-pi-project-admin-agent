@@ -184,6 +184,14 @@ function requiresMilestoneTarget(operations) {
   });
 }
 
+function requiresIssueOperation(operations) {
+  return operations.some(operation => {
+    const type = operationType(operation);
+    return /^issue\.(create|update)$/.test(type) ||
+      /^(issueRelation|issue\.relation)\.create$/.test(type);
+  });
+}
+
 function targetMilestoneId(plan, operations) {
   return firstText(
     plan.targetMilestoneId,
@@ -284,7 +292,7 @@ export function reviewWritePlan(plan, options = {}) {
       { path: '$.operations' }
     ));
   }
-  if (!hasOp(operations, /^issue\.(create|update)$/)) {
+  if (requiresIssueOperation(operations) && !hasOp(operations, /^issue\.(create|update)$/)) {
     findings.push(makeFinding(
       'write_plan_issue_missing',
       'Write plan must identify at least one Issue operation.',

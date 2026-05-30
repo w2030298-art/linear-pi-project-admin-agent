@@ -97,6 +97,13 @@ Linear `Project.description` has a 255-character limit. `scripts/project-field-n
 
 新增单个 Issue 挂到已有 Milestone 时，不应为了通过 reviewer 人为创建新 Milestone。Reviewer 只要求已有 Milestone 先被 Linear 回读确认存在，并且 readback 的 `projectId` 与 `targetProjectId` 一致。
 
+Project governance templates live in `scripts/project-governance-template.mjs`:
+
+- `freeze` emits a dry-run write plan with a `projectUpdate.create` operation and optional Ready/In Progress issue state updates to Backlog.
+- `unfreeze` refuses to generate a plan until fresh Project evidence is read and `--recovery-entry` is provided.
+- The templates do not update repo mapping, completed issues, milestones, target date, or unresolved Project status IDs.
+- `scripts/plan-reviewer.mjs` accepts Project Update-only governance plans when they include `targetProjectId` and dependency rationale.
+
 ## MCP
 
 `config/mcp.servers.json` 提供 GitHub MCP Server 配置。由于不同 MCP host 的配置语法可能不同，本项目保留 REST fallback，确保 GitHub 事实来源可用。
