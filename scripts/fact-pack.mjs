@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { arg, has, json, now, ensureDir, writeJson, hash } from './utils.mjs';
-import { resolveRepoMapEntry } from './repo-map.mjs';
+import { listRepoMapProjectOptions, resolveRepoMapEntry } from './repo-map.mjs';
 import { buildEvidenceBackedFact, compactFactPack, writeEvidenceFile } from './fact-pack-utils.mjs';
 
 const cmd = process.argv[2] === 'conflicts' ? 'conflicts' : 'build';
@@ -46,7 +46,8 @@ const pack = {
   openQuestions: [],
   conflicts: [],
   evidenceGaps: [],
-  planningImplications: []
+  planningImplications: [],
+  piAskUser: null
 };
 
 function evidenceFact(claim, sourceType, source, confidence, raw, evidenceKey) {
@@ -56,9 +57,43 @@ function evidenceFact(claim, sourceType, source, confidence, raw, evidenceKey) {
 
 pack.facts.push(fact(`Task scope received: ${task}`, 'user_input', 'current prompt', 'high'));
 
-const repoMapping = resolveRepoMapEntry(repoKey);
+const needsProjectSelection = !repoKey && !linear;
+const repoMapping = needsProjectSelection
+  ? { ok: false, evidenceGaps: [], conflicts: [] }
+  : resolveRepoMapEntry(repoKey);
 if (repoMapping.evidenceGaps?.length) pack.evidenceGaps.push(...repoMapping.evidenceGaps);
 if (repoMapping.conflicts?.length) pack.conflicts.push(...repoMapping.conflicts);
+
+if (needsProjectSelection) {
+  pack.piAskUser = {
+    flow: 'project_select',
+    source: 'repo_map',
+    repoMapPath: process.env.REPO_MAP_PATH || 'config/repo-map.yaml',
+    options: [
+      ...listRepoMapProjectOptions().map(option => ({
+        projectId: option.projectId,
+        repoKey: option.repoKey,
+        label: option.label,
+        description: option.description,
+        localPath: option.localPath,
+        localPathExists: option.localPathExists,
+        linearProjectId: option.linearProjectId,
+        linearProjectName: option.linearProjectName,
+        linearProjectPrefix: option.linearProjectPrefix,
+        source: option.source
+      })),
+      {
+        projectId: 'User input',
+        label: 'User input',
+        description: 'Type a project ID manually.',
+        custom: true
+      }
+    ]
+  };
+  pack.openQuestions.push('Choose one local project ID from config/repo-map.yaml, or provide custom input before reading Linear project context.');
+  pack.evidenceGaps.push('No project selected yet; confirm a local project ID before Linear project context is read.');
+  pack.planningImplications.push('Do not read Linear, GitHub, or local repo evidence until the user selects a local project ID or custom target.');
+}
 
 if (repoMapping.ok) {
   pack.scope.repo = {
@@ -88,16 +123,16 @@ if (effectiveLinear && !has('--no-linear')) {
   const linearData = runNode(['scripts/linear-cli.mjs', 'project', effectiveLinear]);
   if (!linearData.ok && linearData.error) pack.evidenceGaps.push(`Linear project context unavailable: ${linearData.error}`);
   else pack.facts.push(evidenceFact(`Linear project context was retrieved for ${effectiveLinear}.`, 'linear_live', `linear:${effectiveLinear}`, 'high', linearData, 'linear-project'));
-} else {
+} else if (!needsProjectSelection) {
   pack.evidenceGaps.push('No Linear project key/id provided; project state may be incomplete for extend/report tasks.');
 }
 
 if (requestedWorkspaceReview && !effectiveLinear) {
-  pack.evidenceGaps.push('Workspace-wide Project review is not loaded into a Fact Pack. Choose one Linear Project with --linear before detailed review.');
-  pack.openQuestions.push('Which single Linear Project should this review target?');
+  pack.evidenceGaps.push('Project review is not loaded into a Fact Pack until one local project ID is selected.');
+  if (!pack.piAskUser) pack.openQuestions.push('Choose one local project ID from config/repo-map.yaml before detailed review.');
 }
 
-if (!has('--no-github')) {
+if (!has('--no-github') && !needsProjectSelection) {
   const owner = repoMapping.ok ? repoMapping.github.owner : null;
   const repo = repoMapping.ok ? repoMapping.github.repo : null;
   if (owner && repo) {
@@ -116,7 +151,7 @@ if (!has('--no-github')) {
   }
 }
 
-if (!has('--no-local')) {
+if (!has('--no-local') && !needsProjectSelection) {
   const localRoot = repoMapping.ok ? repoMapping.local.root : null;
   if (localRoot && fs.existsSync(localRoot)) {
     const local = runNode(['scripts/local-evidence.mjs', '--root', localRoot]);
@@ -138,10 +173,10 @@ if (has('--web') && process.env.ALLOW_WEB_SEARCH !== 'false') {
   else pack.facts.push(evidenceFact(`Web search collected for query: ${query}`, 'web_search', web.provider || 'web', 'medium', web, 'web-search'));
 }
 
-if (!pack.facts.some(f => f.sourceType === 'linear_live') && !pack.scope.linearProjectIdOrKey) {
+if (!pack.facts.some(f => f.sourceType === 'linear_live') && !pack.scope.linearProjectIdOrKey && !pack.piAskUser) {
   pack.openQuestions.push('Which Linear project/team should this task target?');
 }
-if (!pack.facts.some(f => f.sourceType === 'github_remote') && !(pack.scope.repo?.owner && pack.scope.repo?.repo)) {
+if (!pack.facts.some(f => f.sourceType === 'github_remote') && !(pack.scope.repo?.owner && pack.scope.repo?.repo) && !pack.piAskUser) {
   pack.openQuestions.push('Which GitHub repo should be treated as engineering source of truth?');
 }
 

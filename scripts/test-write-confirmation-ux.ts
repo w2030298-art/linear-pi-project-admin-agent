@@ -49,7 +49,7 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
     {
       confirmedByUser: true,
       dryRun: false,
-      confirmationText: 'Fallback reason: Generic ask_user is unavailable; pi_ask_user is repo-map only. User approval: 用户回复确认。 Write plan: plan.json. Idempotency key: key.',
+      confirmationText: 'Fallback reason: Generic ask_user is unavailable; pi_ask_user is project-selection/repo-map only. User approval: 用户回复确认。 Write plan: plan.json. Idempotency key: key.',
       confirmationChannel: 'conversation_fallback'
     },
     { ALLOW_LINEAR_WRITES: 'false' }
@@ -103,7 +103,7 @@ import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.t
 const adminTools = fs.readFileSync('.pi/extensions/linear-admin-tools.ts', 'utf8');
 assert.match(adminTools, /ask_user exactly once/i);
 assert.match(adminTools, /current conversation explicit approval fallback/i);
-assert.match(adminTools, /pi_ask_user is repo-map only/i);
+assert.match(adminTools, /pi_ask_user is project-selection\/repo-map only/i);
 assert.doesNotMatch(adminTools, /type .*确认执行/i);
 
 console.log('write confirmation UX tests passed');

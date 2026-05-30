@@ -142,6 +142,37 @@ export function validateRepoMap(options = {}) {
   return { ok: !evidenceGaps.length && !conflicts.length, entries, evidenceGaps, conflicts };
 }
 
+export function listRepoMapProjectOptions(options = {}) {
+  const cwd = options.cwd || process.cwd();
+  const env = options.env || process.env;
+  const repoMapPath = options.repoMapPath || env.REPO_MAP_PATH || 'config/repo-map.yaml';
+  let repoMap;
+  try {
+    repoMap = readRepoMap(repoMapPath);
+  } catch {
+    return [];
+  }
+  const repos = Array.isArray(repoMap.repos) ? repoMap.repos : [];
+  return repos
+    .map(entry => normalizeEntry(entry, cwd))
+    .filter(entry => entry.key && entry.local.root)
+    .map(entry => ({
+      projectId: entry.key,
+      repoKey: entry.key,
+      label: entry.key,
+      description: `${entry.local.root || 'missing localPath'}; Linear ${entry.linear.projectId || entry.linear.projectName || entry.linear.projectPrefix || 'unmapped Linear Project'}`,
+      localPath: entry.local.root,
+      localPathExists: entry.local.exists,
+      linearProjectId: entry.linear.projectId,
+      linearProjectName: entry.linear.projectName,
+      linearProjectPrefix: entry.linear.projectPrefix,
+      githubOwner: entry.github.owner,
+      githubRepo: entry.github.repo,
+      defaultBranch: entry.github.defaultBranch,
+      source: 'repo_map'
+    }));
+}
+
 export function resolveRepoMapEntry(repoKey, options = {}) {
   const cwd = options.cwd || process.cwd();
   const env = options.env || process.env;

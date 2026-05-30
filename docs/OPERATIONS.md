@@ -68,6 +68,7 @@ npm run bridge:dev
 
 ## Fact Pack Repo-Map Mismatch
 
+- For single-Project tasks without an explicit target, call `pi_ask_user` with `flow=project_select` first. The options must come from local `config/repo-map.yaml`/`REPO_MAP_PATH` and include `User input` last; do not query Linear for the candidate list before the user chooses.
 - `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from `config/repo-map.yaml` first.
 - If a repoKey is missing or incomplete, record an evidence gap instead of falling back to another repo.
 - Run `npm run test:repo-map` after changing repo-map behavior.

@@ -4,9 +4,14 @@
 
 本项目使用 Pi `pi.registerTool()` 暴露专用工具。工具主体尽量转发给 `scripts/*.mjs`，这样方便测试和在 webhook bridge 中复用。
 
-### Repo-map user clarification
+### Project selection and repo-map user clarification
 
-`.pi/extensions/pi-ask-user.ts` registers `pi_ask_user` for repo-map clarification. The first flow is `repo_map`:
+`.pi/extensions/pi-ask-user.ts` registers `pi_ask_user` for two narrow clarification flows:
+
+- `project_select`: first step for single-Project planning/reporting/review when the user did not specify a target. Options are loaded only from the local three-source repo-map (`config/repo-map.yaml` or `REPO_MAP_PATH`): every entry with a local project directory is listed by repoKey/project ID, followed by `User input`. Linear is not queried until after this selection.
+- `repo_map`: stepwise repo-map repair/draft flow.
+
+For `repo_map`:
 
 - It anchors the flow on Linear Project ID first. If the seed does not include `linearProjectId` or `linearProject`, it asks for the target Linear Project before any GitHub or local repo field.
 - After the Linear Project is resolved, every GitHub URL, local path, repoKey, and defaultBranch prompt includes the target Project name and ID.
@@ -33,7 +38,7 @@ Dry-run compilation and real apply use separate protocol gates:
 - Real apply requires `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and `confirmedByUser=true`.
 - Dry-run output includes `confirmationChannel`, which is one of `ask_user approve/cancel`, `current conversation explicit approval fallback`, or `not writable until ask_user or explicit conversation approval is available`.
 - If generic `ask_user` is available, real apply must trigger one approve/cancel UI before calling the CLI mutation path.
-- If generic `ask_user` is unavailable, `pi_ask_user` is treated as repo-map only and must not be reused for Linear write confirmation.
+- If generic `ask_user` is unavailable, `pi_ask_user` is treated as project-selection/repo-map only and must not be reused for Linear write confirmation.
 - If generic `ask_user` is unavailable, one explicit approval in the current conversation can be recorded in `confirmationText`, but the user must first be told that the current conversation explicit approval fallback is being used.
 - Conversation fallback confirmation records must include fallback reason, user approval text, write plan path, and `idempotencyKey`; final apply output and `state/audit.jsonl` include the same confirmation payload.
 - `scripts/write-plan-execution.mjs` computes the effective apply mode. If the source write-plan file is still `dryRun=true` but the tool/CLI call is `dryRun=false` with `--confirmed`, the CLI uses an in-memory effective plan with `dryRun=false` / `confirmedByUser=true` and records `reason.cliConfirmedOverride=true`.

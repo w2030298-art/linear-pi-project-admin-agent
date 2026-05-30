@@ -58,7 +58,7 @@ export async function prepareWriteConfirmation(pi: ExtensionAPI | Record<string,
 
   if (params.confirmedByUser !== true) {
     throw new Error(
-      "Generic ask_user is unavailable; pi_ask_user is repo-map only and cannot confirm Linear writes. Request one explicit approval in the current conversation before real apply."
+      "Generic ask_user is unavailable; pi_ask_user is project-selection/repo-map only and cannot confirm Linear writes. Request one explicit approval in the current conversation before real apply."
     );
   }
   if (!params.confirmationText?.trim()) {
@@ -139,7 +139,7 @@ export default function (pi: ExtensionAPI) {
       "Dry-run compilation does not require user approval and should be called with dryRun=true.",
       "Use ask_user exactly once through the Pi UI confirmation channel before real Linear writes to ask the user to approve or reject the exact dry-run write plan.",
       "Do not ask the user to type a fixed confirmation phrase; the ask_user approval is the confirmation.",
-      "If ask_user is not available in the current host, say that generic ask_user is unavailable, pi_ask_user is repo-map only, and current conversation explicit approval fallback will be used.",
+      "If ask_user is not available in the current host, say that generic ask_user is unavailable, pi_ask_user is project-selection/repo-map only, and current conversation explicit approval fallback will be used.",
       "When using current conversation explicit approval fallback, call linear_apply_write_plan with dryRun=false, confirmedByUser=true, confirmationChannel=conversation_fallback, and confirmationText containing the user's exact approval.",
       "After ask_user approval, call linear_apply_write_plan with dryRun=false, confirmedByUser=true, confirmationChannel=ask_user, and a confirmationText that summarizes the ask_user approval.",
       "Never call linear_apply_write_plan with confirmedByUser=true unless the user approval is present in the current conversation or Linear comment."
