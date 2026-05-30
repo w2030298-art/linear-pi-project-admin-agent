@@ -57,12 +57,17 @@ function evidenceFact(claim, sourceType, source, confidence, raw, evidenceKey) {
 
 pack.facts.push(fact(`Task scope received: ${task}`, 'user_input', 'current prompt', 'high'));
 
+const hasExplicitLinear = Boolean(linear);
 const needsProjectSelection = !repoKey && !linear;
-const repoMapping = needsProjectSelection
+const skipRepoEvidenceWithoutRepoKey = hasExplicitLinear && !repoKey;
+const repoMapping = needsProjectSelection || skipRepoEvidenceWithoutRepoKey
   ? { ok: false, evidenceGaps: [], conflicts: [] }
   : resolveRepoMapEntry(repoKey);
 if (repoMapping.evidenceGaps?.length) pack.evidenceGaps.push(...repoMapping.evidenceGaps);
 if (repoMapping.conflicts?.length) pack.conflicts.push(...repoMapping.conflicts);
+if (skipRepoEvidenceWithoutRepoKey) {
+  pack.evidenceGaps.push('No repoKey provided with explicit Linear project locator; GitHub/local evidence skipped to avoid fallback to an unrelated repo.');
+}
 
 if (needsProjectSelection) {
   pack.piAskUser = {
@@ -121,8 +126,18 @@ if (repoMapping.ok) {
 const effectiveLinear = linear || (repoMapping.ok ? (repoMapping.linear.projectId || repoMapping.linear.projectName || repoMapping.linear.projectPrefix || '') : '');
 if (effectiveLinear && !has('--no-linear')) {
   const linearData = runNode(['scripts/linear-cli.mjs', 'project', effectiveLinear]);
-  if (!linearData.ok && linearData.error) pack.evidenceGaps.push(`Linear project context unavailable: ${linearData.error}`);
-  else pack.facts.push(evidenceFact(`Linear project context was retrieved for ${effectiveLinear}.`, 'linear_live', `linear:${effectiveLinear}`, 'high', linearData, 'linear-project'));
+  if (!linearData.ok && linearData.error) {
+    pack.evidenceGaps.push(`Linear project context unavailable: ${linearData.error}`);
+    if (linearData.resolution?.type === 'project_selection_gap') {
+      pack.scope.linearProjectResolution = linearData.resolution;
+      pack.openQuestions.push(linearData.resolution.message);
+    }
+  } else {
+    const resolvedProjectId = linearData.resolvedProject?.resolvedProjectId || effectiveLinear;
+    pack.scope.linearProjectIdOrKey = resolvedProjectId;
+    pack.scope.linearProjectResolution = linearData.resolvedProject || null;
+    pack.facts.push(evidenceFact(`Linear project context was retrieved for ${resolvedProjectId}.`, 'linear_live', `linear:${resolvedProjectId}`, 'high', linearData, 'linear-project'));
+  }
 } else if (!needsProjectSelection) {
   pack.evidenceGaps.push('No Linear project key/id provided; project state may be incomplete for extend/report tasks.');
 }
@@ -132,7 +147,7 @@ if (requestedWorkspaceReview && !effectiveLinear) {
   if (!pack.piAskUser) pack.openQuestions.push('Choose one local project ID from config/repo-map.yaml before detailed review.');
 }
 
-if (!has('--no-github') && !needsProjectSelection) {
+if (!has('--no-github') && !needsProjectSelection && !skipRepoEvidenceWithoutRepoKey) {
   const owner = repoMapping.ok ? repoMapping.github.owner : null;
   const repo = repoMapping.ok ? repoMapping.github.repo : null;
   if (owner && repo) {
@@ -151,7 +166,7 @@ if (!has('--no-github') && !needsProjectSelection) {
   }
 }
 
-if (!has('--no-local') && !needsProjectSelection) {
+if (!has('--no-local') && !needsProjectSelection && !skipRepoEvidenceWithoutRepoKey) {
   const localRoot = repoMapping.ok ? repoMapping.local.root : null;
   if (localRoot && fs.existsSync(localRoot)) {
     const local = runNode(['scripts/local-evidence.mjs', '--root', localRoot]);
