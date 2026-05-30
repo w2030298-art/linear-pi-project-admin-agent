@@ -71,7 +71,19 @@ The shortcut runs the external launcher. The launcher:
 
 ## WezTerm Config
 
-The installed `wezterm-linear-pi.lua` loads the user's normal WezTerm config first, then appends Windows shortcut bindings for copy, paste, command palette, search, tab open, and tab close.
+The installed `wezterm-linear-pi.lua` loads the user's normal WezTerm config first, then overrides the managed Pi shortcut bindings for copy, paste, command palette, search, tab open, and tab close.
+
+Managed shortcut behavior:
+
+| Shortcut | Behavior |
+| --- | --- |
+| `Ctrl+C` | Copy selected text; if nothing is selected, send terminal interrupt. |
+| `Ctrl+Shift+C` / `Ctrl+Insert` | Copy selected text. |
+| `Ctrl+V` / `Ctrl+Shift+V` / `Shift+Insert` | Paste from the Windows clipboard. |
+| `Ctrl+F` / `Ctrl+Shift+F` | Search terminal scrollback. |
+| `Ctrl+P` / `Ctrl+Shift+P` / `F2` | Open WezTerm command palette. |
+| `Ctrl+T` / `Ctrl+Shift+T` | Open a new tab. |
+| `Ctrl+W` / `Ctrl+Shift+W` | Close the current tab after confirmation. |
 
 It reads `LINEAR_PI_RUNTIME_ROOT` and uses it as `default_cwd`; if the variable is missing, it falls back to:
 
