@@ -49,6 +49,10 @@ const projectEvidence = {
 const workspaceManifest = {
   evidenceRef: 'state/workspace-object-manifest.json',
   teams: [{ id: 'team-wen', key: 'WEN', name: 'WENTAOXU-personal-workplace' }],
+  projectStatuses: [
+    { id: 'status-started', name: 'Started', type: 'started' },
+    { id: 'status-paused', name: 'Paused', type: 'paused' }
+  ],
   workflowStates: [
     { id: 'state-backlog', name: 'Backlog', type: 'backlog', teamId: 'team-wen', teamKey: 'WEN' },
     { id: 'state-ready', name: 'Ready', type: 'unstarted', teamId: 'team-wen', teamKey: 'WEN' },
@@ -74,11 +78,58 @@ const workspaceManifest = {
   assert.match(result.plan.operations[0].input.body, /恢复条件/);
   assert.match(result.plan.operations[0].input.body, /风险/);
   assert.match(result.plan.operations[0].input.body, /Non-changes/);
-  assert.equal(JSON.stringify(result.plan).includes('statusId'), false);
+  assert.equal(result.plan.pausedProjectStatusResolution.ok, true);
+  assert.equal(result.plan.pausedProjectStatusResolution.id, 'status-paused');
+  assert.equal(result.plan.operations.some(operation => operation.type === 'project.update'), false);
   const issueUpdates = result.plan.operations.filter(operation => operation.type === 'issue.update');
   assert.deepEqual(issueUpdates.map(operation => operation.input.issueId), ['issue-ready', 'issue-progress']);
   assert.deepEqual(issueUpdates.map(operation => operation.input.stateId), ['state-backlog', 'state-backlog']);
   assert.equal(issueUpdates.some(operation => operation.input.issueId === 'issue-done'), false);
+}
+
+{
+  const result = buildFreezePlan({
+    projectUrl: project.url,
+    projectEvidence,
+    workspaceManifest,
+    includeProjectStatusUpdate: true
+  });
+  assert.equal(result.ok, true);
+  const statusUpdate = result.plan.operations.find(operation => operation.key === 'freeze-project-status');
+  assert.equal(statusUpdate.type, 'project.update');
+  assert.equal(statusUpdate.input.projectStatusIntent, 'paused');
+}
+
+{
+  const result = buildFreezePlan({
+    projectUrl: project.url,
+    projectEvidence,
+    workspaceManifest: { ...workspaceManifest, projectStatuses: [] },
+    includeProjectStatusUpdate: true
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.plan.pausedProjectStatusResolution.ok, false);
+  assert.equal(result.plan.pausedProjectStatusResolution.code, 'project_status_absent');
+  assert.equal(JSON.stringify(result.plan.operations).includes('statusId'), false);
+}
+
+{
+  const result = buildFreezePlan({
+    projectUrl: project.url,
+    projectEvidence,
+    workspaceManifest: {
+      ...workspaceManifest,
+      projectStatuses: [
+        { id: 'status-paused', name: 'Paused', type: 'paused' },
+        { id: 'status-on-hold', name: 'On Hold', type: 'paused' }
+      ]
+    },
+    includeProjectStatusUpdate: true
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.plan.pausedProjectStatusResolution.ok, false);
+  assert.equal(result.plan.pausedProjectStatusResolution.code, 'project_status_ambiguous');
+  assert.equal(JSON.stringify(result.plan.operations).includes('statusId'), false);
 }
 
 {
@@ -90,6 +141,7 @@ const workspaceManifest = {
   assert.equal(result.ok, false);
   assert.equal(result.code, 'unfreeze_recovery_entry_required');
   assert.equal(result.shouldReadLive, true);
+  assert.equal(result.startedProjectStatusResolution.id, 'status-started');
   assert.match(result.message, /re-read/i);
 }
 
@@ -103,7 +155,35 @@ const workspaceManifest = {
   assert.equal(result.ok, true);
   assert.equal(result.plan.operations[0].type, 'projectUpdate.create');
   assert.match(result.plan.operations[0].input.body, /恢复入口/);
+  assert.equal(result.plan.startedProjectStatusResolution.ok, true);
+  assert.equal(result.plan.startedProjectStatusResolution.id, 'status-started');
   assert.equal(JSON.stringify(result.plan).includes('targetDate'), false);
+}
+
+{
+  const result = buildUnfreezePlan({
+    projectUrl: project.url,
+    projectEvidence,
+    workspaceManifest,
+    recoveryEntry: 'resume-ready',
+    includeProjectStatusUpdate: true
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'unfreeze_status_confirmation_required');
+}
+
+{
+  const result = buildUnfreezePlan({
+    projectUrl: project.url,
+    projectEvidence,
+    workspaceManifest,
+    recoveryEntry: 'resume-ready',
+    includeProjectStatusUpdate: true,
+    confirmStatusUpdate: true
+  });
+  const statusUpdate = result.plan.operations.find(operation => operation.key === 'unfreeze-project-status');
+  assert.equal(statusUpdate.type, 'project.update');
+  assert.equal(statusUpdate.input.projectStatusIntent, 'started');
 }
 
 {
@@ -134,6 +214,7 @@ const workspaceManifest = {
   const output = JSON.parse(result.stdout);
   assert.equal(output.ok, true);
   assert.equal(output.plan.operations[0].type, 'projectUpdate.create');
+  assert.equal(output.plan.pausedProjectStatusResolution.id, 'status-paused');
 }
 
 console.log('project governance template tests passed');

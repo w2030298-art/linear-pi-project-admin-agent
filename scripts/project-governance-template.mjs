@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { arg, hash, json, readJson } from './utils.mjs';
+import { arg, hash, json, readJson, writeJson } from './utils.mjs';
+import { resolveProjectStatus } from './linear-project-status-resolver.mjs';
 
 function clean(value) {
   return String(value || '').trim();
@@ -55,12 +55,15 @@ function candidateIssues(project) {
   });
 }
 
-function freezeBody({ project, reason, recoveryCondition, movedIssues }) {
+function freezeBody({ project, reason, recoveryCondition, movedIssues, statusResolution }) {
   const moved = movedIssues.length
     ? movedIssues.map(issue => `- ${issue.identifier || issue.id}: ${issue.title || '(untitled)'}`).join('\n')
     : '- No Ready/In Progress issue state changes requested.';
+  const statusLine = statusResolution.ok
+    ? `- Paused Project status candidate: ${statusResolution.object.name} (${statusResolution.id}) from ${statusResolution.evidenceRef}.`
+    : `- Paused Project status not changed: ${statusResolution.message}`;
   return [
-    `# Project freeze｜${project.name || project.id}`,
+    `# Project freeze - ${project.name || project.id}`,
     '',
     '## 冻结范围',
     `- Project: ${project.name || project.id}`,
@@ -74,27 +77,36 @@ function freezeBody({ project, reason, recoveryCondition, movedIssues }) {
     '- Active work may become stale while the freeze is in effect.',
     '- Resume requires fresh facts before issue state changes.',
     '',
+    '## Project status resolution',
+    statusLine,
+    '',
     '## Non-changes',
     '- Does not change repo mapping.',
     '- Does not change completed issues.',
     '- Does not create milestones.',
     '- Does not change target date.',
-    '- Does not forge paused Project status.',
+    '- Does not write Project status unless the resolver finds a unique candidate and the operator explicitly opts in.',
     '',
     '## Issue state handling',
     moved
   ].join('\n');
 }
 
-function unfreezeBody({ project, recoveryEntry }) {
+function unfreezeBody({ project, recoveryEntry, statusResolution }) {
+  const statusLine = statusResolution.ok
+    ? `- Started/active Project status candidate: ${statusResolution.object.name} (${statusResolution.id}) from ${statusResolution.evidenceRef}; operator confirmation is still required before writing statusId.`
+    : `- Started/active Project status not changed: ${statusResolution.message}`;
   return [
-    `# Project unfreeze｜${project.name || project.id}`,
+    `# Project unfreeze - ${project.name || project.id}`,
     '',
     '## Fresh fact readback',
     '- Linear Project context must be re-read before applying recovery changes.',
     '',
     '## 恢复入口',
     `- ${recoveryEntry}`,
+    '',
+    '## Project status resolution',
+    statusLine,
     '',
     '## Non-changes',
     '- Does not change repo mapping.',
@@ -122,6 +134,7 @@ export function buildFreezePlan({
   projectEvidence,
   workspaceManifest = {},
   moveActiveIssuesToBacklog = false,
+  includeProjectStatusUpdate = false,
   reason = '',
   recoveryCondition = ''
 } = {}) {
@@ -129,21 +142,31 @@ export function buildFreezePlan({
   if (!project?.id) throw new Error('Project evidence with project.id is required for freeze template.');
   const url = projectUrlBase(projectUrl || project.url);
   const movedIssues = moveActiveIssuesToBacklog ? candidateIssues(project) : [];
+  const statusResolution = resolveProjectStatus(workspaceManifest, { intent: 'paused' });
   const plan = basePlan('freeze', project, url);
   plan.projectUrl = url;
-  plan.pausedProjectStatusResolution = {
-    ok: false,
-    reason: 'Paused Project status ID is not resolved by this template; Project status mutation is intentionally omitted.'
-  };
+  plan.pausedProjectStatusResolution = statusResolution;
   plan.operations.push({
     key: 'freeze-update',
     type: 'projectUpdate.create',
     input: {
       projectId: project.id,
       health: 'atRisk',
-      body: freezeBody({ project, reason, recoveryCondition, movedIssues })
+      body: freezeBody({ project, reason, recoveryCondition, movedIssues, statusResolution })
     }
   });
+
+  if (includeProjectStatusUpdate && statusResolution.ok) {
+    plan.operations.push({
+      key: 'freeze-project-status',
+      type: 'project.update',
+      input: {
+        projectId: project.id,
+        projectStatusIntent: 'paused'
+      },
+      reason: `Freeze resolved paused Project status from ${statusResolution.evidenceRef}.`
+    });
+  }
 
   for (const issue of movedIssues) {
     const backlog = findBacklogState(workspaceManifest, issue);
@@ -164,18 +187,22 @@ export function buildFreezePlan({
     kind: 'project_freeze',
     sourceProjectUrl: url,
     plan,
-    nonChanges: ['repo', 'completedIssues', 'milestones', 'target date', 'project status']
+    nonChanges: ['repo', 'completedIssues', 'milestones', 'target date']
   };
 }
 
 export function buildUnfreezePlan({
   projectUrl,
   projectEvidence,
+  workspaceManifest = {},
+  includeProjectStatusUpdate = false,
+  confirmStatusUpdate = false,
   recoveryEntry = ''
 } = {}) {
   const project = projectFromEvidence(projectEvidence);
   if (!project?.id) throw new Error('Project evidence with project.id is required for unfreeze template.');
   const url = projectUrlBase(projectUrl || project.url);
+  const statusResolution = resolveProjectStatus(workspaceManifest, { intent: 'started' });
   if (!clean(recoveryEntry)) {
     return {
       ok: false,
@@ -183,21 +210,45 @@ export function buildUnfreezePlan({
       kind: 'project_unfreeze',
       sourceProjectUrl: url,
       shouldReadLive: true,
+      startedProjectStatusResolution: statusResolution,
       message: 'Unfreeze must re-read fresh Linear Project facts and choose a recovery entry before generating a write plan.',
       recoveryEntryOptions: ['resume-ready', 'resume-in-progress', 'manual-selection']
     };
   }
+  if (includeProjectStatusUpdate && !confirmStatusUpdate) {
+    return {
+      ok: false,
+      code: 'unfreeze_status_confirmation_required',
+      kind: 'project_unfreeze',
+      sourceProjectUrl: url,
+      shouldReadLive: true,
+      startedProjectStatusResolution: statusResolution,
+      message: 'Unfreeze Project status writes require explicit operator confirmation.'
+    };
+  }
   const plan = basePlan('unfreeze', project, url);
   plan.projectUrl = url;
+  plan.startedProjectStatusResolution = statusResolution;
   plan.operations.push({
     key: 'unfreeze-update',
     type: 'projectUpdate.create',
     input: {
       projectId: project.id,
       health: 'onTrack',
-      body: unfreezeBody({ project, recoveryEntry })
+      body: unfreezeBody({ project, recoveryEntry, statusResolution })
     }
   });
+  if (includeProjectStatusUpdate && confirmStatusUpdate && statusResolution.ok) {
+    plan.operations.push({
+      key: 'unfreeze-project-status',
+      type: 'project.update',
+      input: {
+        projectId: project.id,
+        projectStatusIntent: 'started'
+      },
+      reason: `Unfreeze resolved started/active Project status from ${statusResolution.evidenceRef}.`
+    });
+  }
   return {
     ok: true,
     kind: 'project_unfreeze',
@@ -218,6 +269,21 @@ function loadProjectEvidence(projectUrl, evidencePath) {
   return JSON.parse(result.stdout);
 }
 
+function loadWorkspaceManifest(manifestPath) {
+  if (manifestPath) return readJson(manifestPath, {});
+  const result = spawnSync(process.execPath, ['scripts/linear-cli.mjs', 'workspace'], {
+    encoding: 'utf8',
+    cwd: process.cwd(),
+    env: process.env
+  });
+  if (result.status !== 0) throw new Error(result.stderr || result.stdout || 'linear workspace read failed');
+  const manifest = JSON.parse(result.stdout);
+  const outputPath = process.env.LINEAR_WORKSPACE_OBJECT_MANIFEST_PATH || 'state/workspace-object-manifest.json';
+  manifest.evidenceRef = outputPath;
+  writeJson(outputPath, manifest);
+  return manifest;
+}
+
 function main() {
   const mode = process.argv[2];
   const projectUrl = arg('--project-url', '');
@@ -228,13 +294,14 @@ function main() {
   }
   if (!projectUrl) throw new Error('--project-url is required.');
   const projectEvidence = loadProjectEvidence(projectUrl, projectEvidencePath);
-  const workspaceManifest = workspaceManifestPath ? readJson(workspaceManifestPath, {}) : {};
+  const workspaceManifest = loadWorkspaceManifest(workspaceManifestPath);
   const output = mode === 'freeze'
     ? buildFreezePlan({
       projectUrl,
       projectEvidence,
       workspaceManifest,
       moveActiveIssuesToBacklog: process.argv.includes('--move-active-issues-to-backlog'),
+      includeProjectStatusUpdate: process.argv.includes('--include-project-status-update'),
       reason: arg('--reason', ''),
       recoveryCondition: arg('--recovery-condition', '')
     })
@@ -242,6 +309,8 @@ function main() {
       projectUrl,
       projectEvidence,
       workspaceManifest,
+      includeProjectStatusUpdate: process.argv.includes('--include-project-status-update'),
+      confirmStatusUpdate: process.argv.includes('--confirm-status-update'),
       recoveryEntry: arg('--recovery-entry', '')
     });
   json(output);
