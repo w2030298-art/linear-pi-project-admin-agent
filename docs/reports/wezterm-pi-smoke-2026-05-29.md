@@ -59,6 +59,10 @@ git pull --ff-only origin master
 
 Feature branch changes do not automatically sync to `master`; they become visible to runtime only after merge.
 
+## In-Session Refresh
+
+`/reload` reloads already-present local Pi files. `/reload-master` is the explicit runtime refresh command for an open WezTerm session: it requires a clean `master` checkout, runs `git fetch origin master`, runs `git pull --ff-only origin master`, refreshes stale npm dependencies, then reloads Pi.
+
 ## Automated Evidence
 
 | Check | Evidence | Result |
@@ -67,6 +71,7 @@ Feature branch changes do not automatically sync to `master`; they become visibl
 | Runtime launcher documented | `docs/WEZTERM_PI_LAUNCH.md` references `launch-linear-pi-runtime.ps1` and runtime root | Pass |
 | Shortcut key config explicit | Launcher passes `--config-file ...\wezterm-linear-pi.lua` | Pass |
 | Stable branch explicit | Launcher uses `master` and `git pull --ff-only` | Pass |
+| In-session master refresh explicit | `/reload-master` refuses non-master or dirty checkout, then pulls `origin/master`, refreshes stale npm dependencies, and reloads | Pass |
 | Development repo separated | Shortcut no longer uses development repo as direct Pi cwd | Pass |
 | rollback documented | Manual `cd` + `pi` and Windows Terminal fallback are documented | Pass |
 

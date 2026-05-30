@@ -169,3 +169,9 @@ Cycle planning and `cycleId` writes are disabled for this agent. Do not dispatch
 ## Linear Write Confirmation UI
 
 In interactive Pi runs, `linear_apply_write_plan` uses the tool execution context `ctx.ui.confirm()` as the approve/cancel confirmation channel before real Linear writes. If `ctx.hasUI` is false, the agent may only use the current conversation explicit approval fallback after telling the user that no generic confirmation UI is available.
+
+## WezTerm Runtime Refresh
+
+Use `/reload` only to reload Pi files that are already present in the current checkout.
+
+Use `/reload-master` inside the stable WezTerm runtime when the open Pi session should update from `origin/master` first. The command refuses non-git directories, non-`master` branches, and dirty checkouts; then it runs `git fetch origin master`, `git pull --ff-only origin master`, refreshes stale npm dependencies, and reloads the Pi runtime.
