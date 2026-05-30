@@ -28,6 +28,7 @@ fs.mkdirSync(oldLocalPath, { recursive: true });
 fs.mkdirSync(newLocalPath, { recursive: true });
 
 const repoMapPath = path.join(tempRoot, 'repo-map.yaml');
+const localRepoMapPath = path.join(tempRoot, 'repo-map.local.yaml');
 const repoKey = 'linear-pi-project-admin-agent';
 writeRepoMap(repoMapPath, {
   repoKey,
@@ -51,6 +52,7 @@ const drift = checkRepoMapDrift({
   cwd: tempRoot,
   repoKey,
   repoMapPath,
+  localRepoMapPath,
   stateDir,
   sourceFacts: {
     github: {
@@ -71,6 +73,7 @@ assert.equal(drift.ok, false);
 assert.equal(drift.status, 'drift_detected');
 assert.equal(drift.writesPerformed, false);
 assert.equal(read(repoMapPath), originalRepoMap);
+assert.equal(drift.localRepoMapPath, localRepoMapPath);
 assert.ok(fs.existsSync(drift.draftPath));
 assert.deepEqual(drift.drifts.map(item => item.field), [
   'github.owner',
@@ -85,11 +88,13 @@ assert.match(drift.diff, /old-owner/);
 assert.match(drift.diff, /w2030298-art/);
 assert.equal(drift.draft.entry.github.owner, 'w2030298-art');
 assert.equal(drift.draft.entry.localPath, path.resolve(newLocalPath));
+assert.equal(drift.draft.localRepoMapPath, localRepoMapPath);
 
 const unconfirmed = applyRepoMapDraft({
   cwd: tempRoot,
   draftPath: drift.draftPath,
   repoMapPath,
+  localRepoMapPath,
   confirmed: false
 });
 assert.equal(unconfirmed.ok, false);
@@ -97,12 +102,14 @@ assert.equal(unconfirmed.status, 'confirmation_required');
 assert.equal(unconfirmed.writesPerformed, false);
 assert.equal(read(repoMapPath), originalRepoMap);
 assert.match(unconfirmed.diff, /old-owner/);
+assert.equal(fs.existsSync(localRepoMapPath), false);
 
 const auditLogPath = path.join(stateDir, 'repo-map-audit.jsonl');
 const applied = applyRepoMapDraft({
   cwd: tempRoot,
   draftPath: drift.draftPath,
   repoMapPath,
+  localRepoMapPath,
   auditLogPath,
   confirmed: true,
   confirmationText: 'User confirmed the repo-map draft for WEN-264 test.'
@@ -112,10 +119,11 @@ assert.equal(applied.status, 'applied');
 assert.equal(applied.writesPerformed, true);
 assert.equal(applied.validation.ok, true);
 assert.match(applied.diff, /old-owner/);
-assert.match(applied.rollbackAdvice.join('\n'), /git diff --/);
+assert.match(applied.rollbackAdvice.join('\n'), /repo-map local overlay/);
 assert.match(read(auditLogPath), /User confirmed the repo-map draft/);
+assert.equal(read(repoMapPath), originalRepoMap);
 
-const updated = entryByKey(repoMapPath, repoKey);
+const updated = entryByKey(localRepoMapPath, repoKey);
 assert.equal(updated.github.owner, 'w2030298-art');
 assert.equal(updated.github.repo, 'linear-pi-project-admin-agent');
 assert.equal(updated.github.defaultBranch, 'master');
@@ -137,7 +145,8 @@ const factPack = spawnSync(process.execPath, [
   cwd: process.cwd(),
   env: {
     ...process.env,
-    REPO_MAP_PATH: repoMapPath
+    REPO_MAP_PATH: repoMapPath,
+    REPO_MAP_LOCAL_PATH: localRepoMapPath
   },
   encoding: 'utf8'
 });
@@ -165,6 +174,7 @@ const missing = checkRepoMapDrift({
   cwd: tempRoot,
   repoKey: 'missing-fields',
   repoMapPath: missingRepoMapPath,
+  localRepoMapPath,
   stateDir,
   sourceFacts: {
     linear: {
@@ -186,6 +196,7 @@ assert.equal(missing.draft.entry.github.defaultBranch, undefined);
 assert.equal(missing.draft.entry.localPath, undefined);
 
 const cliRepoMapPath = path.join(tempRoot, 'cli-repo-map.yaml');
+const cliLocalRepoMapPath = path.join(tempRoot, 'cli-repo-map.local.yaml');
 const cliStateDir = path.join(tempRoot, 'cli-state');
 writeRepoMap(cliRepoMapPath, {
   repoKey: 'linear-bridge',
@@ -210,6 +221,8 @@ const cli = spawnSync(process.execPath, [
   'linear-bridge',
   '--repo-map',
   cliRepoMapPath,
+  '--local-repo-map',
+  cliLocalRepoMapPath,
   '--state-dir',
   cliStateDir,
   '--github-owner',
@@ -232,6 +245,40 @@ assert.equal(cli.status, 0, cli.stderr || cli.stdout);
 const cliOutput = JSON.parse(cli.stdout);
 assert.equal(cliOutput.status, 'drift_detected');
 assert.equal(cliOutput.draftPath, path.join(cliStateDir, 'repo-map.draft.yaml'));
+assert.equal(cliOutput.localRepoMapPath, cliLocalRepoMapPath);
 assert.equal(read(cliRepoMapPath), originalCliRepoMap);
+
+const envLocalRepoMapPath = path.join(tempRoot, 'env-repo-map.local.yaml');
+const envCli = spawnSync(process.execPath, [
+  'scripts/repo-map-drift.mjs',
+  'check',
+  '--repo',
+  'linear-bridge',
+  '--repo-map',
+  cliRepoMapPath,
+  '--state-dir',
+  path.join(tempRoot, 'env-cli-state'),
+  '--github-owner',
+  'w2030298-art',
+  '--github-repo',
+  'linear-bridge',
+  '--default-branch',
+  'main',
+  '--linear-project-id',
+  'project-id-2',
+  '--linear-project-name',
+  'linear-bridge Linear dispatch bridge',
+  '--local-path',
+  newLocalPath
+], {
+  cwd: process.cwd(),
+  env: {
+    ...process.env,
+    REPO_MAP_LOCAL_PATH: envLocalRepoMapPath
+  },
+  encoding: 'utf8'
+});
+assert.equal(envCli.status, 0, envCli.stderr || envCli.stdout);
+assert.equal(JSON.parse(envCli.stdout).localRepoMapPath, envLocalRepoMapPath);
 
 console.log('repo map drift tests passed');

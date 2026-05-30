@@ -104,6 +104,7 @@ $WezTermGui = __WEZTERM_GUI__
 $ConfigPath = __CONFIG_PATH__
 $InstallRoot = __INSTALL_ROOT__
 $LogPath = Join-Path $InstallRoot 'launch.log'
+$LocalRepoMapPath = Join-Path $InstallRoot 'repo-map.local.yaml'
 
 function Write-LaunchLog([string]$Message) {
   $timestamp = Get-Date -Format o
@@ -275,6 +276,7 @@ try {
   }
 
   $env:LINEAR_PI_RUNTIME_ROOT = $RuntimeRoot
+  $env:REPO_MAP_LOCAL_PATH = $LocalRepoMapPath
   $wezArgs = @(
     '--config-file', $ConfigPath,
     'start',
@@ -286,7 +288,7 @@ try {
     '-Command',
     'pi'
   )
-  Write-LaunchLog "Starting WezTerm with runtime root $RuntimeRoot"
+  Write-LaunchLog "Starting WezTerm with runtime root $RuntimeRoot and local repo-map overlay $LocalRepoMapPath"
   Start-Process -FilePath $WezTermGui -ArgumentList (Join-ProcessArguments $wezArgs) -WorkingDirectory $RuntimeRoot
 } catch {
   Write-LaunchLog "ERROR: $($_.Exception.Message)"

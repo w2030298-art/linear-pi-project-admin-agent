@@ -19,6 +19,7 @@ const protectedIgnoredPaths = [
   'state/linear-events.jsonl',
   'state/seen-linear-deliveries.json',
   'state/repo-map.draft.yaml',
+  'state/repo-map.local.yaml',
   'state/repo-map-audit.jsonl',
   'state/workspace.manifest.draft.json',
   'state/write-plans/test.json',
@@ -46,6 +47,7 @@ const trackedProtected = git([
   '.env.local',
   '.env.production',
   'state/repo-map.draft.yaml',
+  'state/repo-map.local.yaml',
   'state/repo-map-audit.jsonl',
   'state/write-plans',
   'state/audit-reports',
@@ -56,6 +58,8 @@ assert.equal(trackedProtected.stdout.trim(), '', 'runtime-local protected files 
 
 const installer = fs.readFileSync('scripts/install-wezterm-linear-pi-shortcut.ps1', 'utf8');
 const reloadExtension = fs.readFileSync('.pi/extensions/runtime-master-reload.ts', 'utf8');
+assert.match(installer, /REPO_MAP_LOCAL_PATH/);
+assert.match(installer, /repo-map\.local\.yaml/);
 for (const source of [installer, reloadExtension]) {
   assert.doesNotMatch(source, /git\s+clean/i);
   assert.doesNotMatch(source, /reset\s+--hard/i);

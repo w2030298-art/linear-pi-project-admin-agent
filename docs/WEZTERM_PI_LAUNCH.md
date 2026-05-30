@@ -151,9 +151,11 @@ The runtime checkout may contain machine-local files that are not owned by `mast
 - `state/audit.jsonl`, `state/linear-events.jsonl`, and other root `state/*.jsonl` logs.
 - `state/fact-packs/*.json`.
 - `state/pi-queue/*.md` and `state/pi-queue/*.log`.
-- `state/repo-map.draft.yaml` and `state/repo-map-audit.jsonl`.
+- `state/repo-map.draft.yaml`, `state/repo-map.local.yaml`, and `state/repo-map-audit.jsonl`.
 - `state/workspace.manifest.draft.json` and other root `state/*.draft.json` / `state/*.draft.yaml` drafts.
 - `state/write-plans/`, `state/audit-reports/`, and local `state/sessions/*` files except `.gitkeep`.
+
+For the installed WezTerm runtime, the launcher exports `REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml` before starting Pi. This keeps durable machine-local repo mappings outside the runtime checkout, so startup sync and `/reload-master` do not see them as local Git changes.
 
 The launcher and `/reload-master` use `git pull --ff-only`. This path does not run `git clean`, `git reset --hard`, or recursive deletion of the runtime root. If a local non-ignored file would be overwritten, the clean-checkout guard or Git itself blocks the sync instead of deleting the file.
 
@@ -178,7 +180,7 @@ Automated checks cover:
 - The shortcut uses `powershell.exe` to run `launch-linear-pi-runtime.ps1`.
 - The runtime branch is `master` and uses `git pull --ff-only`.
 - The `/reload-master` command pulls `origin/master` only from a clean master runtime checkout before reload.
-- Runtime-local files such as `.env`, sessions, logs, repo-map drafts, write plans, and audit reports are ignored and not cleaned by the launcher.
+- Runtime-local files such as `.env`, sessions, logs, repo-map drafts/local overlays, write plans, and audit reports are ignored or stored outside the checkout and not cleaned by the launcher.
 - Root `AGENTS.md` is absent so development agents are not steered by the Linear Project Admin runtime persona.
 - The WezTerm config includes copy and paste shortcut bindings.
 - No token, secret, API key, or credential value is stored in shortcut docs.

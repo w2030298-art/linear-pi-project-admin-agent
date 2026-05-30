@@ -17,6 +17,7 @@ state/audit-reports/
 state/pi-queue/*.md
 state/pi-queue/*.log
 state/repo-map.draft.yaml
+state/repo-map.local.yaml
 state/repo-map-audit.jsonl
 state/write-plans/
 state/portfolio-review/*.json
