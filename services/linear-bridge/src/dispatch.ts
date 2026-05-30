@@ -1,11 +1,15 @@
 import { runPiTask } from "./pi-runner.js";
 
+function labelNamesFromPayload(payload: any): string[] {
+  const data = payload?.data || {};
+  const labels = data?.labels?.nodes?.map((l: any) => l.name) || data?.labels || [];
+  return Array.isArray(labels) ? labels.map((l: any) => typeof l === "string" ? l : l?.name).filter(Boolean) : [];
+}
+
 export function classifyLinearEvent(payload: any): { task: string; prompt: string; requiresFactPack: boolean } | null {
   const type = payload?.type;
   const action = payload?.action;
-  const data = payload?.data || {};
-  const labels = data?.labels?.nodes?.map((l: any) => l.name) || data?.labels || [];
-  const labelNames = Array.isArray(labels) ? labels.map((l: any) => typeof l === "string" ? l : l?.name).filter(Boolean) : [];
+  const labelNames = labelNamesFromPayload(payload);
 
   if (type === "AgentSessionEvent") {
     return { task: "agent_session", requiresFactPack: true, prompt: `Handle Linear AgentSessionEvent: ${JSON.stringify(payload).slice(0, 5000)}` };
@@ -13,11 +17,12 @@ export function classifyLinearEvent(payload: any): { task: string; prompt: strin
 
   const trigger = labelNames.find((l: string) => l.startsWith("Agent:"));
   if (trigger) {
+    if (trigger === "Agent:CyclePlan") return null;
+
     const map: Record<string, string> = {
       "Agent:PlanProject": "create_project",
       "Agent:ExtendProject": "extend_project",
       "Agent:PortfolioReview": "portfolio_review",
-      "Agent:CyclePlan": "cycle_plan",
       "Agent:ReportDraft": "project_report",
       "Agent:Dispatch": "issue_dispatch",
       "Agent:HygieneCheck": "hygiene_check",
@@ -31,7 +36,12 @@ export function classifyLinearEvent(payload: any): { task: string; prompt: strin
 
 export async function dispatchLinearEvent(payload: any) {
   const classified = classifyLinearEvent(payload);
-  if (!classified) return { queued: false, reason: "No Agent trigger" };
+  if (!classified) {
+    if (labelNamesFromPayload(payload).includes("Agent:CyclePlan")) {
+      return { queued: false, reason: "Cycle planning disabled" };
+    }
+    return { queued: false, reason: "No Agent trigger" };
+  }
   await runPiTask(classified);
   return { queued: true, task: classified.task };
 }

@@ -13,7 +13,7 @@ levels:
     requireIdempotencyKey: true
     requireReadback: true
   L3:
-    description: bulk state/assignee/cycle/priority changes
+    description: bulk state/assignee/priority changes; cycleId writes are disabled
     confirm: true
     requireSecondConfirmation: true
     requireImpactReport: true

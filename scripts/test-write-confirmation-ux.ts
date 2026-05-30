@@ -1,6 +1,35 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { prepareWriteConfirmation } from '../.pi/extensions/linear-admin-tools.ts';
 import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.ts';
+
+{
+  let confirmCalls = 0;
+  const prepared = await prepareWriteConfirmation(
+    {},
+    {
+      dryRun: false,
+      writePlanPath: 'state/write-plans/test.json',
+      confirmedByUser: false,
+      confirmationText: ''
+    },
+    {
+      hasUI: true,
+      ui: {
+        async confirm(title: string, message: string) {
+          confirmCalls += 1;
+          assert.match(title, /Approve Linear write plan/i);
+          assert.match(message, /state\/write-plans\/test\.json/);
+          return true;
+        }
+      }
+    }
+  );
+  assert.equal(confirmCalls, 1);
+  assert.equal(prepared.confirmedByUser, true);
+  assert.equal(prepared.confirmationChannel, 'ask_user');
+  assert.match(prepared.confirmationText, /ask_user approved/i);
+}
 
 {
   const decision = linearWriteGuardDecision(

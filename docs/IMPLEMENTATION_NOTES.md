@@ -98,3 +98,10 @@ Linear `Project.description` has a 255-character limit. `scripts/project-field-n
 ## Web search
 
 支持 Tavily 和 Brave 两种 provider。默认 Tavily，因为返回内容更适合 Fact Pack；Brave 可作为隐私和独立索引优先的替代。
+## Cycle Disabled
+
+Cycle functionality is disabled at active entry points: `Agent:CyclePlan` is ignored by the dispatcher, `/cycle-plan` is a refusal prompt, and `plan-reviewer` / `linear-cli apply` reject `issue.create` or `issue.update` inputs containing `cycleId`.
+
+## Pi Write Confirmation UI
+
+The generic Linear write confirmation channel is the Pi tool execution context `ctx.ui.confirm()`. `linear_apply_write_plan` receives `ctx` from the registered tool `execute()` callback, triggers exactly one approve/cancel dialog for real writes when `ctx.hasUI` is true, and only uses current-conversation fallback when no UI context is available.

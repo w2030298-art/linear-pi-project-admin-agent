@@ -181,7 +181,7 @@ pi
 /extend-project 给已有项目增加这个能力
 /fact-pack 为项目 X 建立事实包
 /portfolio-review 审查所有活跃项目
-/cycle-plan 规划下个 cycle
+/cycle-plan cycle disabled; do not use for active planning
 /project-report 生成周报草案
 /workspace-sync 同步 labels/members/states
 ```
@@ -218,7 +218,6 @@ Issue, Comment, IssueLabel, Project, ProjectUpdate, Cycle
 Agent:PlanProject
 Agent:ExtendProject
 Agent:PortfolioReview
-Agent:CyclePlan
 Agent:ReportDraft
 Agent:Dispatch
 Agent:HygieneCheck

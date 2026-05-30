@@ -212,6 +212,21 @@ function reviewProjectFieldLimits(operations) {
   return findings;
 }
 
+function reviewCycleDisabled(operations) {
+  const findings = [];
+  operations.forEach((operation, index) => {
+    if (!/^issue\.(create|update)$/.test(operationType(operation))) return;
+    const input = operation.input || {};
+    if (isBlank(input.cycleId)) return;
+    findings.push(makeFinding(
+      'write_plan_cycle_disabled',
+      'Cycle planning is disabled for this agent; write plans must not create or update issue.cycleId.',
+      { path: `$.operations[${index}].input.cycleId` }
+    ));
+  });
+  return findings;
+}
+
 export function reviewWritePlan(plan, options = {}) {
   const findings = [];
   const operations = asArray(plan.operations);
@@ -292,6 +307,7 @@ export function reviewWritePlan(plan, options = {}) {
     ));
   }
   findings.push(...reviewProjectFieldLimits(operations));
+  findings.push(...reviewCycleDisabled(operations));
 
   return finish('write_plan', options.target || null, findings);
 }

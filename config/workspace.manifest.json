@@ -73,7 +73,6 @@
         "Agent:PlanProject",
         "Agent:ExtendProject",
         "Agent:PortfolioReview",
-        "Agent:CyclePlan",
         "Agent:ReportDraft",
         "Agent:Dispatch",
         "Agent:HygieneCheck",

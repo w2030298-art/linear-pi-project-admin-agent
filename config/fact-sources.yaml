@@ -3,7 +3,6 @@ policy:
   factPackRequiredFor:
     - create_project
     - extend_project
-    - cycle_plan
     - portfolio_review
     - project_report
     - issue_dispatch

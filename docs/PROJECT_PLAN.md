@@ -43,7 +43,7 @@
 
 - 每次 workspace 改 label/member/status 后运行 `/workspace-sync`。
 - 每周运行 `/portfolio-review`。
-- 每周期运行 `/cycle-plan`。
+- Cycle functionality is disabled; do not run `/cycle-plan`.
 - 定期审查 GitHub MCP toolsets 和 token scopes。
 
 ## v0.1 范围冻结

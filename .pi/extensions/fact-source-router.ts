@@ -21,7 +21,8 @@ export default function (pi: ExtensionAPI) {
     }),
     promptSnippet: "fact_pack_build: builds a cited Fact Pack before Linear planning.",
     promptGuidelines: [
-      "Use fact_pack_build before create_project, extend_project, cycle_plan, portfolio_review, project_report, and issue_dispatch tasks.",
+      "Use fact_pack_build before create_project, extend_project, portfolio_review, project_report, and issue_dispatch tasks.",
+      "Cycle planning is disabled for this agent; do not use cycle_plan or write cycleId.",
       "fact_pack_build does not write to Linear; it returns facts, assumptions, conflicts, evidence gaps, and planning implications."
     ],
     async execute(_toolCallId, params, signal) {
