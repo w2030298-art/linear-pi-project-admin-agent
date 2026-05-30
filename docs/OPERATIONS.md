@@ -69,11 +69,12 @@ npm run bridge:dev
 
 ## Project Freeze / Unfreeze Templates
 
+- List auditable Linear Project status candidates with `node scripts/linear-cli.mjs project-statuses`. The same data is cached in `state/workspace-object-manifest.json` during dry-run apply.
 - Generate a freeze dry-run plan with `npm run project:freeze -- --project-url "<linear-project-url>"`.
 - Add `--move-active-issues-to-backlog` only when Ready/In Progress issues should be moved to the workspace Backlog state. Completed, canceled, and duplicate issues are never changed.
-- The freeze Project Update must document scope, recovery conditions, risks, and non-changes. The template does not change repo mappings, create milestones, alter target date, or forge a paused Project status ID.
+- The freeze Project Update must document scope, recovery conditions, risks, and non-changes. The template does not change repo mappings, create milestones, alter target date, or forge a paused Project status ID. If exactly one paused-like Project status is available, the dry-run explains the evidence chain; otherwise it degrades to Project Update only.
 - Generate unfreeze only after a fresh Project read and an explicit recovery entry: `npm run project:unfreeze -- --project-url "<linear-project-url>" --recovery-entry "resume-ready"`.
-- Without `--recovery-entry`, unfreeze returns a blocking `unfreeze_recovery_entry_required` result instead of a write plan.
+- Without `--recovery-entry`, unfreeze returns a blocking `unfreeze_recovery_entry_required` result instead of a write plan. Project status writes require `--include-project-status-update --confirm-status-update`; absent or ambiguous resolver results never synthesize a `statusId`.
 
 ## Fact Pack Repo-Map Mismatch
 

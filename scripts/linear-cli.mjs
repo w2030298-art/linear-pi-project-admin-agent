@@ -8,6 +8,7 @@ import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
 import { resolveLinearProjectId } from './linear-project-resolver.mjs';
 import { resolveOperationInput } from './linear-object-resolver.mjs';
 import { resolveIssueRelationIdentifiers } from './linear-issue-resolver.mjs';
+import { listProjectStatuses, resolveProjectStatus, resolveProjectStatusById } from './linear-project-status-resolver.mjs';
 import { normalizeProjectDescriptionFields } from './project-field-normalizer.mjs';
 import { detectHostConfirmationCapabilities, resolveApplyMode } from './write-plan-execution.mjs';
 
@@ -136,7 +137,8 @@ function stripMeta(input) {
     'milestoneName', 'projectMilestoneName',
     'projectRef', 'projectMilestoneRef', 'milestoneRef', 'issueRef', 'relatedIssueRef',
     'issueIdentifier', 'relatedIssueIdentifier',
-    'projectUpdateRef', 'relatedProjectRef', 'relatedProjectMilestoneRef', 'relatedMilestoneRef'
+    'projectUpdateRef', 'relatedProjectRef', 'relatedProjectMilestoneRef', 'relatedMilestoneRef',
+    'projectStatusIntent'
   ]);
   return Object.fromEntries(Object.entries(input).filter(([k]) => !meta.has(k)));
 }
@@ -224,6 +226,22 @@ function resolveLinearObjectNames(input, metadata, pathPrefix, operationType) {
   return resolution.input;
 }
 
+function resolveProjectStatusInput(input, metadata, pathPrefix) {
+  if (!metadata?.workspaceManifest) return input;
+  if (input.projectStatusIntent) {
+    const result = resolveProjectStatus(metadata.workspaceManifest, { intent: input.projectStatusIntent });
+    metadata.objectResolutions.push({ ...result, path: `${pathPrefix}.projectStatusIntent` });
+    if (!result.ok) throw new Error(`Linear Project status resolution blocked write plan: ${result.message}`);
+    return { ...input, statusId: result.id };
+  }
+  if (input.statusId) {
+    const result = resolveProjectStatusById(metadata.workspaceManifest, input.statusId);
+    metadata.objectResolutions.push({ ...result, path: `${pathPrefix}.statusId` });
+    if (!result.ok) throw new Error(`Linear Project status resolution blocked write plan: ${result.message}`);
+  }
+  return input;
+}
+
 async function resolveIssueRelationTargets(input, metadata, pathPrefix) {
   if (!metadata?.issueExactLookup) return input;
   const resolution = await resolveIssueRelationIdentifiers(input, {
@@ -271,6 +289,7 @@ async function normalizeInput(linear, op, refs, index, metadata = null) {
     input = normalized.input;
     if (metadata) metadata.fieldTransforms.push(...normalized.fieldTransforms);
     input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
+    input = resolveProjectStatusInput(input, metadata, `$.operations[${index}].input`);
     const ids = metadata?.workspaceManifest ? (input.labelIds || []) : await labelIds(linear, input);
     if (ids.length) input.labelIds = ids;
     return pick(stripMeta(input), PROJECT_UPDATE_FIELDS);
@@ -493,6 +512,7 @@ async function workspace() {
   const labels = await linear.issueLabels();
   const users = await linear.users();
   const projects = await workspaceProjectSummaries(linear);
+  const projectStatuses = await workspaceProjectStatuses(linear);
   let workflowStates = [];
   try {
     const statesData = await linear.client.rawRequest(`
@@ -524,6 +544,7 @@ async function workspace() {
     labels: labels.nodes.map(l => ({ id: l.id, name: l.name, color: l.color })),
     users: users.nodes.slice(0, 100).map(u => ({ id: u.id, name: u.name, active: u.active, admin: u.admin })),
     projects,
+    projectStatuses,
     workflowStates
   });
 }
@@ -540,7 +561,7 @@ function projectIdsFromPlan(plan) {
 }
 
 async function workspaceObjectManifest(linear, projectIds = []) {
-  const [base, statesData] = await Promise.all([
+  const [base, statesData, projectStatuses] = await Promise.all([
     linear.client.rawRequest(`
       query WorkspaceObjectManifest {
         teams(first: 50) {
@@ -566,7 +587,8 @@ async function workspaceObjectManifest(linear, projectIds = []) {
             states { nodes { id name type position } }
           }
         }
-      }`)
+      }`),
+    workspaceProjectStatuses(linear)
   ]);
   const teams = base.data.teams.nodes.map(team => ({ id: team.id, key: team.key, name: team.name }));
   const labels = base.data.issueLabels.nodes.map(label => ({
@@ -625,9 +647,39 @@ async function workspaceObjectManifest(linear, projectIds = []) {
     teams,
     labels,
     labelGroups,
+    projectStatuses,
     workflowStates,
     projectMilestones
   };
+}
+
+async function workspaceProjectStatuses(linear) {
+  const res = await linear.client.rawRequest(`
+    query WorkspaceProjectStatuses {
+      projectStatuses(first: 100) {
+        nodes {
+          id
+          name
+          type
+          color
+          description
+          position
+          indefinite
+          archivedAt
+        }
+      }
+    }`);
+  const statuses = res.data.projectStatuses.nodes.map(status => ({
+    id: status.id,
+    name: status.name,
+    type: status.type,
+    color: status.color,
+    description: status.description,
+    position: status.position,
+    indefinite: status.indefinite,
+    archivedAt: status.archivedAt
+  }));
+  return listProjectStatuses({ projectStatuses: statuses });
 }
 
 async function cachedWorkspaceObjectManifest(linear, plan = {}) {
@@ -729,6 +781,12 @@ async function issues() {
   const query = `query Issues($term: String) { issues(filter: { or: [{ title: { containsIgnoreCase: $term } }, { description: { containsIgnoreCase: $term } }] }, first: 20) { nodes { id identifier title url updatedAt state { name type } labels { nodes { name } } } } }`;
   const res = await linear.client.rawRequest(query, { term: queryText });
   json({ ok: true, sourceType: 'linear_live', collectedAt: now(), query: queryText, semantics: 'full-text-contains', data: res.data });
+}
+
+async function projectStatuses() {
+  const linear = client();
+  const statuses = await workspaceProjectStatuses(linear);
+  json({ ok: true, sourceType: 'linear_live', collectedAt: now(), projectStatuses: statuses });
 }
 
 async function issue(identifierOrId) {
@@ -839,6 +897,7 @@ try {
   if (cmd === 'smoke') await smoke();
   else if (cmd === 'workspace') await workspace();
   else if (cmd === 'project') await project(process.argv[3]);
+  else if (cmd === 'project-statuses') await projectStatuses();
   else if (cmd === 'issue') await issue(process.argv[3]);
   else if (cmd === 'issues') await issues();
   else if (cmd === 'apply') await apply(process.argv[3]);

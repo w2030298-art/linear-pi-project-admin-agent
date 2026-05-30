@@ -101,6 +101,7 @@ Project governance templates live in `scripts/project-governance-template.mjs`:
 
 - `freeze` emits a dry-run write plan with a `projectUpdate.create` operation and optional Ready/In Progress issue state updates to Backlog.
 - `unfreeze` refuses to generate a plan until fresh Project evidence is read and `--recovery-entry` is provided.
+- `scripts/linear-project-status-resolver.mjs` resolves Project status candidates from cached `projectStatuses` manifest data. Paused/started status writes are only emitted when a unique resolver result exists and the operator explicitly opts in.
 - The templates do not update repo mapping, completed issues, milestones, target date, or unresolved Project status IDs.
 - `scripts/plan-reviewer.mjs` accepts Project Update-only governance plans when they include `targetProjectId` and dependency rationale.
 
