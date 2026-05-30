@@ -22,6 +22,14 @@ const admin = {
   active: true
 };
 
+const alphaRuntime = {
+  id: '11111111-1111-4111-8111-111111111111',
+  name: 'Alpha｜Runtime',
+  url: 'https://linear.app/wentaoxu-personal-workplace/project/alpha-runtime-%E6%B5%8B%E8%AF%95-abc123',
+  state: 'started',
+  active: true
+};
+
 function resolver(overrides = {}) {
   const directCalls = [];
   const workspaceCalls = [];
@@ -77,6 +85,60 @@ function resolver(overrides = {}) {
   assert.equal(result.ok, true);
   assert.equal(result.project.id, paper2.id);
   assert.equal(result.source, 'workspace_exact_name');
+  assert.deepEqual(result.matchSources, ['workspace_exact_name', 'workspace_normalized_name']);
+}
+
+{
+  const r = resolver({ projects: [alphaRuntime, paper2] });
+  const result = await r.resolve(' alpha | runtime ');
+  assert.equal(result.ok, true);
+  assert.equal(result.project.id, alphaRuntime.id);
+  assert.equal(result.source, 'workspace_normalized_name');
+}
+
+{
+  const r = resolver({ projects: [alphaRuntime, paper2] });
+  const result = await r.resolve('ALPHA-RUNTIME-%E6%B5%8B%E8%AF%95-ABC123');
+  assert.equal(result.ok, true);
+  assert.equal(result.project.id, alphaRuntime.id);
+  assert.equal(result.source, 'workspace_slug');
+}
+
+{
+  const duplicateA = { ...alphaRuntime, id: 'project-normalized-a', name: 'Foo｜Bar' };
+  const duplicateB = { ...paper2, id: 'project-normalized-b', name: 'Foo | Bar' };
+  const r = resolver({ projects: [duplicateA, duplicateB] });
+  const result = await r.resolve('Foo  |  Bar');
+  assert.equal(result.ok, false);
+  assert.equal(result.type, 'project_selection_gap');
+  assert.match(result.message, /matched multiple/i);
+  assert.deepEqual(
+    result.candidates.map(project => project.id),
+    ['project-normalized-a', 'project-normalized-b']
+  );
+}
+
+{
+  const r = resolver({ projects: [alphaRuntime, paper2] });
+  const result = await r.resolve('Alpha');
+  assert.equal(result.ok, false);
+  assert.equal(result.type, 'project_selection_gap');
+}
+
+{
+  const slugMatch = { ...alphaRuntime, id: 'project-slug-match', name: 'Project With Slug' };
+  const nameMatch = { ...paper2, id: 'project-name-match', name: 'alpha-runtime-测试-abc123' };
+  const r = resolver({ projects: [slugMatch, nameMatch] });
+  const result = await r.resolve('alpha-runtime-测试-abc123');
+  assert.equal(result.ok, false);
+  assert.equal(result.type, 'project_selection_gap');
+  assert.match(result.message, /matched multiple/i);
+  assert.deepEqual(result.candidates[0].matchSources, ['workspace_slug']);
+  assert.deepEqual(result.candidates[1].matchSources, ['workspace_exact_name', 'workspace_normalized_name']);
+  assert.deepEqual(
+    result.candidates.map(project => project.id),
+    ['project-slug-match', 'project-name-match']
+  );
 }
 
 {
