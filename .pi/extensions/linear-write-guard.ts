@@ -12,8 +12,16 @@ export function linearWriteGuardDecision(
   if (params.confirmationChannel === "ask_user" && params.confirmedByUser !== true) {
     return {
       action: "block" as const,
-      message: "Blocked linear_apply_write_plan: real writes require the final approval state produced by prepareWriteConfirmation."
+      message: "Blocked linear_apply_write_plan: real writes require pi_ask_user(flow=write_confirmation) approval before apply."
     };
+  }
+  if (params.confirmationChannel === "ask_user" && params.confirmedByUser === true) {
+    if (!params.idempotencyKey?.trim()) {
+      return {
+        action: "block" as const,
+        message: "Blocked linear_apply_write_plan: ask_user apply requires idempotencyKey from pi_ask_user write_confirmation."
+      };
+    }
   }
   if (params.confirmedByUser === true) {
     const confirmationText = params.confirmationText || "";
@@ -39,7 +47,7 @@ export function linearWriteGuardDecision(
   return {
     action: "block" as const,
     message:
-      "Blocked linear_apply_write_plan: use ask_user exactly once to approve the exact dry-run plan. If generic ask_user is unavailable, real writes are blocked unless the user explicitly allows current-conversation text fallback and the call includes allowConversationFallback=true, confirmationChannel=conversation_fallback, and confirmationText."
+      "Blocked linear_apply_write_plan: call pi_ask_user(flow=write_confirmation) exactly once to approve the exact dry-run plan before apply. If pi_ask_user write_confirmation is unavailable, real writes are blocked unless the user explicitly allows current-conversation text fallback and the call includes allowConversationFallback=true, confirmationChannel=conversation_fallback, and confirmationText."
   };
 }
 
