@@ -116,6 +116,17 @@ function clean(value: InputValue) {
   return trimmed || undefined;
 }
 
+function cleanLocalRepoPath(value: InputValue) {
+  const trimmed = clean(value);
+  if (!trimmed) return undefined;
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  if ((first === "\"" && last === "\"") || (first === "'" && last === "'")) {
+    return clean(trimmed.slice(1, -1));
+  }
+  return trimmed;
+}
+
 function resolveConfiguredPath(cwd: string, configuredPath: string) {
   return path.resolve(path.isAbsolute(configuredPath) ? configuredPath : path.resolve(cwd, configuredPath));
 }
@@ -415,13 +426,14 @@ export function validateRepoMapInputs(inputs: RepoMapInputs, options: FlowOption
   if (!clean(inputs.linearProjectId)) evidenceGaps.push("Linear Project ID is required as the repo-map anchor.");
   if (!clean(inputs.linearProject)) evidenceGaps.push("Linear Project is required.");
   for (const field of FIELD_ORDER.filter(field => field.key !== "linearProject")) {
-    if (!clean(inputs[field.key])) evidenceGaps.push(`${field.title} is required for ${projectContextLabel(inputs)}.`);
+    const value = field.key === "localRepoPath" ? cleanLocalRepoPath(inputs.localRepoPath) : clean(inputs[field.key]);
+    if (!value) evidenceGaps.push(`${field.title} is required for ${projectContextLabel(inputs)}.`);
   }
 
   const github = clean(inputs.githubUrl) ? parseGitHubUrl(inputs.githubUrl!) : null;
   if (github && !github.ok) evidenceGaps.push(github.error);
 
-  const localRepoPath = clean(inputs.localRepoPath);
+  const localRepoPath = cleanLocalRepoPath(inputs.localRepoPath);
   if (localRepoPath) {
     const resolved = path.resolve(cwd, localRepoPath);
     if (!fs.existsSync(resolved)) evidenceGaps.push(`Local repo path does not exist for ${projectContextLabel(inputs)}: ${resolved}`);
@@ -463,7 +475,7 @@ export function buildRepoMapDraft(inputs: RepoMapInputs, options: FlowOptions = 
       projectName: linearProjectName,
       projectPrefix: repoKey
     },
-    localPath: path.resolve(cwd, inputs.localRepoPath || ""),
+    localPath: path.resolve(cwd, cleanLocalRepoPath(inputs.localRepoPath) || ""),
     docs: ["README.md", "docs/", "package.json"],
     evidenceWeight: "high"
   };
