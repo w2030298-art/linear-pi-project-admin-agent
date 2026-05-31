@@ -108,7 +108,7 @@ assert.deepEqual(
   linearWriteGuardDecision({ dryRun: false, confirmationChannel: 'ask_user', confirmedByUser: false }),
   {
     action: 'block',
-    message: 'Blocked linear_apply_write_plan: real writes require pi_ask_user(flow=write_confirmation) approval before apply.'
+    message: 'Blocked linear_apply_write_plan: real writes require one Approve & Write approval from pi_ask_user(flow=write_confirmation) before apply.'
   }
 );
 

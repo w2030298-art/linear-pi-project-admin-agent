@@ -6,10 +6,22 @@ import { runWriteConfirmationFlow } from '../.pi/extensions/pi-ask-user.ts';
 import {
   consumeWriteConfirmationArtifact,
   registerWriteConfirmationArtifact,
-  resetWriteConfirmationArtifactsForTests
+  resetWriteConfirmationArtifactsForTests,
+  WRITE_CONFIRMATION_UI_TITLE
 } from '../.pi/extensions/write-confirmation-artifact.ts';
 
 resetWriteConfirmationArtifactsForTests();
+
+{
+  const dryRunPrepared = await prepareWriteConfirmation({}, {
+    dryRun: true,
+    writePlanPath: 'state/write-plans/test.json',
+    confirmedByUser: false,
+    confirmationText: ''
+  });
+  assert.equal(dryRunPrepared.dryRun, true);
+  assert.equal(dryRunPrepared.confirmedByUser, false);
+}
 
 {
   let confirmCalls = 0;
@@ -20,7 +32,8 @@ resetWriteConfirmationArtifactsForTests();
         async input() { return undefined; },
         async confirm(title: string, message: string) {
           confirmCalls += 1;
-          assert.match(title, /Approve Linear write plan/i);
+          assert.equal(title, WRITE_CONFIRMATION_UI_TITLE);
+          assert.match(message, /Approve & Write/i);
           assert.match(message, /state\/write-plans\/test\.json/);
           assert.match(message, /plan-key-1/);
           assert.match(message, /Target project: Demo Project/i);
@@ -34,33 +47,38 @@ resetWriteConfirmationArtifactsForTests();
       targetProjectSummary: 'Demo Project (proj-1)',
       operationsSummary: '1 issue.create',
       risksSummary: 'No deletions',
-      nonChangesSummary: 'Repo map unchanged'
+      nonChangesSummary: 'Repo map unchanged',
+      planDigest: 'sha256:abc'
     }
   );
   assert.equal(confirmCalls, 1);
   assert.equal(approved.ok, true);
   assert.equal(approved.status, 'approved');
   assert.equal(approved.approved, true);
-  assert.equal(approved.confirmationChannel, 'ask_user');
-  assert.match(approved.confirmationText, /ask_user approved/i);
-  assert.doesNotMatch(approved.confirmationText, /Fallback reason|conversation fallback/i);
+  assert.equal(approved.approvalArtifact?.confirmationChannel, 'ask_user');
+  assert.equal(approved.approvalArtifact?.planDigest, 'sha256:abc');
+  assert.match(approved.confirmationText, /User approved exact dry-run write plan via Pi UI/i);
+  assert.ok(approved.approvalArtifact?.createdAt);
+  assert.ok(approved.approvalArtifact?.expiresAt);
 
+  let applyConfirmCalls = 0;
   const prepared = await prepareWriteConfirmation(
     {},
     {
       dryRun: false,
       writePlanPath: 'state/write-plans/test.json',
       idempotencyKey: 'plan-key-1',
+      planDigest: 'sha256:abc',
       confirmedByUser: true,
       confirmationChannel: 'ask_user',
       confirmationText: approved.confirmationText,
       confirmationId: approved.confirmationId
-    },
-    { hasUI: true, ui: { async confirm() { return true; } } }
+    }
   );
+  assert.equal(applyConfirmCalls, 0);
   assert.equal(prepared.confirmedByUser, true);
   assert.equal(prepared.confirmationChannel, 'ask_user');
-  assert.match(prepared.confirmationText, /ask_user approved/i);
+  assert.match(prepared.confirmationText, /User approved exact dry-run write plan via Pi UI/i);
 }
 
 {
@@ -92,8 +110,7 @@ resetWriteConfirmationArtifactsForTests();
         confirmedByUser: true,
         confirmationChannel: 'ask_user',
         confirmationText: 'stale approval'
-      },
-      { hasUI: true, ui: { async confirm() { return true; } } }
+      }
     ),
     /No active pi_ask_user write_confirmation approval/i
   );
@@ -135,10 +152,34 @@ resetWriteConfirmationArtifactsForTests();
         confirmedByUser: true,
         confirmationChannel: 'ask_user',
         confirmationText: 'approved once'
-      },
-      { hasUI: false }
+      }
     ),
-    /No active pi_ask_user write_confirmation approval/i
+    /already consumed/i
+  );
+}
+
+{
+  resetWriteConfirmationArtifactsForTests();
+  registerWriteConfirmationArtifact({
+    writePlanPath: 'state/write-plans/expired.json',
+    idempotencyKey: 'expired-key',
+    confirmationText: 'approved but expired',
+    ttlMs: -1000
+  });
+
+  await assert.rejects(
+    () => prepareWriteConfirmation(
+      {},
+      {
+        dryRun: false,
+        writePlanPath: 'state/write-plans/expired.json',
+        idempotencyKey: 'expired-key',
+        confirmedByUser: true,
+        confirmationChannel: 'ask_user',
+        confirmationText: 'approved but expired'
+      }
+    ),
+    /expired/i
   );
 }
 
@@ -192,8 +233,7 @@ resetWriteConfirmationArtifactsForTests();
         confirmedByUser: true,
         confirmationText: 'user typed confirm',
         confirmationChannel: 'conversation_fallback'
-      },
-      { hasUI: false }
+      }
     ),
     /interactive confirmation unavailable; real write not applied/i
   );
@@ -210,8 +250,7 @@ resetWriteConfirmationArtifactsForTests();
       confirmationText: 'user explicitly allowed text fallback and approved.',
       confirmationChannel: 'conversation_fallback',
       allowConversationFallback: true
-    },
-    { hasUI: false }
+    }
   );
   assert.equal(prepared.confirmationChannel, 'conversation_fallback');
   assert.equal(prepared.confirmationText, 'user explicitly allowed text fallback and approved.');
@@ -222,14 +261,15 @@ resetWriteConfirmationArtifactsForTests();
   registerWriteConfirmationArtifact({
     writePlanPath: 'state/write-plans/guard.json',
     idempotencyKey: 'guard-key',
-    confirmationText: 'ask_user approved the exact dry-run write plan.'
+    confirmationText: 'User approved exact dry-run write plan via Pi UI.'
   });
 
   const decision = linearWriteGuardDecision(
     {
+      writePlanPath: 'state/write-plans/guard.json',
       confirmedByUser: true,
       dryRun: false,
-      confirmationText: 'ask_user approved the exact dry-run plan',
+      confirmationText: 'User approved exact dry-run write plan via Pi UI.',
       confirmationChannel: 'ask_user',
       idempotencyKey: 'guard-key'
     },
@@ -258,16 +298,31 @@ resetWriteConfirmationArtifactsForTests();
     { ALLOW_LINEAR_WRITES: 'true' }
   );
   assert.equal(decision.action, 'block');
-  assert.match(decision.message, /pi_ask_user\(flow=write_confirmation\)/i);
+  assert.match(decision.message, /Approve & Write/i);
 }
 
 {
+  resetWriteConfirmationArtifactsForTests();
+  registerWriteConfirmationArtifact({
+    writePlanPath: 'state/write-plans/guard-expired.json',
+    idempotencyKey: 'guard-expired-key',
+    confirmationText: 'expired approval',
+    ttlMs: -1000
+  });
+
   const decision = linearWriteGuardDecision(
-    { confirmedByUser: false, dryRun: false, confirmationChannel: 'ask_user' },
+    {
+      writePlanPath: 'state/write-plans/guard-expired.json',
+      confirmedByUser: true,
+      dryRun: false,
+      confirmationChannel: 'ask_user',
+      idempotencyKey: 'guard-expired-key',
+      confirmationText: 'expired approval'
+    },
     { ALLOW_LINEAR_WRITES: 'true' }
   );
   assert.equal(decision.action, 'block');
-  assert.match(decision.message, /pi_ask_user\(flow=write_confirmation\)/i);
+  assert.match(decision.message, /expired/i);
 }
 
 {
@@ -323,10 +378,13 @@ resetWriteConfirmationArtifactsForTests();
 
 const adminTools = fs.readFileSync('.pi/extensions/linear-admin-tools.ts', 'utf8');
 const askUserTool = fs.readFileSync('.pi/extensions/pi-ask-user.ts', 'utf8');
-assert.match(adminTools, /pi_ask_user with flow=write_confirmation/i);
-assert.match(adminTools, /current conversation text fallback/i);
-assert.match(adminTools, /interactive confirmation unavailable; real write not applied/i);
-assert.doesNotMatch(adminTools, /type .*确认执行/i);
-assert.match(askUserTool, /flow === "write_confirmation"/);
+const guardSource = fs.readFileSync('.pi/extensions/linear-write-guard.ts', 'utf8');
+assert.match(adminTools, /dry-run automatically/i);
+assert.match(adminTools, /never pops its own confirmation UI/i);
+assert.match(adminTools, /Approve & Write/i);
+assert.doesNotMatch(adminTools, /genericAskUser|ctx\.ui\.confirm/i);
+assert.match(askUserTool, /WRITE_CONFIRMATION_UI_TITLE/);
+assert.match(guardSource, /validateWriteConfirmationArtifact/);
+assert.doesNotMatch(guardSource, /confirm\(/i);
 
 console.log('write confirmation UX tests passed');
