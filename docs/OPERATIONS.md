@@ -76,6 +76,14 @@ npm run bridge:dev
 - Generate unfreeze only after a fresh Project read and an explicit recovery entry: `npm run project:unfreeze -- --project-url "<linear-project-url>" --recovery-entry "resume-ready"`.
 - Without `--recovery-entry`, unfreeze returns a blocking `unfreeze_recovery_entry_required` result instead of a write plan. Project status writes require `--include-project-status-update --confirm-status-update`; absent or ambiguous resolver results never synthesize a `statusId`.
 
+## Linear Write Confirmation
+
+- Dry-run first: `linear_apply_write_plan(dryRun=true)`.
+- Approval UI: `pi_ask_user(flow=write_confirmation)` with the exact dry-run `writePlanPath`, `idempotencyKey`, and summaries.
+- Real apply: `linear_apply_write_plan(dryRun=false, confirmedByUser=true, confirmationChannel=ask_user, ...)` using the approval artifact returned by step 2.
+- If `pi_ask_user write_confirmation` returns `interactive_confirmation_unavailable` or `cancelled`, real apply stays blocked unless the user explicitly allows conversation fallback.
+- Run `npm run test:write-confirmation` after changing this flow.
+
 ## Fact Pack Repo-Map Mismatch
 
 - For single-Project tasks without an explicit target, call `pi_ask_user` with `flow=project_select` first. The options must come from the merged repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`) and include `User input` last; do not query Linear for the candidate list before the user chooses.

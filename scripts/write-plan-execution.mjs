@@ -35,7 +35,7 @@ export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
       label: 'current conversation explicit approval fallback',
       canApplyAfterExplicitApproval: true,
       fallbackReason: piAskUserAvailable
-        ? 'Generic ask_user is unavailable; pi_ask_user is project-selection/repo-map only and cannot be used for Linear write confirmation.'
+        ? 'Generic ask_user is unavailable; use pi_ask_user(flow=write_confirmation) for Linear write confirmation.'
         : 'Generic ask_user is unavailable in this host.',
       userPrompt:
         'Generic ask_user is unavailable; tell the user that one explicit approval in the current conversation will be used as the confirmation source.'

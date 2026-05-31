@@ -3,6 +3,11 @@ import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import YAML from "yaml";
+import {
+  buildWriteConfirmationMessage,
+  buildWriteConfirmationText,
+  registerWriteConfirmationArtifact
+} from "./write-confirmation-artifact.ts";
 
 type InputValue = string | undefined;
 
@@ -53,8 +58,19 @@ interface RepoMapAskContext {
   ui: {
     input(title: string, placeholder?: string): Promise<InputValue>;
     select?(title: string, options: string[]): Promise<InputValue>;
+    confirm?(title: string, message: string): Promise<boolean>;
     notify?(message: string, type?: "info" | "warning" | "error"): void;
   };
+}
+
+export interface WriteConfirmationInputs {
+  writePlanPath: string;
+  idempotencyKey: string;
+  targetProjectSummary?: string;
+  operationsSummary?: string;
+  risksSummary?: string;
+  nonChangesSummary?: string;
+  planDigest?: string;
 }
 
 interface RegisteredProjectChoice {
@@ -568,6 +584,112 @@ async function askField(ctx: RepoMapAskContext, field: (typeof FIELD_ORDER)[numb
   return { ok: false, reason: "invalid", inputs: lastCandidate, evidenceGaps: lastFieldErrors };
 }
 
+export function createNonInteractiveWriteConfirmationResult(inputs: WriteConfirmationInputs = { writePlanPath: "", idempotencyKey: "" }) {
+  return {
+    ok: false,
+    status: "interactive_confirmation_unavailable" as const,
+    approved: false,
+    writesPerformed: false,
+    writePlanPath: clean(inputs.writePlanPath),
+    idempotencyKey: clean(inputs.idempotencyKey),
+    planDigest: clean(inputs.planDigest),
+    evidenceGaps: ["Pi UI is not available; pi_ask_user write_confirmation cannot show the approval UI."],
+    openQuestions: [
+      "Real Linear write is blocked until pi_ask_user write_confirmation is available, or the user explicitly allows current-conversation text fallback through linear_apply_write_plan."
+    ]
+  };
+}
+
+export async function runWriteConfirmationFlow(ctx: RepoMapAskContext, inputs: WriteConfirmationInputs) {
+  const writePlanPath = clean(inputs.writePlanPath);
+  const idempotencyKey = clean(inputs.idempotencyKey);
+  if (!writePlanPath || !idempotencyKey) {
+    return {
+      ok: false,
+      status: "evidence_gap" as const,
+      approved: false,
+      writesPerformed: false,
+      evidenceGaps: ["write_confirmation requires writePlanPath and idempotencyKey from the exact dry-run write plan."],
+      openQuestions: ["Provide writePlanPath and idempotencyKey before requesting write confirmation."]
+    };
+  }
+
+  if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
+    return createNonInteractiveWriteConfirmationResult({ ...inputs, writePlanPath, idempotencyKey });
+  }
+
+  const message = buildWriteConfirmationMessage({
+    writePlanPath,
+    idempotencyKey,
+    targetProjectSummary: clean(inputs.targetProjectSummary),
+    operationsSummary: clean(inputs.operationsSummary),
+    risksSummary: clean(inputs.risksSummary),
+    nonChangesSummary: clean(inputs.nonChangesSummary),
+    planDigest: clean(inputs.planDigest)
+  });
+  const approved = await ctx.ui.confirm("Approve Linear write plan", message);
+  if (!approved) {
+    return {
+      ok: false,
+      status: "cancelled" as const,
+      approved: false,
+      writesPerformed: false,
+      writePlanPath,
+      idempotencyKey,
+      planDigest: clean(inputs.planDigest),
+      confirmationChannel: "ask_user" as const,
+      evidenceGaps: ["Write confirmation was cancelled; real Linear write was not applied."],
+      openQuestions: ["Review the dry-run write plan and call pi_ask_user(flow=write_confirmation) again if you want to approve."]
+    };
+  }
+
+  const confirmationText = buildWriteConfirmationText({
+    writePlanPath,
+    idempotencyKey,
+    targetProjectSummary: clean(inputs.targetProjectSummary),
+    operationsSummary: clean(inputs.operationsSummary),
+    risksSummary: clean(inputs.risksSummary),
+    nonChangesSummary: clean(inputs.nonChangesSummary),
+    planDigest: clean(inputs.planDigest)
+  });
+
+  let artifact;
+  try {
+    artifact = registerWriteConfirmationArtifact({
+      writePlanPath,
+      idempotencyKey,
+      planDigest: clean(inputs.planDigest),
+      confirmationText
+    });
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      status: "duplicate_confirmation" as const,
+      approved: false,
+      writesPerformed: false,
+      writePlanPath,
+      idempotencyKey,
+      planDigest: clean(inputs.planDigest),
+      evidenceGaps: [messageText],
+      openQuestions: ["Reuse the existing approval artifact or wait until the prior approval is consumed by linear_apply_write_plan."]
+    };
+  }
+
+  return {
+    ok: true,
+    status: "approved" as const,
+    approved: true,
+    writesPerformed: false,
+    confirmationChannel: "ask_user" as const,
+    confirmationText,
+    writePlanPath,
+    idempotencyKey,
+    planDigest: clean(inputs.planDigest),
+    confirmationId: artifact.confirmationId
+  };
+}
+
 export async function runRepoMapAskFlow(ctx: RepoMapAskContext, options: FlowOptions = {}) {
   const inputs: RepoMapInputs = { ...(options.seed || {}) };
   if (!ctx.hasUI) return createNonInteractiveRepoMapResult(inputs);
@@ -631,9 +753,9 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "pi_ask_user",
     label: "Ask User",
-    description: "Ask the user to choose a local project or complete repo-map fields. Never writes config by itself.",
+    description: "Ask the user to choose a local project, complete repo-map fields, or approve an exact Linear write plan. Never performs Linear mutations by itself.",
     parameters: Type.Object({
-      flow: Type.Optional(Type.String({ description: "Supports project_select and repo_map." })),
+      flow: Type.Optional(Type.String({ description: "Supports project_select, repo_map, and write_confirmation." })),
       seed: Type.Optional(Type.Object({
         projectId: Type.Optional(Type.String()),
         githubUrl: Type.Optional(Type.String()),
@@ -643,17 +765,27 @@ export default function (pi: ExtensionAPI) {
         repoKey: Type.Optional(Type.String()),
         defaultBranch: Type.Optional(Type.String())
       })),
+      writePlanPath: Type.Optional(Type.String()),
+      idempotencyKey: Type.Optional(Type.String()),
+      targetProjectSummary: Type.Optional(Type.String()),
+      operationsSummary: Type.Optional(Type.String()),
+      risksSummary: Type.Optional(Type.String()),
+      nonChangesSummary: Type.Optional(Type.String()),
+      planDigest: Type.Optional(Type.String()),
       repoMapPath: Type.Optional(Type.String()),
       localRepoMapPath: Type.Optional(Type.String()),
       customLabel: Type.Optional(Type.String()),
       maxRetries: Type.Optional(Type.Number({ default: 2 }))
     }),
-    promptSnippet: "pi_ask_user: uses Pi UI to choose a local project before Linear reads, or ask repo-map fields one at a time.",
+    promptSnippet: "pi_ask_user: Pi UI for project selection, repo-map clarification, or write-plan approval.",
     promptGuidelines: [
       "For single-project planning/reporting/review tasks without an explicit target, call pi_ask_user with flow=project_select before reading Linear.",
       "Project selection options must come from the local repo-map, with User input as the last option; do not list projects from Linear before the user selects one.",
       "Use pi_ask_user for repo-map gaps when GitHub, Linear Project, and local repo facts do not line up.",
-      "Ask one field at a time; do not present a multi-field table.",
+      "After linear_apply_write_plan dry-run succeeds, call pi_ask_user with flow=write_confirmation using the exact writePlanPath, idempotencyKey, and dry-run summaries before any real apply.",
+      "write_confirmation only collects approval; it does not execute Linear mutations.",
+      "If write_confirmation returns interactive_confirmation_unavailable or cancelled, do not call linear_apply_write_plan with dryRun=false unless the user explicitly allows conversation fallback.",
+      "Ask one field at a time for repo_map; do not present a multi-field table.",
       "If the result is cancelled or needs_interactive_input, do not modify repo-map files.",
       "The returned repo-map draft is review-only; apply it with repo-map-drift only after separate explicit confirmation; the default target is the local overlay, not tracked config."
     ],
@@ -665,6 +797,19 @@ export default function (pi: ExtensionAPI) {
           localRepoMapPath: params.localRepoMapPath,
           seed: params.seed,
           customLabel: params.customLabel
+        });
+        return text(result);
+      }
+
+      if (params.flow === "write_confirmation") {
+        const result = await runWriteConfirmationFlow(ctx, {
+          writePlanPath: params.writePlanPath || "",
+          idempotencyKey: params.idempotencyKey || "",
+          targetProjectSummary: params.targetProjectSummary,
+          operationsSummary: params.operationsSummary,
+          risksSummary: params.risksSummary,
+          nonChangesSummary: params.nonChangesSummary,
+          planDigest: params.planDigest
         });
         return text(result);
       }

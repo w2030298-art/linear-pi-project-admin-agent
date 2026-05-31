@@ -6,10 +6,11 @@
 
 ### Project selection and repo-map user clarification
 
-`.pi/extensions/pi-ask-user.ts` registers `pi_ask_user` for two narrow clarification flows:
+`.pi/extensions/pi-ask-user.ts` registers `pi_ask_user` for clarification and write-approval flows:
 
 - `project_select`: first step for single-Project planning/reporting/review when the user did not specify a target. Options are loaded only from the merged local three-source repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`): every entry with a local project directory is listed by repoKey/project ID, followed by `User input`. Local overlay entries override tracked config entries with the same repoKey. Linear is not queried until after this selection.
 - `repo_map`: stepwise repo-map repair/draft flow.
+- `write_confirmation`: one-time approve/cancel UI for an exact dry-run Linear write plan. It only collects approval and never executes Linear mutations.
 
 For `repo_map`:
 
@@ -38,8 +39,8 @@ Dry-run compilation and real apply use separate protocol gates:
 - `linear_apply_write_plan` with `dryRun=true` is read/compile-only and does not require `ask_user`.
 - Real apply requires `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and `confirmedByUser=true`.
 - Dry-run output includes `confirmationChannel`, which is one of `ask_user approve/cancel`, `current conversation explicit approval fallback`, or `interactive confirmation unavailable; real write not applied`.
-- If generic `ask_user` is available, real apply must trigger exactly one approve/cancel UI before calling the CLI mutation path; any stale conversation fallback text is ignored for that apply.
-- If generic `ask_user` is unavailable, `pi_ask_user` is treated as project-selection/repo-map only and must not be reused for Linear write confirmation.
+- Real apply must consume exactly one `pi_ask_user(flow=write_confirmation)` approval artifact before calling the CLI mutation path; any stale conversation fallback text is ignored for that apply.
+- `project_select` and `repo_map` remain clarification-only flows and must not be reused for Linear write confirmation.
 - If generic `ask_user` is unavailable, current-conversation text fallback is blocked by default. It can be used only after the user explicitly allows text fallback; tool calls must pass `allowConversationFallback=true`, `confirmationChannel=conversation_fallback`, and the exact approval in `confirmationText`.
 - Conversation fallback confirmation records must include fallback reason, user approval text, write plan path, and `idempotencyKey`; final apply output and `state/audit.jsonl` include the same confirmation payload.
 - `scripts/write-plan-execution.mjs` computes the effective apply mode. If the source write-plan file is still `dryRun=true` but the tool/CLI call is `dryRun=false` with `--confirmed`, the CLI uses an in-memory effective plan with `dryRun=false` / `confirmedByUser=true` and records `reason.cliConfirmedOverride=true`.
@@ -67,10 +68,19 @@ Dry-run compilation and real apply use separate protocol gates:
 
 确认来源：
 
-- Pi 交互模式只使用一次 `ask_user` 作为用户确认。
+- Pi 交互模式只使用一次 `pi_ask_user(flow=write_confirmation)` 作为用户确认。
 - 不再要求用户手动输入固定确认句。
-- `linear-write-guard` 只校验 `confirmedByUser=true`，不会再发起第二次 UI confirm；如果缺少确认，会阻止调用并提示先使用 `ask_user`。
-- If `ask_user` is unavailable and text fallback was not explicitly allowed, real apply returns `interactive confirmation unavailable; real write not applied`.
+- `linear-write-guard` 只校验 `confirmedByUser=true`，不会再发起第二次 UI confirm；如果缺少确认，会阻止调用并提示先使用 `pi_ask_user(flow=write_confirmation)`。
+- If `pi_ask_user write_confirmation` is unavailable and text fallback was not explicitly allowed, real apply returns `interactive confirmation unavailable; real write not applied`.
+
+### Pi write confirmation flow
+
+1. Call `linear_apply_write_plan` with `dryRun=true` and capture `writePlanPath`, `idempotencyKey`, and dry-run summaries.
+2. Call `pi_ask_user` with `flow=write_confirmation`, the exact `writePlanPath`, `idempotencyKey`, target project summary, operations summary, and optional risk/non-change/planDigest fields.
+3. If the user approves, pass the returned `confirmationChannel`, `confirmationText`, `confirmationId`, `writePlanPath`, and `idempotencyKey` into `linear_apply_write_plan(dryRun=false)`.
+4. If the user cancels or Pi UI is unavailable, do not apply. Conversation fallback remains blocked unless the user explicitly allows it.
+
+Each approval artifact binds to one exact write plan and idempotencyKey and can be consumed only once by real apply.
 
 安全机制：
 
@@ -119,4 +129,4 @@ Active planning and reporting paths process one Project at a time. Workspace-lev
 
 ## Pi Write Confirmation UI
 
-The generic Linear write confirmation channel is the Pi tool execution context `ctx.ui.confirm()`. `linear_apply_write_plan` receives `ctx` from the registered tool `execute()` callback, triggers exactly one approve/cancel dialog for real writes when `ctx.hasUI` is true, and uses current-conversation text fallback only when no UI context is available and the user explicitly allowed that fallback.
+The generic Linear write confirmation channel is `pi_ask_user(flow=write_confirmation)`. After dry-run, the Agent calls this flow to show one approve/cancel dialog with the exact write plan path, idempotencyKey, target project summary, and operation/risk summaries. `linear_apply_write_plan(dryRun=false)` consumes that approval artifact and does not show a second confirmation UI. Current-conversation text fallback is used only when Pi UI is unavailable and the user explicitly allowed that fallback.
