@@ -8,7 +8,7 @@ import {
   registerWriteConfirmationArtifact,
   resetWriteConfirmationArtifactsForTests,
   WRITE_CONFIRMATION_UI_TITLE
-} from '../.pi/extensions/write-confirmation-artifact.ts';
+} from './write-confirmation-artifact.ts';
 
 resetWriteConfirmationArtifactsForTests();
 

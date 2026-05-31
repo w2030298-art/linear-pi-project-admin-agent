@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { consumeWriteConfirmationArtifact } from "./write-confirmation-artifact.ts";
+import { consumeWriteConfirmationArtifact } from "../../scripts/write-confirmation-artifact.ts";
 
 function text(content: unknown) {
   return { content: [{ type: "text" as const, text: typeof content === "string" ? content : JSON.stringify(content, null, 2) }], details: content };
