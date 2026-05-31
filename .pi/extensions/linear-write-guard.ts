@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { validateWriteConfirmationArtifact } from "./write-confirmation-artifact.ts";
+import { validateWriteConfirmationArtifact } from "../../scripts/write-confirmation-artifact.ts";
 
 const MUTATING_LINEAR_TOOLS = new Set([
   "linear_apply_write_plan"
