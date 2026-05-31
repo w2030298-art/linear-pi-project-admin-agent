@@ -9,7 +9,7 @@ import {
   registerWriteConfirmationArtifact,
   toApprovalArtifactResponse,
   WRITE_CONFIRMATION_UI_TITLE
-} from "./write-confirmation-artifact.ts";
+} from "../../scripts/write-confirmation-artifact.ts";
 
 type InputValue = string | undefined;
 
