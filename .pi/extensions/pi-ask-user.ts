@@ -6,7 +6,9 @@ import YAML from "yaml";
 import {
   buildWriteConfirmationMessage,
   buildWriteConfirmationText,
-  registerWriteConfirmationArtifact
+  registerWriteConfirmationArtifact,
+  toApprovalArtifactResponse,
+  WRITE_CONFIRMATION_UI_TITLE
 } from "./write-confirmation-artifact.ts";
 
 type InputValue = string | undefined;
@@ -627,7 +629,7 @@ export async function runWriteConfirmationFlow(ctx: RepoMapAskContext, inputs: W
     nonChangesSummary: clean(inputs.nonChangesSummary),
     planDigest: clean(inputs.planDigest)
   });
-  const approved = await ctx.ui.confirm("Approve Linear write plan", message);
+  const approved = await ctx.ui.confirm(WRITE_CONFIRMATION_UI_TITLE, message);
   if (!approved) {
     return {
       ok: false,
@@ -681,12 +683,15 @@ export async function runWriteConfirmationFlow(ctx: RepoMapAskContext, inputs: W
     status: "approved" as const,
     approved: true,
     writesPerformed: false,
-    confirmationChannel: "ask_user" as const,
-    confirmationText,
-    writePlanPath,
-    idempotencyKey,
-    planDigest: clean(inputs.planDigest),
-    confirmationId: artifact.confirmationId
+    approvalArtifact: toApprovalArtifactResponse(artifact),
+    confirmationChannel: artifact.confirmationChannel,
+    confirmationText: artifact.confirmationText,
+    writePlanPath: artifact.writePlanPath,
+    idempotencyKey: artifact.idempotencyKey,
+    planDigest: artifact.planDigest,
+    confirmationId: artifact.confirmationId,
+    createdAt: artifact.createdAt,
+    expiresAt: artifact.expiresAt
   };
 }
 
@@ -782,7 +787,8 @@ export default function (pi: ExtensionAPI) {
       "For single-project planning/reporting/review tasks without an explicit target, call pi_ask_user with flow=project_select before reading Linear.",
       "Project selection options must come from the local repo-map, with User input as the last option; do not list projects from Linear before the user selects one.",
       "Use pi_ask_user for repo-map gaps when GitHub, Linear Project, and local repo facts do not line up.",
-      "After linear_apply_write_plan dry-run succeeds, call pi_ask_user with flow=write_confirmation using the exact writePlanPath, idempotencyKey, and dry-run summaries before any real apply.",
+      "After linear_apply_write_plan dry-run succeeds, call pi_ask_user with flow=write_confirmation once to show Approve & Write / Cancel for the exact writePlanPath, idempotencyKey, and dry-run summaries.",
+      "When the user clicks Approve & Write, immediately call linear_apply_write_plan(dryRun=false) with the returned approval artifact. Do not show a second confirmation UI.",
       "write_confirmation only collects approval; it does not execute Linear mutations.",
       "If write_confirmation returns interactive_confirmation_unavailable or cancelled, do not call linear_apply_write_plan with dryRun=false unless the user explicitly allows conversation fallback.",
       "Ask one field at a time for repo_map; do not present a multi-field table.",

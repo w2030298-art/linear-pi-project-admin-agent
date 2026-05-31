@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { consumeWriteConfirmationArtifact } from "./write-confirmation-artifact.ts";
 
@@ -6,74 +6,60 @@ function text(content: unknown) {
   return { content: [{ type: "text" as const, text: typeof content === "string" ? content : JSON.stringify(content, null, 2) }], details: content };
 }
 
-function genericAskUser(pi: any, ctx?: Partial<ExtensionContext> | null) {
-  if (ctx?.hasUI && typeof ctx?.ui?.confirm === "function") {
-    return async (request: { title: string; message: string }) => ctx.ui!.confirm(request.title, request.message);
-  }
+export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string, unknown>, params: any) {
+  if (params.dryRun !== false) return { ...params, confirmedByUser: false };
 
-  const candidates = [
-    { fn: pi?.ask_user, owner: pi },
-    { fn: pi?.askUser, owner: pi },
-    { fn: pi?.ui?.ask_user, owner: pi?.ui },
-    { fn: pi?.ui?.askUser, owner: pi?.ui }
-  ];
-  const match = candidates.find(candidate => typeof candidate.fn === "function");
-  return match ? match.fn.bind(match.owner) : null;
-}
-
-export async function prepareWriteConfirmation(pi: ExtensionAPI | Record<string, unknown>, params: any, ctx?: Partial<ExtensionContext> | null) {
-  if (params.dryRun !== false) return { ...params };
-
-  if (params.confirmationChannel === "ask_user" || params.confirmationChannel === undefined) {
-    if (params.confirmedByUser !== true) {
+  if (params.confirmationChannel === "conversation_fallback") {
+    if (params.allowConversationFallback !== true) {
       throw new Error(
-        "linear_apply_write_plan cancelled: real writes require pi_ask_user(flow=write_confirmation) approval before apply."
+        "interactive confirmation unavailable; real write not applied. pi_ask_user write_confirmation is unavailable and current-conversation fallback was not explicitly allowed."
       );
     }
-
-    const consumed = consumeWriteConfirmationArtifact({
-      writePlanPath: params.writePlanPath,
-      idempotencyKey: params.idempotencyKey,
-      planDigest: params.planDigest,
-      confirmationId: params.confirmationId,
-      confirmationText: params.confirmationText,
-      confirmationChannel: params.confirmationChannel,
-      confirmedByUser: params.confirmedByUser
-    });
-    if (!consumed.ok) {
-      throw new Error(consumed.message);
+    if (params.confirmedByUser !== true) {
+      throw new Error(
+        "pi_ask_user write_confirmation is unavailable; request one explicit approval in the current conversation before real apply."
+      );
     }
-
+    if (!params.confirmationText?.trim()) {
+      throw new Error(
+        "pi_ask_user write_confirmation is unavailable; current conversation fallback requires confirmationText with the user's explicit approval."
+      );
+    }
     return {
       ...params,
-      confirmedByUser: true,
-      confirmationChannel: "ask_user",
-      confirmationFallbackReason: null,
-      confirmationText: consumed.artifact.confirmationText,
-      confirmationId: consumed.artifact.confirmationId,
-      idempotencyKey: consumed.artifact.idempotencyKey,
-      planDigest: consumed.artifact.planDigest
+      confirmationChannel: "conversation_fallback"
     };
   }
 
-  if (params.allowConversationFallback !== true) {
-    throw new Error(
-      "interactive confirmation unavailable; real write not applied. pi_ask_user write_confirmation is unavailable and current-conversation fallback was not explicitly allowed."
-    );
-  }
   if (params.confirmedByUser !== true) {
     throw new Error(
-      "pi_ask_user write_confirmation is unavailable; request one explicit approval in the current conversation before real apply."
+      "linear_apply_write_plan cancelled: real writes require one Approve & Write approval from pi_ask_user(flow=write_confirmation) before apply."
     );
   }
-  if (!params.confirmationText?.trim()) {
-    throw new Error(
-      "pi_ask_user write_confirmation is unavailable; current conversation fallback requires confirmationText with the user's explicit approval."
-    );
+
+  const consumed = consumeWriteConfirmationArtifact({
+    writePlanPath: params.writePlanPath,
+    idempotencyKey: params.idempotencyKey,
+    planDigest: params.planDigest,
+    confirmationId: params.confirmationId,
+    confirmationText: params.confirmationText,
+    confirmationChannel: params.confirmationChannel || "ask_user",
+    confirmedByUser: params.confirmedByUser
+  });
+  if (!consumed.ok) {
+    throw new Error(consumed.message);
   }
+
   return {
     ...params,
-    confirmationChannel: params.confirmationChannel || "conversation_fallback"
+    confirmedByUser: true,
+    confirmationChannel: "ask_user",
+    confirmationFallbackReason: null,
+    confirmationText: consumed.artifact.confirmationText,
+    confirmationId: consumed.artifact.confirmationId,
+    idempotencyKey: consumed.artifact.idempotencyKey,
+    planDigest: consumed.artifact.planDigest,
+    approvalArtifact: consumed.artifact
   };
 }
 
@@ -131,7 +117,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_apply_write_plan",
     label: "Apply Linear Write Plan",
-    description: "Compile a dry-run write plan, or apply a real write plan after explicit user confirmation. Uses idempotency and readback.",
+    description: "Compile a dry-run write plan automatically, or apply a real write plan after one Approve & Write approval artifact. Uses idempotency and readback.",
     parameters: Type.Object({
       writePlanPath: Type.String(),
       confirmedByUser: Type.Boolean(),
@@ -143,26 +129,20 @@ export default function (pi: ExtensionAPI) {
       allowConversationFallback: Type.Optional(Type.Boolean({ default: false })),
       dryRun: Type.Optional(Type.Boolean({ default: true }))
     }),
-    promptSnippet: "linear_apply_write_plan: applies a confirmed Linear write plan with guardrails.",
+    promptSnippet: "linear_apply_write_plan: dry-run automatically; real apply consumes one Approve & Write approval artifact only.",
     promptGuidelines: [
-      "Dry-run compilation does not require user approval and should be called with dryRun=true.",
-      "After dry-run succeeds, call pi_ask_user with flow=write_confirmation for the exact writePlanPath and idempotencyKey before any real apply.",
-      "Do not ask the user to type a fixed confirmation phrase; the pi_ask_user write_confirmation approval is the confirmation.",
-      "If pi_ask_user write_confirmation is unavailable in the current host and text fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",
-      "When the user explicitly allows current conversation text fallback, call linear_apply_write_plan with dryRun=false, confirmedByUser=true, confirmationChannel=conversation_fallback, allowConversationFallback=true, and confirmationText containing the user's exact approval.",
-      "After pi_ask_user write_confirmation approval, call linear_apply_write_plan with dryRun=false, confirmedByUser=true, confirmationChannel=ask_user, writePlanPath, idempotencyKey, confirmationText, and confirmationId from the approval result.",
-      "Never call linear_apply_write_plan with confirmedByUser=true unless the user approval is present in the current conversation or Linear comment."
+      "After generating a write plan, automatically run linear_plan_quality_review and linear_apply_write_plan with dryRun=true. Dry-run is validation only and is not user confirmation.",
+      "When dry-run succeeds, call pi_ask_user with flow=write_confirmation once to show Approve & Write / Cancel for the exact writePlanPath, idempotencyKey, and dry-run summaries.",
+      "After the user clicks Approve & Write, immediately call linear_apply_write_plan with dryRun=false and the approval artifact fields returned by pi_ask_user. Do not show a second confirmation UI and do not ask the user to type a confirmation phrase.",
+      "linear_apply_write_plan never pops its own confirmation UI; it only consumes the approval artifact produced by pi_ask_user(write_confirmation).",
+      "If pi_ask_user write_confirmation is unavailable and conversation fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",
+      "Conversation fallback is allowed only when Pi UI is unavailable and the user explicitly allows it via allowConversationFallback=true with confirmationChannel=conversation_fallback.",
+      "Never call linear_apply_write_plan with confirmedByUser=true unless the approval artifact or explicit fallback approval is present."
     ],
-    async execute(_id, params, signal, _onUpdate, ctx) {
-      const prepared = await prepareWriteConfirmation(pi, params, ctx);
-      const askUserAvailable = Boolean(genericAskUser(pi, ctx));
-      const inferredChannel = askUserAvailable
-        ? "ask_user"
-        : (params.allowConversationFallback === true || params.confirmationChannel === "conversation_fallback")
-          ? "conversation_fallback"
-          : "unavailable";
+    async execute(_id, params, signal) {
+      const prepared = await prepareWriteConfirmation(pi, params);
       const args = ["apply", prepared.writePlanPath, prepared.confirmedByUser ? "--confirmed" : "--not-confirmed"];
-      args.push("--confirmation-channel", prepared.confirmationChannel || inferredChannel);
+      args.push("--confirmation-channel", prepared.confirmationChannel || "ask_user");
       if (prepared.confirmationText) args.push("--confirmation-text", prepared.confirmationText);
       if (prepared.dryRun !== false) args.push("--dry-run");
       return callLinear(signal, args);

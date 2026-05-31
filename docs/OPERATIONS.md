@@ -78,9 +78,13 @@ npm run bridge:dev
 
 ## Linear Write Confirmation
 
-- Dry-run first: `linear_apply_write_plan(dryRun=true)`.
-- Approval UI: `pi_ask_user(flow=write_confirmation)` with the exact dry-run `writePlanPath`, `idempotencyKey`, and summaries.
-- Real apply: `linear_apply_write_plan(dryRun=false, confirmedByUser=true, confirmationChannel=ask_user, ...)` using the approval artifact returned by step 2.
+Single `Approve & Write` flow:
+
+1. Automatically run `linear_plan_quality_review` and `linear_apply_write_plan(dryRun=true)` after generating a write plan. Dry-run is not user confirmation.
+2. Show one approval UI: `pi_ask_user(flow=write_confirmation)` with exact `writePlanPath`, `idempotencyKey`, summaries, and optional `planDigest`.
+3. On `Approve & Write`, immediately call `linear_apply_write_plan(dryRun=false, ...)` with the returned approval artifact. Apply does not pop a second UI.
+4. `linear-write-guard` only blocks real apply when the artifact is missing, expired, reused, or mismatched.
+
 - If `pi_ask_user write_confirmation` returns `interactive_confirmation_unavailable` or `cancelled`, real apply stays blocked unless the user explicitly allows conversation fallback.
 - Run `npm run test:write-confirmation` after changing this flow.
 
