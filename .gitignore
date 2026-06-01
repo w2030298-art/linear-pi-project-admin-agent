@@ -6,6 +6,8 @@ dist/
 state/*.sqlite
 state/*.db
 state/*.jsonl
+state/*.jsonl.lock
+state/*.jsonl.lock/
 state/*.draft.json
 state/*.draft.yaml
 state/linear-events.jsonl
