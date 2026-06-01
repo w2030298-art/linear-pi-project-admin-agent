@@ -24,6 +24,7 @@
     "test:repo-map": "node scripts/test-repo-map.mjs",
     "test:repo-map-drift": "node scripts/test-repo-map-drift.mjs",
     "test:low-risk-write-plan": "node scripts/test-low-risk-write-plan.mjs",
+    "test:write-plan-builder": "node scripts/test-write-plan-builder.mjs",
     "test:pi-ask-user": "tsx scripts/test-pi-ask-user-repo-map.ts",
     "test:wezterm-launch": "node scripts/test-wezterm-launch-docs.mjs",
     "test:runtime-reload-master": "tsx scripts/test-runtime-reload-master.ts",
