@@ -4,7 +4,19 @@ import { json } from '../utils.mjs';
 import { detectHostConfirmationCapabilities, resolveApplyMode } from '../write-plan-execution.mjs';
 import { appendAudit, errorMessage } from './audit.mjs';
 import { compileOperations, normalizeInput, opRefKey } from './normalize.mjs';
-import { exactIssueLookup, mutate, readback } from './executor.mjs';
+import { exactIssueLookup, mutate, readback, targetIdForUpdate } from './executor.mjs';
+import {
+  checkpointFailure,
+  checkpointSuccess,
+  completedOperation,
+  initProgress,
+  loadProgress,
+  markProgressComplete,
+  operationInputHash,
+  planInputHash,
+  progressPathFor,
+  saveProgress
+} from './progress.mjs';
 import { isCreate, normalizeType, parseWritePlan, SUPPORTED_WRITE_MODES, typeToKind } from './schema.mjs';
 import { consumeWriteConfirmationArtifact } from '../write-confirmation-artifact.ts';
 
@@ -95,9 +107,15 @@ export async function applyPlanCommand(planPath, options) {
   const applyMode = resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, confirmationText, confirmationId, writePlanPath: planPath, hostCapabilities });
   const dryRun = applyMode.dryRun;
   const effectivePlan = parseWritePlan(applyMode.effectivePlan, { dryRun });
+  const progressPath = progressPathFor(env, effectivePlan.idempotencyKey);
+  const currentPlanHash = planInputHash(effectivePlan);
+  const existingProgress = !dryRun ? loadProgress(progressPath) : null;
+  if (existingProgress && existingProgress.planHash !== currentPlanHash) {
+    throw new Error('plan/input hash changed; run a new dry-run and approval before applying this write plan.');
+  }
 
   let consumedApproval = null;
-  if (!dryRun) {
+  if (!dryRun && !existingProgress) {
     consumedApproval = withApprovalSigningKey(env, () => withApprovalStorePath(approvalArtifactPath, () => consumeWriteConfirmationArtifact({
       writePlanPath: planPath,
       idempotencyKey: effectivePlan.idempotencyKey,
@@ -109,6 +127,18 @@ export async function applyPlanCommand(planPath, options) {
     if (!consumedApproval.ok) {
       throw new Error(`approval artifact blocked: ${consumedApproval.message}`);
     }
+  } else if (!dryRun) {
+    appendAudit({
+      type: 'linear_apply_artifact_validation',
+      ok: true,
+      source: 'checkpoint_resume',
+      writePlanPath: planPath,
+      idempotencyKey: effectivePlan.idempotencyKey,
+      planDigest: effectivePlan.planDigest || null,
+      progressPath,
+      signatureValid: true,
+      replayAction: 'reuse_checkpoint'
+    });
   }
 
   const linear = options.client();
@@ -132,6 +162,16 @@ export async function applyPlanCommand(planPath, options) {
 
   const refs = {};
   const results = [];
+  const progress = initProgress(existingProgress, {
+    idempotencyKey: effectivePlan.idempotencyKey,
+    planHash: currentPlanHash,
+    planDigest: effectivePlan.planDigest,
+    writePlanPath: planPath
+  });
+  saveProgress(progressPath, progress);
+  for (const [key, record] of Object.entries(progress.operations || {})) {
+    if (record?.status === 'success' && record.ref?.id) refs[key] = record.ref;
+  }
   const workspaceManifest = await options.cachedWorkspaceObjectManifest(linear, effectivePlan);
   const confirmation = {
     channel: effectivePlan.confirmationChannel || applyMode.reason.confirmationChannel.channel,
@@ -158,17 +198,80 @@ export async function applyPlanCommand(planPath, options) {
         issueExactLookup: identifierOrId => exactIssueLookup(linear, identifierOrId)
       };
       const input = await normalizeInput(linear, op, refs, index, metadata);
-      if (isCreate(type) && input.id) refs[key] = { id: input.id, kind, pending: true };
+      const inputHash = operationInputHash(op, input);
+      const completed = completedOperation(progress, String(key), inputHash);
+      if (completed) {
+        if (completed.ref?.id) refs[String(key)] = completed.ref;
+        const result = {
+          index,
+          key,
+          type,
+          kind,
+          success: true,
+          skipped: true,
+          replayAction: 'skip_completed',
+          entity: completed.entity || null,
+          readback: completed.readback || completed.after || null,
+          fieldTransforms: metadata.fieldTransforms,
+          resolutions: metadata.objectResolutions
+        };
+        results.push(result);
+        appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, replayAction: 'skip_completed', result });
+        continue;
+      }
 
-      const mutationResult = await mutate(linear, op, input, refs);
-      const entity = mutationResult.entity;
-      if (entity?.id) refs[key] = { id: entity.id, kind, data: entity };
-      const readbackEntity = entity?.id ? await readback(linear, kind, entity.id) : null;
-      if (!readbackEntity && effectivePlan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
+      let before = null;
+      let mutationResult = null;
+      let entity = null;
+      let readbackEntity = null;
+      try {
+        if (type === 'project.update' || type === 'issue.update') {
+          before = await readback(linear, kind, targetIdForUpdate(op, refs));
+          if (!before && effectivePlan.readbackRequired !== false) throw new Error(`Before readback failed for ${type}`);
+        }
+        mutationResult = await mutate(linear, op, input, refs);
+        entity = mutationResult.entity;
+        readbackEntity = entity?.id ? await readback(linear, kind, entity.id) : null;
+        if (!readbackEntity && effectivePlan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
+      } catch (err) {
+        checkpointFailure(progress, String(key), {
+          index,
+          key,
+          type,
+          kind,
+          inputHash,
+          error: errorMessage(err),
+          before,
+          fieldTransforms: metadata.fieldTransforms,
+          resolutions: metadata.objectResolutions
+        });
+        saveProgress(progressPath, progress);
+        throw err;
+      }
 
-      const result = { index, key, type, kind, success: true, skipped: mutationResult.skipped, entity, readback: readbackEntity, fieldTransforms: metadata.fieldTransforms, resolutions: metadata.objectResolutions };
+      const ref = entity?.id ? { id: entity.id, kind, data: entity } : null;
+      if (ref) refs[key] = ref;
+
+      const result = { index, key, type, kind, success: true, skipped: mutationResult.skipped, replayAction: mutationResult.skipped ? 'skip_existing' : 'new_mutation', entity, readback: readbackEntity, before, after: readbackEntity, fieldTransforms: metadata.fieldTransforms, resolutions: metadata.objectResolutions };
       results.push(result);
-      appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, result });
+      checkpointSuccess(progress, String(key), {
+        index,
+        key,
+        type,
+        kind,
+        inputHash,
+        replayAction: result.replayAction,
+        entity,
+        readback: readbackEntity,
+        before,
+        after: readbackEntity,
+        ref: ref || undefined,
+        fieldTransforms: metadata.fieldTransforms,
+        resolutions: metadata.objectResolutions
+      });
+      markProgressComplete(progress, effectivePlan.operations.length);
+      saveProgress(progressPath, progress);
+      appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, replayAction: result.replayAction, result });
     }
     appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: true, resultCount: results.length, confirmation });
     json({ ok: true, dryRun: false, mode, idempotencyKey: effectivePlan.idempotencyKey, reason: applyMode.reason, confirmationSelfCheck: applyMode.confirmationSelfCheck, confirmation, results });

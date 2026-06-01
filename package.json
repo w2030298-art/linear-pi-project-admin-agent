@@ -33,6 +33,7 @@
     "test:runtime-instruction-boundary": "node scripts/test-runtime-instruction-boundary.mjs",
     "test:unsupported-fields": "tsx scripts/test-write-plan-unsupported-fields.ts",
     "test:linear-apply-mode": "node scripts/test-linear-apply-mode.mjs",
+    "test:linear-apply-reliability": "tsx scripts/test-linear-apply-reliability.ts",
     "test:linear-cli-apply-architecture": "node scripts/test-linear-cli-apply-architecture.mjs",
     "test:linear-cli-approval-artifact": "tsx scripts/test-linear-cli-approval-artifact.ts",
     "test:linear-snapshot": "node scripts/test-linear-snapshot.mjs",

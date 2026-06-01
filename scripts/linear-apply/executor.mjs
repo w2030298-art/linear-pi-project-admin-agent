@@ -3,7 +3,7 @@ import { applyGenericRefs, resolveRef } from './normalize.mjs';
 import { isCreate, normalizeType, typeToKind } from './schema.mjs';
 import { errorMessage } from './audit.mjs';
 
-function targetIdForUpdate(op, refs) {
+export function targetIdForUpdate(op, refs) {
   const type = normalizeType(op.type);
   const input = applyGenericRefs({ ...(op.input || {}) }, refs);
   if (type === 'project.update') return resolveRef(refs, input.projectId || input.id || input.projectRef || op.targetId, 'project update id');
