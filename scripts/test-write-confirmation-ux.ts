@@ -13,6 +13,7 @@ import {
   WRITE_CONFIRMATION_UI_TITLE
 } from './write-confirmation-artifact.ts';
 
+process.env.LINEAR_APPROVAL_PRIVATE_KEY = 'test-private-key';
 resetWriteConfirmationArtifactsForTests();
 
 {
@@ -41,7 +42,7 @@ resetWriteConfirmationArtifactsForTests();
     ],
     {
       cwd: process.cwd(),
-      env: { ...process.env, WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: storePath },
+      env: { ...process.env, WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: storePath, LINEAR_APPROVAL_PRIVATE_KEY: 'test-private-key' },
       encoding: 'utf8'
     }
   );
@@ -63,6 +64,27 @@ resetWriteConfirmationArtifactsForTests();
   );
   assert.equal(prepared.confirmationChannel, 'ask_user');
   assert.equal(prepared.confirmationId, 'cross-process-confirmation');
+
+  const allowedBeforeCliConsume = linearWriteGuardDecision({
+    dryRun: false,
+    writePlanPath: 'state/write-plans/cross-process.json',
+    idempotencyKey: 'cross-process-key',
+    planDigest: 'sha256:cross-process',
+    confirmationId: 'cross-process-confirmation',
+    confirmedByUser: true,
+    confirmationChannel: 'ask_user',
+    confirmationText: 'cross process approval'
+  });
+  assert.deepEqual(allowedBeforeCliConsume, { action: 'allow' });
+
+  const consumed = consumeWriteConfirmationArtifact({
+    writePlanPath: 'state/write-plans/cross-process.json',
+    idempotencyKey: 'cross-process-key',
+    planDigest: 'sha256:cross-process',
+    confirmationId: 'cross-process-confirmation',
+    confirmationText: 'cross process approval'
+  });
+  assert.equal(consumed.ok, true);
 
   const reused = linearWriteGuardDecision({
     dryRun: false,

@@ -18,6 +18,13 @@ export interface ApprovalArtifact {
   createdAt: string;
   expiresAt: string;
   usedAt?: string;
+  signature?: ApprovalArtifactSignature;
+}
+
+export interface ApprovalArtifactSignature {
+  algorithm: "hmac-sha256";
+  signedFields: Array<"writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">;
+  value: string;
 }
 
 export interface WriteConfirmationApplyParams {
@@ -38,21 +45,105 @@ type ArtifactValidationFailure = {
     | "store_unavailable"
     | "already_used"
     | "expired"
+    | "signature_key_missing"
+    | "signature_missing"
+    | "signature_mismatch"
     | "confirmation_mismatch"
     | "plan_digest_mismatch"
     | "confirmation_text_mismatch";
   message: string;
+  artifact?: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey" | "planDigest" | "confirmationId" | "expiresAt" | "usedAt"> & { signatureValid?: boolean };
 };
 
 const pendingArtifacts = new Map<string, ApprovalArtifact>();
 const STORE_ENV = "WRITE_CONFIRMATION_ARTIFACT_STORE_PATH";
+const SIGNING_KEY_ENV = "LINEAR_APPROVAL_PRIVATE_KEY";
 const DEFAULT_STORE_FILE = "write-confirmation-artifacts.json";
 const SOURCE_PATH = fileURLToPath(import.meta.url);
 const LOCK_TIMEOUT_MS = 5_000;
 const STALE_LOCK_MS = 30_000;
+const SIGNED_FIELDS: ApprovalArtifactSignature["signedFields"] = ["writePlanPath", "idempotencyKey", "planDigest", "expiresAt", "confirmationId"];
 
 function artifactKey(writePlanPath: string, idempotencyKey: string) {
   return `${writePlanPath.trim()}::${idempotencyKey.trim()}`;
+}
+
+function signingKey() {
+  return clean(process.env[SIGNING_KEY_ENV]);
+}
+
+function signaturePayload(artifact: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">) {
+  return JSON.stringify({
+    writePlanPath: artifact.writePlanPath,
+    idempotencyKey: artifact.idempotencyKey,
+    planDigest: artifact.planDigest || "",
+    expiresAt: artifact.expiresAt,
+    confirmationId: artifact.confirmationId
+  });
+}
+
+function signArtifact(artifact: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">): ApprovalArtifactSignature {
+  const key = signingKey();
+  if (!key) {
+    throw new Error(`${SIGNING_KEY_ENV} is required to create pi_ask_user write_confirmation approval artifacts.`);
+  }
+  return {
+    algorithm: "hmac-sha256",
+    signedFields: [...SIGNED_FIELDS],
+    value: crypto.createHmac("sha256", key).update(signaturePayload(artifact)).digest("hex")
+  };
+}
+
+function artifactAuditFields(artifact: ApprovalArtifact, signatureValid?: boolean) {
+  return {
+    writePlanPath: artifact.writePlanPath,
+    idempotencyKey: artifact.idempotencyKey,
+    planDigest: artifact.planDigest,
+    confirmationId: artifact.confirmationId,
+    expiresAt: artifact.expiresAt,
+    usedAt: artifact.usedAt,
+    signatureValid
+  };
+}
+
+function hasValidArtifactSignature(artifact: ApprovalArtifact) {
+  const key = signingKey();
+  if (!key || !artifact.signature?.value || artifact.signature.algorithm !== "hmac-sha256") return false;
+  if (JSON.stringify(artifact.signature.signedFields) !== JSON.stringify(SIGNED_FIELDS)) return false;
+  const expected = crypto.createHmac("sha256", key).update(signaturePayload(artifact)).digest("hex");
+  const actual = artifact.signature.value;
+  const expectedBuffer = Buffer.from(expected, "hex");
+  const actualBuffer = Buffer.from(actual, "hex");
+  return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+function verifyArtifactSignature(artifact: ApprovalArtifact): ArtifactValidationFailure | null {
+  const key = signingKey();
+  if (!key) {
+    return {
+      ok: false,
+      reason: "signature_key_missing",
+      message: `${SIGNING_KEY_ENV} is required to verify pi_ask_user write_confirmation approval artifacts.`,
+      artifact: artifactAuditFields(artifact, false)
+    };
+  }
+  if (!artifact.signature?.value || artifact.signature.algorithm !== "hmac-sha256") {
+    return {
+      ok: false,
+      reason: "signature_missing",
+      message: "signature_missing: Approval artifact is missing an hmac-sha256 signature and cannot be used for real apply.",
+      artifact: artifactAuditFields(artifact, false)
+    };
+  }
+  if (!hasValidArtifactSignature(artifact)) {
+    return {
+      ok: false,
+      reason: "signature_mismatch",
+      message: "signature_mismatch: Approval artifact signature does not match writePlanPath, idempotencyKey, planDigest, expiresAt, and confirmationId.",
+      artifact: artifactAuditFields(artifact, false)
+    };
+  }
+  return null;
 }
 
 function defaultStorePath(env: Record<string, string | undefined> = process.env) {
@@ -281,6 +372,7 @@ export function toApprovalArtifactResponse(artifact: ApprovalArtifact) {
     createdAt: artifact.createdAt,
     expiresAt: artifact.expiresAt,
     usedAt: artifact.usedAt,
+    signature: artifact.signature,
     storage: getWriteConfirmationArtifactStorageStatus(artifact),
     source: sourceStatus()
   };
@@ -322,6 +414,7 @@ export function registerWriteConfirmationArtifact(input: {
       createdAt: createdAt.toISOString(),
       expiresAt: new Date(createdAt.getTime() + ttlMs).toISOString()
     };
+    artifact.signature = signArtifact(artifact);
     artifacts.set(key, artifact);
     pendingArtifacts.set(key, artifact);
     writeArtifactStore(artifacts);
@@ -370,7 +463,8 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "already_used",
-      message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=write_confirmation) to create a fresh approval."
+      message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=write_confirmation) to create a fresh approval.",
+      artifact: artifactAuditFields(artifact, hasValidArtifactSignature(artifact))
     };
   }
 
@@ -378,15 +472,20 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "expired",
-      message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=write_confirmation) again."
+      message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=write_confirmation) again.",
+      artifact: artifactAuditFields(artifact, hasValidArtifactSignature(artifact))
     };
   }
+
+  const signatureFailure = verifyArtifactSignature(artifact);
+  if (signatureFailure) return signatureFailure;
 
   if (confirmationId && confirmationId !== artifact.confirmationId) {
     return {
       ok: false,
       reason: "confirmation_mismatch",
-      message: "confirmation_mismatch: confirmationId does not match the active pi_ask_user write_confirmation approval. Next step: pass the approvalArtifact returned by pi_ask_user unchanged, or re-run approval."
+      message: "confirmation_mismatch: confirmationId does not match the active pi_ask_user write_confirmation approval. Next step: pass the approvalArtifact returned by pi_ask_user unchanged, or re-run approval.",
+      artifact: artifactAuditFields(artifact, true)
     };
   }
 
@@ -394,7 +493,8 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "plan_digest_mismatch",
-      message: "plan_digest_mismatch: planDigest does not match the approved pi_ask_user write_confirmation artifact. Next step: re-run dry-run and approve the exact current write plan."
+      message: "plan_digest_mismatch: planDigest does not match the approved pi_ask_user write_confirmation artifact. Next step: re-run dry-run and approve the exact current write plan.",
+      artifact: artifactAuditFields(artifact, true)
     };
   }
 
@@ -402,7 +502,8 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "confirmation_text_mismatch",
-      message: "confirmation_text_mismatch: confirmationText does not match the approved pi_ask_user write_confirmation artifact. Next step: pass the approvalArtifact returned by pi_ask_user unchanged, or re-run approval."
+      message: "confirmation_text_mismatch: confirmationText does not match the approved pi_ask_user write_confirmation artifact. Next step: pass the approvalArtifact returned by pi_ask_user unchanged, or re-run approval.",
+      artifact: artifactAuditFields(artifact, true)
     };
   }
 
@@ -434,7 +535,8 @@ export function consumeWriteConfirmationArtifact(params: WriteConfirmationApplyP
       return {
         ok: false as const,
         reason: "already_used" as const,
-        message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=write_confirmation) to create a fresh approval."
+        message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=write_confirmation) to create a fresh approval.",
+        artifact: artifactAuditFields(current, hasValidArtifactSignature(current))
       };
     }
     if (isExpired(current)) {
@@ -442,8 +544,15 @@ export function consumeWriteConfirmationArtifact(params: WriteConfirmationApplyP
       return {
         ok: false as const,
         reason: "expired" as const,
-        message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=write_confirmation) again."
+        message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=write_confirmation) again.",
+        artifact: artifactAuditFields(current, hasValidArtifactSignature(current))
       };
+    }
+
+    const signatureFailure = verifyArtifactSignature(current);
+    if (signatureFailure) {
+      pendingArtifacts.set(key, current);
+      return signatureFailure;
     }
 
     const usedAt = new Date().toISOString();

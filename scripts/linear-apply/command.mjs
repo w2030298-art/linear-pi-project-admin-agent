@@ -6,10 +6,67 @@ import { appendAudit, errorMessage } from './audit.mjs';
 import { compileOperations, normalizeInput, opRefKey } from './normalize.mjs';
 import { exactIssueLookup, mutate, readback } from './executor.mjs';
 import { isCreate, normalizeType, parseWritePlan, SUPPORTED_WRITE_MODES, typeToKind } from './schema.mjs';
+import { consumeWriteConfirmationArtifact } from '../write-confirmation-artifact.ts';
 
 function argValue(argv, name, fallback = '') {
   const index = argv.indexOf(name);
   return index >= 0 ? argv[index + 1] : fallback;
+}
+
+function withApprovalStorePath(artifactPath, run) {
+  if (!artifactPath) return run();
+  const previous = process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH;
+  process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH = artifactPath;
+  try {
+    return run();
+  } finally {
+    if (previous === undefined) delete process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH;
+    else process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH = previous;
+  }
+}
+
+function withApprovalSigningKey(env, run) {
+  const previous = process.env.LINEAR_APPROVAL_PRIVATE_KEY;
+  if (env.LINEAR_APPROVAL_PRIVATE_KEY !== undefined) {
+    process.env.LINEAR_APPROVAL_PRIVATE_KEY = env.LINEAR_APPROVAL_PRIVATE_KEY;
+  }
+  try {
+    return run();
+  } finally {
+    if (previous === undefined) delete process.env.LINEAR_APPROVAL_PRIVATE_KEY;
+    else process.env.LINEAR_APPROVAL_PRIVATE_KEY = previous;
+  }
+}
+
+function approvalAuditRecord(result, source) {
+  if (result.ok) {
+    return {
+      ok: true,
+      source,
+      writePlanPath: result.artifact.writePlanPath,
+      idempotencyKey: result.artifact.idempotencyKey,
+      planDigest: result.artifact.planDigest || null,
+      confirmationId: result.artifact.confirmationId,
+      expiresAt: result.artifact.expiresAt,
+      signatureValid: true
+    };
+  }
+  return {
+    ok: false,
+    source,
+    reason: result.reason,
+    message: result.message,
+    writePlanPath: result.artifact?.writePlanPath || null,
+    idempotencyKey: result.artifact?.idempotencyKey || null,
+    planDigest: result.artifact?.planDigest || null,
+    confirmationId: result.artifact?.confirmationId || null,
+    expiresAt: result.artifact?.expiresAt || null,
+    signatureValid: result.artifact?.signatureValid === true
+  };
+}
+
+function optionalString(value) {
+  return typeof value === 'string' ? value : undefined;
 }
 
 export async function applyPlanCommand(planPath, options) {
@@ -25,6 +82,7 @@ export async function applyPlanCommand(planPath, options) {
   const confirmationText = argValue(argv, '--confirmation-text', '');
   const confirmationId = argValue(argv, '--confirmation-id', '');
   const confirmationChannelOverride = argValue(argv, '--confirmation-channel', '');
+  const approvalArtifactPath = argValue(argv, '--approval-artifact-path', env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH || '');
   const allow = env.ALLOW_LINEAR_WRITES === 'true';
   const hostCapabilities = detectHostConfirmationCapabilities(env, options.cwd || process.cwd());
   if (confirmationChannelOverride === 'ask_user') hostCapabilities.askUserAvailable = true;
@@ -37,6 +95,22 @@ export async function applyPlanCommand(planPath, options) {
   const applyMode = resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, confirmationText, confirmationId, writePlanPath: planPath, hostCapabilities });
   const dryRun = applyMode.dryRun;
   const effectivePlan = parseWritePlan(applyMode.effectivePlan, { dryRun });
+
+  let consumedApproval = null;
+  if (!dryRun) {
+    consumedApproval = withApprovalSigningKey(env, () => withApprovalStorePath(approvalArtifactPath, () => consumeWriteConfirmationArtifact({
+      writePlanPath: planPath,
+      idempotencyKey: effectivePlan.idempotencyKey,
+      planDigest: optionalString(effectivePlan.planDigest),
+      confirmationId: optionalString(effectivePlan.confirmationId)
+    })));
+    const auditRecord = approvalAuditRecord(consumedApproval, approvalArtifactPath ? 'approval_artifact_path' : 'default_store');
+    appendAudit({ type: 'linear_apply_artifact_validation', ...auditRecord });
+    if (!consumedApproval.ok) {
+      throw new Error(`approval artifact blocked: ${consumedApproval.message}`);
+    }
+  }
+
   const linear = options.client();
   const compiled = await compileOperations(linear, effectivePlan, {
     cachedWorkspaceObjectManifest: options.cachedWorkspaceObjectManifest,

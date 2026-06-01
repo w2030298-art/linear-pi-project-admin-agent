@@ -2,7 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { consumeWriteConfirmationArtifact } from "../../scripts/write-confirmation-artifact.ts";
+import {
+  getWriteConfirmationArtifactStorePath,
+  validateWriteConfirmationArtifact
+} from "../../scripts/write-confirmation-artifact.ts";
 
 function text(content: unknown) {
   return { content: [{ type: "text" as const, text: typeof content === "string" ? content : JSON.stringify(content, null, 2) }], details: content };
@@ -39,7 +42,7 @@ export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string
     );
   }
 
-  const consumed = consumeWriteConfirmationArtifact({
+  const validated = validateWriteConfirmationArtifact({
     writePlanPath: params.writePlanPath,
     idempotencyKey: params.idempotencyKey,
     planDigest: params.planDigest,
@@ -48,8 +51,8 @@ export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string
     confirmationChannel: params.confirmationChannel || "ask_user",
     confirmedByUser: params.confirmedByUser
   });
-  if (consumed.ok === false) {
-    throw new Error(consumed.message);
+  if (validated.ok === false) {
+    throw new Error(validated.message);
   }
 
   return {
@@ -57,11 +60,12 @@ export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string
     confirmedByUser: true,
     confirmationChannel: "ask_user",
     confirmationFallbackReason: null,
-    confirmationText: consumed.artifact.confirmationText,
-    confirmationId: consumed.artifact.confirmationId,
-    idempotencyKey: consumed.artifact.idempotencyKey,
-    planDigest: consumed.artifact.planDigest,
-    approvalArtifact: consumed.artifact
+    confirmationText: validated.artifact.confirmationText,
+    confirmationId: validated.artifact.confirmationId,
+    idempotencyKey: validated.artifact.idempotencyKey,
+    planDigest: validated.artifact.planDigest,
+    approvalArtifact: validated.artifact,
+    approvalArtifactPath: getWriteConfirmationArtifactStorePath()
   };
 }
 
@@ -232,6 +236,7 @@ export default function (pi: ExtensionAPI) {
       }
       if (prepared.confirmationText) args.push("--confirmation-text", prepared.confirmationText);
       if (prepared.confirmationId) args.push("--confirmation-id", prepared.confirmationId);
+      if (prepared.approvalArtifactPath) args.push("--approval-artifact-path", prepared.approvalArtifactPath);
       if (prepared.dryRun !== false) args.push("--dry-run");
       return callLinear(signal, args);
     }

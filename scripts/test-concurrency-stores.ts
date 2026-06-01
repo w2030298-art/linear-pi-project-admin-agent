@@ -92,7 +92,7 @@ async function runMany(count: number, code: string, env: Record<string, string |
 {
   const storeDir = fs.mkdtempSync(path.join(os.tmpdir(), "write-confirmation-concurrency-"));
   const storePath = path.join(storeDir, "artifacts.json");
-  const env = { WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: storePath };
+  const env = { WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: storePath, LINEAR_APPROVAL_PRIVATE_KEY: "test-private-key" };
   const registerCode = [
     `import { registerWriteConfirmationArtifact } from ${JSON.stringify(artifactUrl)};`,
     "try {",
