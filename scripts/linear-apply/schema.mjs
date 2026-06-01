@@ -38,7 +38,7 @@ export const writePlanSchema = z.object({
   confirmedByUser: z.boolean().optional(),
   confirmationText: z.string().optional(),
   confirmationChannel: z.string().optional(),
-  confirmationFallbackReason: z.string().optional(),
+  confirmationFallbackReason: z.string().nullable().optional(),
   confirmationId: z.string().optional(),
   readbackRequired: z.boolean().optional(),
   auditLogRequired: z.boolean().optional()
