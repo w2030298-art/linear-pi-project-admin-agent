@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {
+import registerRuntimeMasterReload, {
   RUNTIME_LOCAL_EXCLUDE_ENTRIES,
+  ensureNodeDependencies,
   ensureRuntimeLocalExclude,
   isAllowedRuntimeDirtyStatus,
   reloadMasterPreflight,
@@ -124,6 +125,66 @@ import {
 }
 
 {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-deps-fail-'));
+  fs.writeFileSync(path.join(tempDir, 'package.json'), '{"name":"runtime-test"}\n');
+  fs.mkdirSync(path.join(tempDir, 'node_modules'));
+  const notices: string[] = [];
+  const pi = {
+    exec: async () => ({ code: 1, stdout: '', stderr: 'simulated npm failure' })
+  };
+
+  const result = await ensureNodeDependencies(pi as any, tempDir, (message) => notices.push(message));
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'simulated npm failure');
+  assert.deepEqual(notices, ['Installing runtime dependencies before reload...']);
+  assert.equal(fs.existsSync(path.join(tempDir, 'node_modules', '.linear-pi-runtime-deps.stamp')), false);
+  fs.rmSync(tempDir, { recursive: true, force: true });
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-command-deps-fail-'));
+  fs.writeFileSync(path.join(tempDir, 'package.json'), '{"name":"runtime-test"}\n');
+  fs.mkdirSync(path.join(tempDir, 'node_modules'));
+  const notifications: Array<{ message: string; level: string }> = [];
+  const execCalls: Array<{ command: string; args: string[] }> = [];
+  let handler: any;
+  let reloadCalled = false;
+  const pi = {
+    registerCommand: (_name: string, command: any) => {
+      handler = command.handler;
+    },
+    exec: async (command: string, args: string[]) => {
+      execCalls.push({ command, args });
+      if (command === 'git' && args.includes('--is-inside-work-tree')) return { code: 0, stdout: 'true\n', stderr: '' };
+      if (command === 'git' && args.includes('--show-current')) return { code: 0, stdout: 'master\n', stderr: '' };
+      if (command === 'git' && args.includes('--porcelain')) return { code: 0, stdout: '', stderr: '' };
+      if (command === 'git' && args.includes('fetch')) return { code: 0, stdout: '', stderr: '' };
+      if (command === 'git' && args.includes('pull')) return { code: 0, stdout: '', stderr: '' };
+      return { code: 1, stdout: '', stderr: 'simulated npm failure' };
+    }
+  };
+
+  registerRuntimeMasterReload(pi as any);
+  const result = await handler([], {
+    cwd: tempDir,
+    hasUI: true,
+    ui: {
+      notify: (message: string, level: string) => notifications.push({ message, level })
+    },
+    reload: async () => {
+      reloadCalled = true;
+    }
+  });
+
+  assert.equal(reloadCalled, false);
+  assert.equal(result, undefined);
+  assert.ok(notifications.some(item => item.level === 'error' && /currently running runtime/i.test(item.message)));
+  assert.ok(execCalls.some(call => call.command === 'cmd.exe' || call.command === 'npm'));
+  fs.rmSync(tempDir, { recursive: true, force: true });
+}
+
+{
   const settings = fs.readFileSync('.pi/settings.json', 'utf8');
   assert.match(settings, /extensions\/runtime-master-reload\.ts/);
 
@@ -143,6 +204,7 @@ import {
   assert.match(launchGuide, /\/reload-master/);
   assert.match(launchGuide, /pull.*origin\/master/i);
   assert.match(launchGuide, /npm ci/);
+  assert.match(launchGuide, /currently running runtime/i);
   assert.match(launchGuide, /clean.*master/i);
   assert.match(smokeReport, /\/reload-master/);
   assert.match(smokeReport, /npm dependencies/i);

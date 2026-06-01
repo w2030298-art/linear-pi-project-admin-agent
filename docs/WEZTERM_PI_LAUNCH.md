@@ -137,7 +137,8 @@ Use the project command `/reload-master` when the WezTerm runtime is already ope
 4. Runs `git fetch origin master`.
 5. Runs `git pull --ff-only origin master`.
 6. Runs `npm ci` when dependency files are missing or stale, or `npm install` if no lockfile exists.
-7. Calls `ctx.reload()`.
+7. If dependency installation fails, reports the failure and keeps using the currently running runtime without calling reload.
+8. Calls `ctx.reload()` only after dependency installation succeeds.
 
 This gives the running Pi session the same stable-branch refresh behavior as a fresh shortcut launch without switching a development repo away from its feature branch.
 
