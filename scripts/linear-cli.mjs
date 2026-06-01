@@ -842,6 +842,7 @@ async function apply(planPath) {
       mode,
       reason: applyMode.reason,
       confirmationChannel: applyMode.reason.confirmationChannel,
+      confirmationSelfCheck: applyMode.confirmationSelfCheck,
       operations: compiled
     });
     return;
@@ -888,7 +889,7 @@ async function apply(planPath) {
       appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, result });
     }
     appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: true, resultCount: results.length, confirmation });
-    json({ ok: true, dryRun: false, mode, idempotencyKey: effectivePlan.idempotencyKey, reason: applyMode.reason, confirmation, results });
+    json({ ok: true, dryRun: false, mode, idempotencyKey: effectivePlan.idempotencyKey, reason: applyMode.reason, confirmationSelfCheck: applyMode.confirmationSelfCheck, confirmation, results });
   } catch (err) {
     appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: false, error: err.message, partialResults: results, confirmation });
     throw err;

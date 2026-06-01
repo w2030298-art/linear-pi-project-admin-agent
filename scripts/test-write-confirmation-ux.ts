@@ -128,6 +128,15 @@ resetWriteConfirmationArtifactsForTests();
   assert.equal(approved.approved, true);
   assert.equal(approved.approvalArtifact?.confirmationChannel, 'ask_user');
   assert.equal(approved.approvalArtifact?.planDigest, 'sha256:abc');
+  assert.equal(approved.approvalArtifact?.storage?.persisted, true);
+  assert.match(approved.approvalArtifact?.storage?.path || '', /write-confirmation-artifacts/i);
+  assert.equal(approved.artifactStorage?.persisted, true);
+  assert.deepEqual(approved.artifactBinding, {
+    writePlanPath: 'state/write-plans/test.json',
+    idempotencyKey: 'plan-key-1',
+    planDigest: 'sha256:abc',
+    confirmationId: approved.confirmationId
+  });
   assert.match(approved.confirmationText, /User approved exact dry-run write plan via Pi UI/i);
   assert.ok(approved.approvalArtifact?.createdAt);
   assert.ok(approved.approvalArtifact?.expiresAt);
@@ -225,7 +234,7 @@ resetWriteConfirmationArtifactsForTests();
         confirmationText: 'approved once'
       }
     ),
-    /already consumed/i
+    /already_used.*already consumed/i
   );
 }
 
@@ -250,7 +259,7 @@ resetWriteConfirmationArtifactsForTests();
         confirmationText: 'approved but expired'
       }
     ),
-    /expired/i
+    /expired.*Re-run dry-run/i
   );
 }
 

@@ -7,6 +7,7 @@ import {
   buildWriteConfirmationMessage,
   buildWriteConfirmationText,
   registerWriteConfirmationArtifact,
+  getWriteConfirmationArtifactStorageStatus,
   toApprovalArtifactResponse,
   WRITE_CONFIRMATION_UI_TITLE
 } from "../../scripts/write-confirmation-artifact.ts";
@@ -684,6 +685,13 @@ export async function runWriteConfirmationFlow(ctx: RepoMapAskContext, inputs: W
     approved: true,
     writesPerformed: false,
     approvalArtifact: toApprovalArtifactResponse(artifact),
+    artifactStorage: getWriteConfirmationArtifactStorageStatus(artifact),
+    artifactBinding: {
+      writePlanPath: artifact.writePlanPath,
+      idempotencyKey: artifact.idempotencyKey,
+      planDigest: artifact.planDigest,
+      confirmationId: artifact.confirmationId
+    },
     confirmationChannel: artifact.confirmationChannel,
     confirmationText: artifact.confirmationText,
     writePlanPath: artifact.writePlanPath,

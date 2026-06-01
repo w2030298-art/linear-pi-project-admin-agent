@@ -142,7 +142,9 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, params, signal) {
       const prepared = await prepareWriteConfirmation(pi, params);
       const args = ["apply", prepared.writePlanPath, prepared.confirmedByUser ? "--confirmed" : "--not-confirmed"];
-      args.push("--confirmation-channel", prepared.confirmationChannel || "ask_user");
+      if (prepared.dryRun === false || prepared.confirmationChannel) {
+        args.push("--confirmation-channel", prepared.confirmationChannel || "ask_user");
+      }
       if (prepared.confirmationText) args.push("--confirmation-text", prepared.confirmationText);
       if (prepared.confirmationId) args.push("--confirmation-id", prepared.confirmationId);
       if (prepared.dryRun !== false) args.push("--dry-run");
