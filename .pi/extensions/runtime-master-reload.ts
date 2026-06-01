@@ -24,6 +24,10 @@ type DependencyInstallState = {
   stampMtimeMs?: number;
 };
 
+type DependencyInstallResult =
+  | { ok: true; installed: boolean }
+  | { ok: false; reason: string };
+
 const GIT_TIMEOUT_MS = 120000;
 const NPM_TIMEOUT_MS = 300000;
 const STABLE_BRANCH = "master";
@@ -170,20 +174,25 @@ function readDependencyInstallState(cwd: string): DependencyInstallState {
   };
 }
 
-async function ensureNodeDependencies(pi: ExtensionAPI, cwd: string, notify: (message: string) => void): Promise<void> {
+export async function ensureNodeDependencies(
+  pi: ExtensionAPI,
+  cwd: string,
+  notify: (message: string) => void
+): Promise<DependencyInstallResult> {
   const state = readDependencyInstallState(cwd);
-  if (!shouldInstallDependencies(state)) return;
+  if (!shouldInstallDependencies(state)) return { ok: true, installed: false };
 
   notify("Installing runtime dependencies before reload...");
   const npm = runtimeNpmExec(Boolean(state.hasPackageLock));
   const result = await pi.exec(npm.command, npm.args, { cwd, timeout: NPM_TIMEOUT_MS });
   if (result.code !== 0) {
-    throw new Error(`npm install failed: ${output(result) || `exit code ${result.code}`}`);
+    return { ok: false, reason: output(result) || `exit code ${result.code}` };
   }
 
   const nodeModulesPath = path.join(cwd, "node_modules");
   fs.mkdirSync(nodeModulesPath, { recursive: true });
   fs.writeFileSync(path.join(nodeModulesPath, DEPENDENCY_STAMP), "");
+  return { ok: true, installed: true };
 }
 
 export default function runtimeMasterReload(pi: ExtensionAPI) {
@@ -209,9 +218,14 @@ export default function runtimeMasterReload(pi: ExtensionAPI) {
       if (ctx.hasUI) ctx.ui.notify("Pulling latest origin/master before reload...", "info");
       await gitOutput(pi, ctx.cwd, "fetch");
       await gitOutput(pi, ctx.cwd, "pull");
-      await ensureNodeDependencies(pi, ctx.cwd, (message) => {
+      const dependencyInstall = await ensureNodeDependencies(pi, ctx.cwd, (message) => {
         if (ctx.hasUI) ctx.ui.notify(message, "info");
       });
+      if (dependencyInstall.ok === false) {
+        const message = `Runtime dependencies could not be installed; continuing with the currently running runtime. Reload skipped: ${dependencyInstall.reason}`;
+        if (ctx.hasUI) ctx.ui.notify(message, "error");
+        return;
+      }
       await ctx.reload();
     }
   });
