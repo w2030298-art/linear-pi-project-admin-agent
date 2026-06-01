@@ -28,6 +28,9 @@ const GIT_TIMEOUT_MS = 120000;
 const NPM_TIMEOUT_MS = 300000;
 const STABLE_BRANCH = "master";
 const DEPENDENCY_STAMP = ".linear-pi-runtime-deps.stamp";
+export const RUNTIME_LOCAL_EXCLUDE_ENTRIES = [
+  "nul"
+];
 const ALLOWED_RUNTIME_DIRTY_PATTERNS = [
   /^state\/portfolio-review\/[^/]+\.json$/,
   /^state\/fact-packs\/[^/]+\.json$/,
@@ -53,6 +56,33 @@ export function runtimeGitArgs(cwd: string, action: RuntimeGitAction): string[] 
 
 export function runtimeNpmArgs(hasPackageLock: boolean): string[] {
   return [hasPackageLock ? "ci" : "install"];
+}
+
+export function runtimeNpmExec(hasPackageLock: boolean): { command: string; args: string[] } {
+  const args = runtimeNpmArgs(hasPackageLock);
+  if (process.platform === "win32") {
+    return { command: "cmd.exe", args: ["/d", "/s", "/c", "npm", ...args] };
+  }
+  return { command: "npm", args };
+}
+
+export function ensureRuntimeLocalExclude(cwd: string): void {
+  const excludePath = path.join(cwd, ".git", "info", "exclude");
+  const excludeDir = path.dirname(excludePath);
+  if (!fs.existsSync(excludeDir)) return;
+
+  const existing = fs.existsSync(excludePath)
+    ? fs.readFileSync(excludePath, "utf8").split(/\r?\n/)
+    : [];
+  let changed = false;
+  for (const entry of RUNTIME_LOCAL_EXCLUDE_ENTRIES) {
+    if (existing.includes(entry)) continue;
+    existing.push(entry);
+    changed = true;
+  }
+  if (changed) {
+    fs.writeFileSync(excludePath, `${existing.join("\n").replace(/\n*$/, "")}\n`);
+  }
 }
 
 function dirtyPath(line: string): string | null {
@@ -145,7 +175,8 @@ async function ensureNodeDependencies(pi: ExtensionAPI, cwd: string, notify: (me
   if (!shouldInstallDependencies(state)) return;
 
   notify("Installing runtime dependencies before reload...");
-  const result = await pi.exec("npm", runtimeNpmArgs(Boolean(state.hasPackageLock)), { cwd, timeout: NPM_TIMEOUT_MS });
+  const npm = runtimeNpmExec(Boolean(state.hasPackageLock));
+  const result = await pi.exec(npm.command, npm.args, { cwd, timeout: NPM_TIMEOUT_MS });
   if (result.code !== 0) {
     throw new Error(`npm install failed: ${output(result) || `exit code ${result.code}`}`);
   }
@@ -162,6 +193,7 @@ export default function runtimeMasterReload(pi: ExtensionAPI) {
       const inside = await git(pi, ctx.cwd, "inside");
       const insideWorkTree = inside.code === 0 && output(inside) === "true";
       const branch = insideWorkTree ? await gitOutput(pi, ctx.cwd, "branch") : "";
+      if (insideWorkTree) ensureRuntimeLocalExclude(ctx.cwd);
       const dirtyStatus = insideWorkTree ? await gitOutput(pi, ctx.cwd, "status") : "";
       const preflight = reloadMasterPreflight({ insideWorkTree, branch, dirtyStatus });
 

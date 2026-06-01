@@ -33,7 +33,8 @@ const protectedIgnoredPaths = [
   'state/portfolio-review/portfolio-snapshot-test.json',
   'state/sessions/session.jsonl',
   '.pi/sessions/session.jsonl',
-  'node_modules/.linear-pi-runtime-deps.stamp'
+  'node_modules/.linear-pi-runtime-deps.stamp',
+  'nul'
 ];
 
 for (const path of protectedIgnoredPaths) {
@@ -62,6 +63,19 @@ const installer = fs.readFileSync('scripts/install-wezterm-linear-pi-shortcut.ps
 const reloadExtension = fs.readFileSync('.pi/extensions/runtime-master-reload.ts', 'utf8');
 assert.match(installer, /REPO_MAP_LOCAL_PATH/);
 assert.match(installer, /repo-map\.local\.yaml/);
+const installerSelfTest = spawnSync('powershell.exe', [
+  '-NoProfile',
+  '-ExecutionPolicy',
+  'Bypass',
+  '-File',
+  'scripts/install-wezterm-linear-pi-shortcut.ps1',
+  '-SkipRuntimeInit',
+  '-SelfTestAllowedRuntimeDirty'
+], { encoding: 'utf8' });
+assert.equal(installerSelfTest.status, 0, installerSelfTest.stderr || installerSelfTest.stdout);
+const selfTest = JSON.parse(installerSelfTest.stdout);
+assert.equal(selfTest.nulLocalExcludeConfigured, true, 'launcher should ignore accidental root nul files before runtime dirty checks');
+assert.equal(selfTest.codeDirtyAllowed, false, 'launcher should still block source code changes');
 for (const source of [installer, reloadExtension]) {
   assert.doesNotMatch(source, /git\s+clean/i);
   assert.doesNotMatch(source, /reset\s+--hard/i);

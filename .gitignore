@@ -29,3 +29,4 @@ state/workspace.manifest.draft.json
 state/workspace-object-manifest.json
 .pi/sessions/
 .DS_Store
+nul
