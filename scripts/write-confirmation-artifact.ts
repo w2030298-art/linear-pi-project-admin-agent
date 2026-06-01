@@ -65,6 +65,10 @@ function artifactStorePath() {
   return clean(process.env[STORE_ENV]) || defaultStorePath();
 }
 
+export function getWriteConfirmationArtifactStorePath() {
+  return artifactStorePath();
+}
+
 function readArtifactStore(): Map<string, ApprovalArtifact> {
   const storePath = artifactStorePath();
   if (!fs.existsSync(storePath)) return new Map();
@@ -97,6 +101,45 @@ function persistArtifact(key: string, artifact: ApprovalArtifact) {
   artifacts.set(key, artifact);
   pendingArtifacts.set(key, artifact);
   writeArtifactStore(artifacts);
+}
+
+export function getWriteConfirmationArtifactStorageStatus(artifact?: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey">) {
+  const storePath = artifactStorePath();
+  const status: {
+    kind: "local_file";
+    path: string;
+    configuredByEnv: boolean;
+    exists: boolean;
+    readable: boolean;
+    writable: boolean;
+    persisted?: boolean;
+    error?: string;
+  } = {
+    kind: "local_file",
+    path: storePath,
+    configuredByEnv: Boolean(clean(process.env[STORE_ENV])),
+    exists: fs.existsSync(storePath),
+    readable: false,
+    writable: false
+  };
+
+  try {
+    const artifacts = readArtifactStore();
+    status.readable = true;
+    if (artifact) status.persisted = artifacts.has(artifactKey(artifact.writePlanPath, artifact.idempotencyKey));
+  } catch (error) {
+    status.error = error instanceof Error ? error.message : String(error);
+  }
+
+  try {
+    fs.mkdirSync(path.dirname(storePath), { recursive: true });
+    fs.accessSync(path.dirname(storePath), fs.constants.W_OK);
+    status.writable = true;
+  } catch (error) {
+    status.error = status.error || (error instanceof Error ? error.message : String(error));
+  }
+
+  return status;
 }
 
 function clean(value: string | undefined) {
@@ -176,7 +219,8 @@ export function toApprovalArtifactResponse(artifact: ApprovalArtifact) {
     confirmationText: artifact.confirmationText,
     createdAt: artifact.createdAt,
     expiresAt: artifact.expiresAt,
-    usedAt: artifact.usedAt
+    usedAt: artifact.usedAt,
+    storage: getWriteConfirmationArtifactStorageStatus(artifact)
   };
 }
 
@@ -243,14 +287,14 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "store_unavailable",
-      message: `Cannot read pi_ask_user write_confirmation artifact store at ${artifactStorePath()}: ${detail}. Re-run pi_ask_user(flow=write_confirmation) in the active runtime or explicitly allow conversation fallback if UI approval is unavailable.`
+      message: `store_unavailable: Cannot read pi_ask_user write_confirmation artifact store at ${artifactStorePath()}: ${detail}. Next step: re-run pi_ask_user(flow=write_confirmation) in the active runtime or explicitly allow conversation fallback if UI approval is unavailable.`
     };
   }
   if (!artifact) {
     return {
       ok: false,
       reason: "missing_or_stale",
-      message: `No active pi_ask_user write_confirmation approval is persisted for this exact write plan and idempotencyKey in ${artifactStorePath()}. The approval may be unregistered, expired, or written by a different runtime path/store. Re-run pi_ask_user(flow=write_confirmation) in the active runtime before real apply, or explicitly allow conversation fallback if UI approval is unavailable.`
+      message: `missing_or_stale: No active pi_ask_user write_confirmation approval is persisted for this exact write plan and idempotencyKey in ${artifactStorePath()}. The approval may be unregistered, expired, consumed, or written by a different runtime path/store. Next step: re-run pi_ask_user(flow=write_confirmation) in the active runtime before real apply, or explicitly allow conversation fallback if UI approval is unavailable.`
     };
   }
 
@@ -258,7 +302,7 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "already_used",
-      message: "Approval artifact was already consumed by a previous real apply and cannot be reused."
+      message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=write_confirmation) to create a fresh approval."
     };
   }
 
@@ -266,7 +310,7 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "expired",
-      message: "Approval artifact expired before real apply. Re-run dry-run and call pi_ask_user(flow=write_confirmation) again."
+      message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=write_confirmation) again."
     };
   }
 
@@ -274,7 +318,7 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "confirmation_mismatch",
-      message: "confirmationId does not match the active pi_ask_user write_confirmation approval."
+      message: "confirmation_mismatch: confirmationId does not match the active pi_ask_user write_confirmation approval. Next step: pass the approvalArtifact returned by pi_ask_user unchanged, or re-run approval."
     };
   }
 
@@ -282,7 +326,7 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "plan_digest_mismatch",
-      message: "planDigest does not match the approved pi_ask_user write_confirmation artifact."
+      message: "plan_digest_mismatch: planDigest does not match the approved pi_ask_user write_confirmation artifact. Next step: re-run dry-run and approve the exact current write plan."
     };
   }
 
@@ -290,7 +334,7 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "confirmation_text_mismatch",
-      message: "confirmationText does not match the approved pi_ask_user write_confirmation artifact."
+      message: "confirmation_text_mismatch: confirmationText does not match the approved pi_ask_user write_confirmation artifact. Next step: pass the approvalArtifact returned by pi_ask_user unchanged, or re-run approval."
     };
   }
 

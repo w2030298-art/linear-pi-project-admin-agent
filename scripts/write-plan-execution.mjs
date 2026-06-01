@@ -2,6 +2,30 @@ function clean(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
+function extractFallbackApprovalText(value) {
+  const text = clean(value);
+  if (!text) return '';
+
+  const userApproval = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .find(line => /^User approval:/i.test(line));
+  if (userApproval) return clean(userApproval.replace(/^User approval:\s*/i, ''));
+
+  const unwrapped = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line =>
+      line
+      && !/^Fallback reason:/i.test(line)
+      && !/^Write plan:/i.test(line)
+      && !/^Idempotency key:/i.test(line)
+      && !/^Confirmation channel:/i.test(line)
+    )
+    .join('\n');
+  return clean(unwrapped) || text;
+}
+
 export function detectHostConfirmationCapabilities(env = process.env, cwd = process.cwd()) {
   return {
     askUserAvailable: env.GENERIC_ASK_USER_AVAILABLE === 'true' || env.ASK_USER_AVAILABLE === 'true',
@@ -53,7 +77,9 @@ export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
 }
 
 export function buildConfirmationRecord({ channel, confirmationText, confirmationId, writePlanPath, idempotencyKey }) {
-  const userApproval = clean(confirmationText);
+  const userApproval = channel.channel === 'conversation_fallback'
+    ? extractFallbackApprovalText(confirmationText)
+    : clean(confirmationText);
   const id = clean(confirmationId);
   const planPath = clean(writePlanPath) || '(unknown write plan path)';
   const key = clean(idempotencyKey) || '(missing idempotencyKey)';
@@ -62,6 +88,7 @@ export function buildConfirmationRecord({ channel, confirmationText, confirmatio
     return {
       confirmationChannel: 'conversation_fallback',
       confirmationFallbackReason: channel.fallbackReason,
+      confirmationId: null,
       confirmationText: [
         `Fallback reason: ${channel.fallbackReason}`,
         `User approval: ${userApproval || '(missing explicit current-conversation approval text)'}`,
@@ -93,6 +120,27 @@ export function buildConfirmationRecord({ channel, confirmationText, confirmatio
       `Write plan: ${planPath}`,
       `Idempotency key: ${key}`
     ].join('\n')
+  };
+}
+
+function buildConfirmationSelfCheck({ channel, hostCapabilities, dryRun }) {
+  const piAskUserAvailable = hostCapabilities.piAskUserAvailable === true;
+  const canUseConversationFallback = channel.channel === 'conversation_fallback';
+  const canUseDirectAskUser = channel.channel === 'ask_user';
+  return {
+    phase: dryRun ? 'dry_run' : 'real_apply',
+    channel: channel.channel,
+    label: channel.label,
+    canApproveAfterDryRun: canUseDirectAskUser,
+    piAskUserWriteConfirmationAvailable: piAskUserAvailable,
+    conversationFallbackAllowed: canUseConversationFallback,
+    nextAction: canUseDirectAskUser
+      ? 'After dry-run, call pi_ask_user(flow=write_confirmation) and pass the returned approval artifact to real apply.'
+      : piAskUserAvailable
+        ? 'After dry-run, call pi_ask_user(flow=write_confirmation); dry-run has not proven the approval artifact is persisted or visible to real apply.'
+        : canUseConversationFallback
+          ? 'Pi UI approval is unavailable; ask for explicit permission before using conversation_fallback.'
+          : 'Real apply is blocked until pi_ask_user(flow=write_confirmation) is available or the user explicitly allows conversation_fallback.'
   };
 }
 
@@ -130,6 +178,7 @@ export function resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, h
       allow,
       cliConfirmedOverride,
       confirmationChannel: channel
-    }
+    },
+    confirmationSelfCheck: buildConfirmationSelfCheck({ channel, hostCapabilities, dryRun })
   };
 }

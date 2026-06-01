@@ -85,10 +85,12 @@ Single `Approve & Write` flow:
 3. On `Approve & Write`, immediately call `linear_apply_write_plan(dryRun=false, ...)` with the returned approval artifact. Apply does not pop a second UI.
 4. `linear-write-guard` only blocks real apply when the artifact is missing, expired, reused, or mismatched.
 
+- Dry-run output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. If it says `channel=unavailable` but `piAskUserWriteConfirmationAvailable=true`, continue by calling `pi_ask_user(flow=write_confirmation)`; the dry-run has not proven artifact persistence yet.
+- Approval output includes `artifactStorage` and `artifactBinding`. Pass the returned `confirmationId`, `confirmationText`, `planDigest`, `writePlanPath`, and `idempotencyKey` back to real apply unchanged.
 - If `pi_ask_user write_confirmation` returns `interactive_confirmation_unavailable` or `cancelled`, real apply stays blocked unless the user explicitly allows conversation fallback.
 - Approval artifacts are persisted outside the repo by default at `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, or can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH`. This makes the artifact visible across Pi tool calls, extension reloads, and runtime/source checkout path differences.
-- Each artifact is bound to `writePlanPath`, `idempotencyKey`, optional `planDigest`, `confirmationId`, and exact `confirmationText`. Real apply consumes it once; reused, expired, mismatched, missing, or unreadable artifacts are blocked with a diagnostic error that names the store path.
-- Do not downgrade an available `pi_ask_user` approval to `conversation_fallback`. Use fallback only when UI approval is unavailable or cancelled, the user explicitly allows fallback, and the apply call records `confirmationChannel=conversation_fallback`, `allowConversationFallback=true`, and the explicit approval text.
+- Each artifact is bound to `writePlanPath`, `idempotencyKey`, optional `planDigest`, `confirmationId`, and exact `confirmationText`. Real apply consumes it once; reused, expired, mismatched, missing, or unreadable artifacts are blocked with a diagnostic error that names the reason, store path when relevant, and next step.
+- Do not downgrade an available `pi_ask_user` approval to `conversation_fallback`. Use fallback only when UI approval is unavailable or cancelled, the user explicitly allows fallback, and the apply call records `confirmationChannel=conversation_fallback`, `allowConversationFallback=true`, and the explicit approval text. Fallback audit text must be one clean record; do not paste a previous formatted fallback record back into `confirmationText`.
 - Run `npm run test:write-confirmation` after changing this flow.
 
 ## Fact Pack Repo-Map Mismatch

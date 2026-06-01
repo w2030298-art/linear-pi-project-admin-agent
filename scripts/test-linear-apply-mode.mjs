@@ -8,6 +8,21 @@ import {
 
 {
   const decision = resolveApplyMode({
+    mode: 'confirmed-only',
+    cliDryRun: true,
+    cliConfirmed: false,
+    allow: true,
+    hostCapabilities: { askUserAvailable: false, piAskUserAvailable: true },
+    plan: { dryRun: true, confirmedByUser: false }
+  });
+  assert.equal(decision.dryRun, true);
+  assert.equal(decision.reason.confirmationChannel.channel, 'unavailable');
+  assert.equal(decision.confirmationSelfCheck.canApproveAfterDryRun, false);
+  assert.match(decision.confirmationSelfCheck.nextAction, /pi_ask_user\(flow=write_confirmation\)/i);
+}
+
+{
+  const decision = resolveApplyMode({
     mode: 'dry-run',
     cliDryRun: false,
     cliConfirmed: true,
@@ -57,7 +72,7 @@ import {
   assert.equal(decision.dryRun, false);
   assert.equal(decision.reason.confirmationChannel.channel, 'conversation_fallback');
   assert.equal(decision.effectivePlan.confirmationChannel, 'conversation_fallback');
-  assert.equal(decision.effectivePlan.confirmationId, undefined);
+  assert.equal(decision.effectivePlan.confirmationId, null);
   assert.match(decision.effectivePlan.confirmationText, /Generic ask_user is unavailable/i);
   assert.match(decision.effectivePlan.confirmationText, /user explicitly allowed text fallback and approved/);
   assert.match(decision.effectivePlan.confirmationText, /state\/write-plans\/test-plan\.json/);
@@ -123,6 +138,30 @@ import {
   assert.match(record.confirmationText, /User approval:/);
   assert.match(record.confirmationText, /Write plan: plan\.json/);
   assert.match(record.confirmationText, /Idempotency key: plan-key/);
+}
+
+{
+  const record = buildConfirmationRecord({
+    channel: resolveConfirmationChannel({
+      hostCapabilities: {
+        askUserAvailable: false,
+        piAskUserAvailable: true,
+        conversationFallbackAllowed: true
+      }
+    }),
+    confirmationText: [
+      'Fallback reason: Generic ask_user is unavailable; use pi_ask_user(flow=write_confirmation) for Linear write confirmation.',
+      'User approval: user approved via prior fallback.',
+      'Write plan: stale-plan.json',
+      'Idempotency key: stale-key'
+    ].join('\n'),
+    writePlanPath: 'plan.json',
+    idempotencyKey: 'plan-key'
+  });
+  assert.equal(record.confirmationChannel, 'conversation_fallback');
+  assert.equal((record.confirmationText.match(/Fallback reason:/g) || []).length, 1);
+  assert.equal((record.confirmationText.match(/User approval:/g) || []).length, 1);
+  assert.doesNotMatch(record.confirmationText, /stale-plan\.json|stale-key/);
 }
 
 {
