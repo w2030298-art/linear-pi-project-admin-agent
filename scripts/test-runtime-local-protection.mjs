@@ -18,6 +18,8 @@ const protectedIgnoredPaths = [
   'state/audit.jsonl',
   'state/linear-events.jsonl',
   'state/seen-linear-deliveries.json',
+  'state/seen-linear-deliveries.jsonl',
+  'state/seen-linear-deliveries.jsonl.lock',
   'state/repo-map.draft.yaml',
   'state/repo-map.local.yaml',
   'state/repo-map-audit.jsonl',

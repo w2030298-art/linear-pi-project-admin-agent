@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { verifyLinearSignature, verifyLinearTimestamp } from "./verify.js";
-import { alreadySeen, appendEvent, markSeen } from "./store.js";
+import { appendEvent, markSeen } from "./store.js";
 import { dispatchLinearEvent } from "./dispatch.js";
 
 dotenv.config();
@@ -22,8 +22,7 @@ app.post("/hooks/linear", express.raw({ type: "application/json" }), async (req,
   if (!verifyLinearTimestamp(payload)) return res.sendStatus(401);
 
   const deliveryId = req.header("Linear-Delivery") || payload.webhookId || `${payload.type}:${payload.createdAt}:${payload.webhookTimestamp}`;
-  if (alreadySeen(deliveryId)) return res.status(200).json({ ok: true, duplicate: true });
-  markSeen(deliveryId);
+  if (!markSeen(deliveryId)) return res.status(200).json({ ok: true, duplicate: true });
   appendEvent({ deliveryId, payload });
 
   // Respond quickly to Linear. Dispatch is lightweight by default and queues a prompt file.
