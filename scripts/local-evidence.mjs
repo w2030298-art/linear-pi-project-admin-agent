@@ -31,6 +31,7 @@ async function repoSnapshot() {
     root,
     branch,
     commit,
+    remote: sh('git remote get-url origin', root),
     dirty: Boolean(status),
     status: status || '',
     manifests
