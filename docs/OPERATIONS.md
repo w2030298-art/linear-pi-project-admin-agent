@@ -93,6 +93,23 @@ Single `Approve & Write` flow:
 - Do not downgrade an available `pi_ask_user` approval to `conversation_fallback`. Use fallback only when UI approval is unavailable or cancelled, the user explicitly allows fallback, and the apply call records `confirmationChannel=conversation_fallback`, `allowConversationFallback=true`, and the explicit approval text. Fallback audit text must be one clean record; do not paste a previous formatted fallback record back into `confirmationText`.
 - Run `npm run test:write-confirmation` after changing this flow.
 
+## Low-Risk Linear Write Wrapper
+
+Use `linear_prepare_low_risk_write` or `node scripts/low-risk-write-plan.mjs --input <input.json>` only for L1/L2 single-Project writes that fit the whitelist:
+
+- `project_update`: one `projectUpdate.create` for an already identified Project.
+- `issue_create`: one `issue.create` under an already identified Project and verified existing Project Milestone.
+
+The wrapper only generates a standard write plan, idempotency key, dry-run summary, and ordered next tool calls. It never performs Linear mutations and it never bypasses `confirmed-only`. After `write_plan_ready`, run the returned steps in order: `linear_plan_quality_review`, `linear_apply_write_plan(dryRun=true)`, `pi_ask_user(flow=write_confirmation)`, then `linear_apply_write_plan(dryRun=false)` with the approval artifact.
+
+Fallback to full Fact Pack / full planning when any of these are missing or out of scope:
+
+- Project baseline with `project.id`.
+- For `issue_create`: title, description/acceptance criteria, team key or ID, labels or label names, target Project Milestone ID, and matching milestone readback.
+- Any request involving cross-Project writes, multiple operations, repo-map changes, project/milestone structure changes, relation-heavy planning, ambiguous target Project, or uncertain evidence.
+
+Run `npm run test:low-risk-write-plan` after changing this wrapper.
+
 ## Fact Pack Repo-Map Mismatch
 
 - For single-Project tasks without an explicit target, call `pi_ask_user` with `flow=project_select` first. The options must come from the merged repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`) and include `User input` last; do not query Linear for the candidate list before the user chooses.

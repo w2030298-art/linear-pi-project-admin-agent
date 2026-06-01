@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { consumeWriteConfirmationArtifact } from "../../scripts/write-confirmation-artifact.ts";
@@ -68,6 +70,46 @@ export default function (pi: ExtensionAPI) {
     const result = await pi.exec("node", ["scripts/linear-cli.mjs", ...args], { signal, timeout: 120000 });
     return text(result.stdout || result.stderr || { code: result.code });
   };
+
+  const runLowRiskWritePlan = async (signal: AbortSignal | undefined, params: any) => {
+    const inputPath = path.join("state", "sessions", `low-risk-write-${Date.now()}.json`);
+    fs.mkdirSync(path.dirname(inputPath), { recursive: true });
+    fs.writeFileSync(inputPath, JSON.stringify(params, null, 2));
+    const args = ["scripts/low-risk-write-plan.mjs", "--input", inputPath];
+    if (params.writePlanPath) args.push("--out", params.writePlanPath);
+    const result = await pi.exec("node", args, { signal, timeout: 120000 });
+    try {
+      return text(JSON.parse(result.stdout));
+    } catch {
+      return text(result.stdout || result.stderr || { code: result.code });
+    }
+  };
+
+  pi.registerTool({
+    name: "linear_prepare_low_risk_write",
+    label: "Prepare Low-Risk Linear Write",
+    description: "Generate a standard write plan for whitelisted L1/L2 Linear writes, then return required review, dry-run, approval, and apply steps. Never performs mutations.",
+    parameters: Type.Object({
+      kind: Type.String({ description: "Whitelist kind: project_update or issue_create." }),
+      projectBaseline: Type.Optional(Type.Any()),
+      projectUpdate: Type.Optional(Type.Any()),
+      issue: Type.Optional(Type.Any()),
+      source: Type.Optional(Type.Any()),
+      targetProjectId: Type.Optional(Type.String()),
+      writePlanPath: Type.Optional(Type.String()),
+      idempotencyKey: Type.Optional(Type.String())
+    }),
+    promptSnippet: "linear_prepare_low_risk_write: creates whitelisted single-operation write plans; still requires quality review, dry-run, pi_ask_user approval, and real apply.",
+    promptGuidelines: [
+      "Use only for low-risk single Project Update or single Issue create in one Project.",
+      "If the tool returns evidence_gap, stop and build or refresh a full Fact Pack instead of guessing.",
+      "After it returns write_plan_ready, run the returned quality review, dry-run, pi_ask_user approval, and real apply steps in order.",
+      "Do not use this for cross-Project writes, batch writes, repo-map changes, project structure changes, or relation-heavy planning."
+    ],
+    async execute(_id, params, signal) {
+      return runLowRiskWritePlan(signal, params);
+    }
+  });
 
   pi.registerTool({
     name: "linear_workspace_snapshot",
