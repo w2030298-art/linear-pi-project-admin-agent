@@ -56,7 +56,7 @@ export function linearWriteGuardDecision(
     confirmationChannel: params.confirmationChannel || "ask_user",
     confirmedByUser: params.confirmedByUser
   });
-  if (!validated.ok) {
+  if (validated.ok === false) {
     return { action: "block" as const, message: `Blocked linear_apply_write_plan: ${validated.message}` };
   }
 

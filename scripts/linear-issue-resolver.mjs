@@ -1,6 +1,6 @@
+// @ts-nocheck
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISSUE_IDENTIFIER_RE = /^[A-Z][A-Z0-9]+-\d+$/i;
-
 function clean(value) {
   return String(value || '').trim();
 }

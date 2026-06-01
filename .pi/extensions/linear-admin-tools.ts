@@ -48,7 +48,7 @@ export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string
     confirmationChannel: params.confirmationChannel || "ask_user",
     confirmedByUser: params.confirmedByUser
   });
-  if (!consumed.ok) {
+  if (consumed.ok === false) {
     throw new Error(consumed.message);
   }
 

@@ -197,7 +197,7 @@ export default function runtimeMasterReload(pi: ExtensionAPI) {
       const dirtyStatus = insideWorkTree ? await gitOutput(pi, ctx.cwd, "status") : "";
       const preflight = reloadMasterPreflight({ insideWorkTree, branch, dirtyStatus });
 
-      if (!preflight.ok) {
+      if (preflight.ok === false) {
         if (ctx.hasUI) ctx.ui.notify(preflight.reason, "error");
         throw new Error(`/reload-master blocked: ${preflight.reason}`);
       }

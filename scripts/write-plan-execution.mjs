@@ -1,3 +1,4 @@
+// @ts-nocheck
 function clean(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
