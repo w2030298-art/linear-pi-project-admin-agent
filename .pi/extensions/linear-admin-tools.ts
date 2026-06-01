@@ -144,6 +144,7 @@ export default function (pi: ExtensionAPI) {
       const args = ["apply", prepared.writePlanPath, prepared.confirmedByUser ? "--confirmed" : "--not-confirmed"];
       args.push("--confirmation-channel", prepared.confirmationChannel || "ask_user");
       if (prepared.confirmationText) args.push("--confirmation-text", prepared.confirmationText);
+      if (prepared.confirmationId) args.push("--confirmation-id", prepared.confirmationId);
       if (prepared.dryRun !== false) args.push("--dry-run");
       return callLinear(signal, args);
     }
