@@ -10,6 +10,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$RuntimeLocalExcludeEntries = @('nul')
+
 function ConvertTo-PowerShellLiteral([string]$Value) {
   return "'" + ($Value -replace "'", "''") + "'"
 }
@@ -60,6 +62,31 @@ function Test-AllowedRuntimeDirty([string]$StatusText) {
   return $true
 }
 
+function Update-RuntimeLocalExclude([string]$GitRoot) {
+  $excludePath = Join-Path $GitRoot '.git\info\exclude'
+  $excludeDir = Split-Path -Parent $excludePath
+  if (-not (Test-Path -LiteralPath $excludeDir)) {
+    return $false
+  }
+
+  $existing = @()
+  if (Test-Path -LiteralPath $excludePath) {
+    $existing = @(Get-Content -LiteralPath $excludePath)
+  }
+  $changed = $false
+  foreach ($entry in $RuntimeLocalExcludeEntries) {
+    if ($existing -contains $entry) {
+      continue
+    }
+    $existing += $entry
+    $changed = $true
+  }
+  if ($changed) {
+    Set-Content -LiteralPath $excludePath -Value $existing -Encoding UTF8
+  }
+  return ($existing -contains 'nul')
+}
+
 $repoRootFull = (Resolve-Path -LiteralPath $RepoRoot).Path
 $configPath = Join-Path $repoRootFull 'config\wezterm-linear-pi.lua'
 $iconPath = Join-Path $repoRootFull 'assets\icons\linear-project-admin-pi.ico'
@@ -76,9 +103,14 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 }
 
 if ($SelfTestAllowedRuntimeDirty) {
+  $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "linear-pi-runtime-exclude-$([System.Guid]::NewGuid().ToString('N'))"
+  New-Item -ItemType Directory -Path (Join-Path $tempRoot '.git\info') -Force | Out-Null
+  $nulLocalExcludeConfigured = Update-RuntimeLocalExclude $tempRoot
+  Remove-Item -LiteralPath $tempRoot -Recurse -Force
   [pscustomobject]@{
     ok = $true
     ignoredRuntimeDirtyAllowed = (Test-AllowedRuntimeDirty " M state/portfolio-review/portfolio-snapshot-2026-05-28.json")
+    nulLocalExcludeConfigured = $nulLocalExcludeConfigured
     codeDirtyAllowed = (Test-AllowedRuntimeDirty " M scripts/linear-cli.mjs")
   } | ConvertTo-Json -Depth 4
   exit 0
@@ -105,6 +137,7 @@ $ConfigPath = __CONFIG_PATH__
 $InstallRoot = __INSTALL_ROOT__
 $LogPath = Join-Path $InstallRoot 'launch.log'
 $LocalRepoMapPath = Join-Path $InstallRoot 'repo-map.local.yaml'
+$RuntimeLocalExcludeEntries = @('nul')
 
 function Write-LaunchLog([string]$Message) {
   $timestamp = Get-Date -Format o
@@ -181,6 +214,31 @@ function Test-AllowedRuntimeDirty([string]$StatusText) {
   return $true
 }
 
+function Update-RuntimeLocalExclude([string]$GitRoot) {
+  $excludePath = Join-Path $GitRoot '.git\info\exclude'
+  $excludeDir = Split-Path -Parent $excludePath
+  if (-not (Test-Path -LiteralPath $excludeDir)) {
+    return $false
+  }
+
+  $existing = @()
+  if (Test-Path -LiteralPath $excludePath) {
+    $existing = @(Get-Content -LiteralPath $excludePath)
+  }
+  $changed = $false
+  foreach ($entry in $RuntimeLocalExcludeEntries) {
+    if ($existing -contains $entry) {
+      continue
+    }
+    $existing += $entry
+    $changed = $true
+  }
+  if ($changed) {
+    Set-Content -LiteralPath $excludePath -Value $existing -Encoding UTF8
+  }
+  return ($existing -contains 'nul')
+}
+
 function Invoke-CheckedCommand([string]$Command, [string[]]$Arguments, [string]$WorkingDirectory = '') {
   $process = New-Object System.Diagnostics.Process
   $process.StartInfo.FileName = Resolve-CommandFile $Command
@@ -217,7 +275,9 @@ function Ensure-RuntimeCheckout {
     New-Item -ItemType Directory -Path $runtimeParent -Force | Out-Null
     # git clone keeps runtime execution separate from the development repo.
     $null = Invoke-CheckedCommand 'git' @('clone', '--branch', $StableBranch, '--single-branch', $RemoteUrl, $RuntimeRoot)
+    $null = Update-RuntimeLocalExclude $RuntimeRoot
   } else {
+    $null = Update-RuntimeLocalExclude $RuntimeRoot
     $dirty = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'status', '--porcelain')
     if (($dirty | Out-String).Trim()) {
       if (Test-AllowedRuntimeDirty $dirty) {

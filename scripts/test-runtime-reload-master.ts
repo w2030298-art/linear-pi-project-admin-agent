@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
+  RUNTIME_LOCAL_EXCLUDE_ENTRIES,
+  ensureRuntimeLocalExclude,
   isAllowedRuntimeDirtyStatus,
   reloadMasterPreflight,
   runtimeGitArgs,
+  runtimeNpmExec,
   runtimeNpmArgs,
   shouldInstallDependencies
 } from '../.pi/extensions/runtime-master-reload.ts';
@@ -29,7 +34,20 @@ import {
 {
   assert.equal(isAllowedRuntimeDirtyStatus(' M state/fact-packs/evidence/fact-1/local-repo.json'), true);
   assert.equal(isAllowedRuntimeDirtyStatus(' M .pi/sessions/session.jsonl'), true);
+  assert.equal(isAllowedRuntimeDirtyStatus('?? nul'), false);
   assert.equal(isAllowedRuntimeDirtyStatus(' M scripts/linear-cli.mjs'), false);
+}
+
+{
+  assert.ok(RUNTIME_LOCAL_EXCLUDE_ENTRIES.includes('nul'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-local-exclude-'));
+  fs.mkdirSync(path.join(tempDir, '.git', 'info'), { recursive: true });
+  ensureRuntimeLocalExclude(tempDir);
+  ensureRuntimeLocalExclude(tempDir);
+  const excludeText = fs.readFileSync(path.join(tempDir, '.git', 'info', 'exclude'), 'utf8');
+  assert.match(excludeText, /^nul$/m);
+  assert.equal((excludeText.match(/^nul$/gm) || []).length, 1);
+  fs.rmSync(tempDir, { recursive: true, force: true });
 }
 
 {
@@ -66,6 +84,14 @@ import {
   ]);
   assert.deepEqual(runtimeNpmArgs(true), ['ci']);
   assert.deepEqual(runtimeNpmArgs(false), ['install']);
+  const npmCi = runtimeNpmExec(true);
+  if (process.platform === 'win32') {
+    assert.equal(npmCi.command.toLowerCase(), 'cmd.exe');
+    assert.deepEqual(npmCi.args, ['/d', '/s', '/c', 'npm', 'ci']);
+  } else {
+    assert.equal(npmCi.command, 'npm');
+    assert.deepEqual(npmCi.args, ['ci']);
+  }
 }
 
 {
