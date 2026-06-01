@@ -187,6 +187,22 @@ repos:
 }
 
 {
+  const quotedLocalRepoPath = `"${existingRepo}"`;
+  const validation = validateRepoMapInputs(
+    { ...validAnswers, localRepoPath: quotedLocalRepoPath },
+    { cwd: process.cwd(), linearProjectResolved: true }
+  );
+  assert.equal(validation.ok, true);
+  assert.deepEqual(validation.evidenceGaps, []);
+
+  const draft = buildRepoMapDraft(
+    { ...validAnswers, localRepoPath: quotedLocalRepoPath },
+    { cwd: process.cwd() }
+  );
+  assert.equal(draft.draft.localPath, path.resolve(existingRepo));
+}
+
+{
   const missingPath = validateRepoMapInputs(
     { ...validAnswers, localRepoPath: path.join(tempRoot, 'missing') },
     { cwd: process.cwd(), linearProjectResolved: true }
