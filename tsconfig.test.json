@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "strict": false,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    ".pi/extensions/**/*.ts",
+    "services/**/*.ts",
+    "scripts/test-*.ts",
+    "scripts/linear-apply/**/*.mjs"
+  ]
+}

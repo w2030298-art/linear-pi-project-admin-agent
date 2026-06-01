@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const PROJECT_DESCRIPTION_MAX_LENGTH = 255;
 
 function textLength(value) {

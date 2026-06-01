@@ -1,3 +1,4 @@
+// @ts-nocheck
 function clean(value) {
   return String(value || '').trim();
 }

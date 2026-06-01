@@ -432,7 +432,7 @@ export function validateRepoMapInputs(inputs: RepoMapInputs, options: FlowOption
   }
 
   const github = clean(inputs.githubUrl) ? parseGitHubUrl(inputs.githubUrl!) : null;
-  if (github && !github.ok) evidenceGaps.push(github.error);
+  if (github?.ok === false) evidenceGaps.push(github.error);
 
   const localRepoPath = cleanLocalRepoPath(inputs.localRepoPath);
   if (localRepoPath) {
@@ -460,7 +460,7 @@ export function validateRepoMapInputs(inputs: RepoMapInputs, options: FlowOption
 export function buildRepoMapDraft(inputs: RepoMapInputs, options: FlowOptions = {}) {
   const cwd = options.cwd || process.cwd();
   const github = parseGitHubUrl(inputs.githubUrl || "");
-  if (!github.ok) throw new Error(github.error);
+  if (github.ok === false) throw new Error(github.error);
 
   const linearProjectName = clean(inputs.linearProject);
   const repoKey = clean(inputs.repoKey);
@@ -731,8 +731,8 @@ export async function runRepoMapAskFlow(ctx: RepoMapAskContext, options: FlowOpt
       continue;
     }
     const answer = await askField(ctx, field, options, inputs);
-    if (!answer.ok && answer.reason === "cancelled") return cancelledResult(answer.fieldTitle, inputs);
-    if (!answer.ok && answer.reason === "invalid") return evidenceGapResult(answer.inputs, answer.evidenceGaps);
+    if (answer.ok === false && answer.reason === "cancelled") return cancelledResult(answer.fieldTitle, inputs);
+    if (answer.ok === false && answer.reason === "invalid") return evidenceGapResult(answer.inputs, answer.evidenceGaps);
     inputs[field.key] = answer.value;
     if (field.key === "linearProject" && options.resolveLinearProject) {
       const resolution = await options.resolveLinearProject(answer.value);
