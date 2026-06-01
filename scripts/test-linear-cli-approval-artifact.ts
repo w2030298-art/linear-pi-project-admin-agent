@@ -53,7 +53,7 @@ function fakeClient(state: { mutated: number }) {
   };
 }
 
-function baseOptions(state: { mutated: number }, storePath: string, auditPath: string) {
+function baseOptions(state: { mutated: number }, storePath: string, auditPath: string, progressPath = path.join(path.dirname(auditPath), "progress.json")) {
   return {
     env: {
       LINEAR_WRITE_MODE: "confirmed-only",
@@ -61,7 +61,8 @@ function baseOptions(state: { mutated: number }, storePath: string, auditPath: s
       LINEAR_API_KEY: "test-key",
       LINEAR_APPROVAL_PRIVATE_KEY: "test-private-key",
       WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: storePath,
-      AUDIT_LOG_PATH: auditPath
+      AUDIT_LOG_PATH: auditPath,
+      LINEAR_APPLY_PROGRESS_PATH: progressPath
     },
     argv: ["node", "scripts/linear-cli.mjs", "apply", "plan.json", "--confirmed", "--confirmation-channel", "ask_user", "--approval-artifact-path", storePath],
     cwd: process.cwd(),
@@ -71,13 +72,17 @@ function baseOptions(state: { mutated: number }, storePath: string, auditPath: s
 }
 
 async function applyWithAuditPath(planPath: string, options: ReturnType<typeof baseOptions>, auditPath: string) {
-  const previous = process.env.AUDIT_LOG_PATH;
+  const previousAuditPath = process.env.AUDIT_LOG_PATH;
+  const previousProgressPath = process.env.LINEAR_APPLY_PROGRESS_PATH;
   process.env.AUDIT_LOG_PATH = auditPath;
+  process.env.LINEAR_APPLY_PROGRESS_PATH = options.env.LINEAR_APPLY_PROGRESS_PATH;
   try {
     return await applyPlanCommand(planPath, options);
   } finally {
-    if (previous === undefined) delete process.env.AUDIT_LOG_PATH;
-    else process.env.AUDIT_LOG_PATH = previous;
+    if (previousAuditPath === undefined) delete process.env.AUDIT_LOG_PATH;
+    else process.env.AUDIT_LOG_PATH = previousAuditPath;
+    if (previousProgressPath === undefined) delete process.env.LINEAR_APPLY_PROGRESS_PATH;
+    else process.env.LINEAR_APPLY_PROGRESS_PATH = previousProgressPath;
   }
 }
 
@@ -115,17 +120,15 @@ async function applyWithAuditPath(planPath: string, options: ReturnType<typeof b
   await applyWithAuditPath(planPath, baseOptions(state, storePath, auditPath), auditPath);
   assert.equal(state.mutated, 1, "valid signed approval artifact should allow one mutation");
 
-  await assert.rejects(
-    () => applyWithAuditPath(planPath, baseOptions(state, storePath, auditPath), auditPath),
-    /already_used/i
-  );
-  assert.equal(state.mutated, 1, "consumed approval artifact must not be reusable");
+  await applyWithAuditPath(planPath, baseOptions(state, storePath, auditPath), auditPath);
+  assert.equal(state.mutated, 1, "checkpoint replay must not resend an already completed mutation");
 
   const audit = fs.readFileSync(auditPath, "utf8");
   assert.match(audit, /linear_apply_artifact_validation/);
   assert.match(audit, /approval-confirmation/);
   assert.match(audit, /sha256:approval/);
   assert.match(audit, /signatureValid/);
+  assert.match(audit, /skip_completed/);
   assert.doesNotMatch(audit, /test-private-key/);
 }
 
