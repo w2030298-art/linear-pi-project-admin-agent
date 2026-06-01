@@ -817,6 +817,7 @@ async function apply(planPath) {
   const cliDryRun = process.argv.includes('--dry-run');
   const cliConfirmed = process.argv.includes('--confirmed');
   const confirmationText = argValue('--confirmation-text', '');
+  const confirmationId = argValue('--confirmation-id', '');
   const confirmationChannelOverride = argValue('--confirmation-channel', '');
   const allow = process.env.ALLOW_LINEAR_WRITES === 'true';
   const hostCapabilities = detectHostConfirmationCapabilities(process.env, process.cwd());
@@ -826,7 +827,7 @@ async function apply(planPath) {
     hostCapabilities.conversationFallbackAllowed = true;
   }
   if (confirmationChannelOverride === 'unavailable') hostCapabilities.conversationFallbackAllowed = false;
-  const applyMode = resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, confirmationText, writePlanPath: planPath, hostCapabilities });
+  const applyMode = resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, confirmationText, confirmationId, writePlanPath: planPath, hostCapabilities });
   const dryRun = applyMode.dryRun;
   const effectivePlan = applyMode.effectivePlan;
 
@@ -852,6 +853,7 @@ async function apply(planPath) {
   const confirmation = {
     channel: effectivePlan.confirmationChannel || applyMode.reason.confirmationChannel.channel,
     fallbackReason: effectivePlan.confirmationFallbackReason || null,
+    confirmationId: effectivePlan.confirmationId || null,
     confirmationText: effectivePlan.confirmationText || null,
     writePlanPath: planPath,
     idempotencyKey: effectivePlan.idempotencyKey

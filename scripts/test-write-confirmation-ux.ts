@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import os from 'node:os';
+import path from 'node:path';
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { prepareWriteConfirmation } from '../.pi/extensions/linear-admin-tools.ts';
 import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.ts';
 import { runWriteConfirmationFlow } from '../.pi/extensions/pi-ask-user.ts';
@@ -11,6 +14,74 @@ import {
 } from './write-confirmation-artifact.ts';
 
 resetWriteConfirmationArtifactsForTests();
+
+{
+  const storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'write-confirmation-artifacts-'));
+  const storePath = path.join(storeDir, 'artifacts.json');
+  const previousStorePath = process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH;
+  process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH = storePath;
+  resetWriteConfirmationArtifactsForTests();
+
+  const register = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      '-e',
+      [
+        "import { registerWriteConfirmationArtifact } from './scripts/write-confirmation-artifact.ts';",
+        "registerWriteConfirmationArtifact({",
+        "  writePlanPath: 'state/write-plans/cross-process.json',",
+        "  idempotencyKey: 'cross-process-key',",
+        "  planDigest: 'sha256:cross-process',",
+        "  confirmationId: 'cross-process-confirmation',",
+        "  confirmationText: 'cross process approval'",
+        "});"
+      ].join('\n')
+    ],
+    {
+      cwd: process.cwd(),
+      env: { ...process.env, WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: storePath },
+      encoding: 'utf8'
+    }
+  );
+  assert.equal(register.status, 0, register.stderr || register.stdout);
+  resetWriteConfirmationArtifactsForTests({ preserveStore: true });
+
+  const prepared = await prepareWriteConfirmation(
+    {},
+    {
+      dryRun: false,
+      writePlanPath: 'state/write-plans/cross-process.json',
+      idempotencyKey: 'cross-process-key',
+      planDigest: 'sha256:cross-process',
+      confirmationId: 'cross-process-confirmation',
+      confirmedByUser: true,
+      confirmationChannel: 'ask_user',
+      confirmationText: 'cross process approval'
+    }
+  );
+  assert.equal(prepared.confirmationChannel, 'ask_user');
+  assert.equal(prepared.confirmationId, 'cross-process-confirmation');
+
+  const reused = linearWriteGuardDecision({
+    dryRun: false,
+    writePlanPath: 'state/write-plans/cross-process.json',
+    idempotencyKey: 'cross-process-key',
+    planDigest: 'sha256:cross-process',
+    confirmationId: 'cross-process-confirmation',
+    confirmedByUser: true,
+    confirmationChannel: 'ask_user',
+    confirmationText: 'cross process approval'
+  });
+  assert.equal(reused.action, 'block');
+  assert.match(reused.message, /already consumed/i);
+
+  if (previousStorePath === undefined) delete process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH;
+  else process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH = previousStorePath;
+  fs.rmSync(storeDir, { recursive: true, force: true });
+  resetWriteConfirmationArtifactsForTests();
+}
 
 {
   const dryRunPrepared = await prepareWriteConfirmation({}, {

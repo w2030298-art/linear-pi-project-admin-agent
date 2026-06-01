@@ -42,6 +42,7 @@ import {
     allow: true,
     writePlanPath: 'state/write-plans/test-plan.json',
     confirmationText: 'user explicitly allowed text fallback and approved.',
+    confirmationId: 'fallback-ignored',
     hostCapabilities: {
       askUserAvailable: false,
       piAskUserAvailable: true,
@@ -56,6 +57,7 @@ import {
   assert.equal(decision.dryRun, false);
   assert.equal(decision.reason.confirmationChannel.channel, 'conversation_fallback');
   assert.equal(decision.effectivePlan.confirmationChannel, 'conversation_fallback');
+  assert.equal(decision.effectivePlan.confirmationId, undefined);
   assert.match(decision.effectivePlan.confirmationText, /Generic ask_user is unavailable/i);
   assert.match(decision.effectivePlan.confirmationText, /user explicitly allowed text fallback and approved/);
   assert.match(decision.effectivePlan.confirmationText, /state\/write-plans\/test-plan\.json/);
@@ -129,10 +131,12 @@ import {
       hostCapabilities: { askUserAvailable: true, piAskUserAvailable: true }
     }),
     confirmationText: 'Fallback reason: stale current conversation fallback',
+    confirmationId: 'ask-user-confirmation-1',
     writePlanPath: 'plan.json',
     idempotencyKey: 'plan-key'
   });
   assert.equal(record.confirmationChannel, 'ask_user');
+  assert.equal(record.confirmationId, 'ask-user-confirmation-1');
   assert.doesNotMatch(record.confirmationText, /Fallback reason|conversation fallback/i);
   assert.match(record.confirmationText, /ask_user approved the exact dry-run write plan/i);
 }

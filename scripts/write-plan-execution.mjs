@@ -52,8 +52,9 @@ export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
   };
 }
 
-export function buildConfirmationRecord({ channel, confirmationText, writePlanPath, idempotencyKey }) {
+export function buildConfirmationRecord({ channel, confirmationText, confirmationId, writePlanPath, idempotencyKey }) {
   const userApproval = clean(confirmationText);
+  const id = clean(confirmationId);
   const planPath = clean(writePlanPath) || '(unknown write plan path)';
   const key = clean(idempotencyKey) || '(missing idempotencyKey)';
 
@@ -74,6 +75,7 @@ export function buildConfirmationRecord({ channel, confirmationText, writePlanPa
     return {
       confirmationChannel: 'ask_user',
       confirmationFallbackReason: null,
+      confirmationId: id || null,
       confirmationText: [
         'Confirmation channel: ask_user approve/cancel UI.',
         'User approval: ask_user approved the exact dry-run write plan.',
@@ -94,7 +96,7 @@ export function buildConfirmationRecord({ channel, confirmationText, writePlanPa
   };
 }
 
-export function resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, hostCapabilities, confirmationText, writePlanPath }) {
+export function resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, hostCapabilities, confirmationText, confirmationId, writePlanPath }) {
   const planConfirmed = plan.confirmedByUser === true;
   const confirmed = cliConfirmed || planConfirmed;
   const modeDryRun = mode === 'dry-run';
@@ -109,6 +111,7 @@ export function resolveApplyMode({ mode, cliDryRun, cliConfirmed, allow, plan, h
     ? buildConfirmationRecord({
         channel,
         confirmationText: confirmationText || baseEffectivePlan.confirmationText,
+        confirmationId: confirmationId || baseEffectivePlan.confirmationId,
         writePlanPath,
         idempotencyKey: baseEffectivePlan.idempotencyKey
       })

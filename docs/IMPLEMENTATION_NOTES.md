@@ -84,7 +84,11 @@ Responsibilities are split across four layers:
 
 `ApprovalArtifact` fields: `approved`, `confirmationChannel`, `writePlanPath`, `idempotencyKey`, `planDigest`, `confirmationText`, `confirmationId`, `createdAt`, `expiresAt`, optional `usedAt`.
 
-Default artifact TTL is 30 minutes. Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it.
+Default artifact TTL is 30 minutes. Artifacts are stored in a shared persistent store, not only an in-memory module Map. The default store is `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, `~/.linear-project-admin-pi/write-confirmation-artifacts.json` otherwise, and can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH` for tests or host-managed session storage. This store is the boundary that lets `pi_ask_user` approval survive separate tool calls, extension reloads, different module graphs, and source/runtime checkout path differences.
+
+Validation distinguishes missing or stale artifacts, unreadable stores, expired artifacts, reused artifacts, `confirmationId` mismatch, `planDigest` mismatch, and `confirmationText` mismatch. Successful real apply marks the artifact with `usedAt` and persists that consumed state before the Linear mutation path records audit/readback output. The CLI receives `confirmationChannel`, `confirmationText`, and `confirmationId`, so `state/audit.jsonl` identifies `ask_user` approval separately from `conversation_fallback`.
+
+Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it. If UI approval is available, do not downgrade to `conversation_fallback`; re-run `pi_ask_user(flow=write_confirmation)` when the artifact is missing, expired, consumed, mismatched, or stored under the wrong runtime path.
 
 安全机制：
 

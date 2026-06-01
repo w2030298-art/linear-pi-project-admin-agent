@@ -1,4 +1,7 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 export const WRITE_CONFIRMATION_UI_TITLE = "Approve & Write";
 export const DEFAULT_APPROVAL_ARTIFACT_TTL_MS = 30 * 60 * 1000;
@@ -31,6 +34,7 @@ type ArtifactValidationFailure = {
   reason:
     | "missing_binding"
     | "missing_or_stale"
+    | "store_unavailable"
     | "already_used"
     | "expired"
     | "confirmation_mismatch"
@@ -40,9 +44,59 @@ type ArtifactValidationFailure = {
 };
 
 const pendingArtifacts = new Map<string, ApprovalArtifact>();
+const STORE_ENV = "WRITE_CONFIRMATION_ARTIFACT_STORE_PATH";
+const DEFAULT_STORE_FILE = "write-confirmation-artifacts.json";
 
 function artifactKey(writePlanPath: string, idempotencyKey: string) {
   return `${writePlanPath.trim()}::${idempotencyKey.trim()}`;
+}
+
+function defaultStorePath(env: Record<string, string | undefined> = process.env) {
+  const localAppData = clean(env.LOCALAPPDATA);
+  if (localAppData) return path.join(localAppData, "LinearProjectAdminPi", DEFAULT_STORE_FILE);
+
+  const xdgStateHome = clean(env.XDG_STATE_HOME);
+  if (xdgStateHome) return path.join(xdgStateHome, "linear-project-admin-pi", DEFAULT_STORE_FILE);
+
+  return path.join(os.homedir(), ".linear-project-admin-pi", DEFAULT_STORE_FILE);
+}
+
+function artifactStorePath() {
+  return clean(process.env[STORE_ENV]) || defaultStorePath();
+}
+
+function readArtifactStore(): Map<string, ApprovalArtifact> {
+  const storePath = artifactStorePath();
+  if (!fs.existsSync(storePath)) return new Map();
+
+  const parsed = JSON.parse(fs.readFileSync(storePath, "utf8"));
+  const artifacts = parsed?.artifacts && typeof parsed.artifacts === "object" ? parsed.artifacts : {};
+  return new Map(Object.entries(artifacts) as Array<[string, ApprovalArtifact]>);
+}
+
+function writeArtifactStore(artifacts: Map<string, ApprovalArtifact>) {
+  const storePath = artifactStorePath();
+  fs.mkdirSync(path.dirname(storePath), { recursive: true });
+  const payload = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    artifacts: Object.fromEntries(artifacts)
+  };
+  fs.writeFileSync(storePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
+function getPersistedArtifact(key: string) {
+  const artifacts = readArtifactStore();
+  const artifact = artifacts.get(key);
+  if (artifact) pendingArtifacts.set(key, artifact);
+  return artifact;
+}
+
+function persistArtifact(key: string, artifact: ApprovalArtifact) {
+  const artifacts = readArtifactStore();
+  artifacts.set(key, artifact);
+  pendingArtifacts.set(key, artifact);
+  writeArtifactStore(artifacts);
 }
 
 function clean(value: string | undefined) {
@@ -58,8 +112,11 @@ function isUsed(artifact: ApprovalArtifact) {
   return Boolean(artifact.usedAt);
 }
 
-export function resetWriteConfirmationArtifactsForTests() {
+export function resetWriteConfirmationArtifactsForTests(options: { preserveStore?: boolean } = {}) {
   pendingArtifacts.clear();
+  if (options.preserveStore) return;
+  const storePath = artifactStorePath();
+  if (fs.existsSync(storePath)) fs.rmSync(storePath, { force: true });
 }
 
 export function buildWriteConfirmationText(input: {
@@ -138,7 +195,7 @@ export function registerWriteConfirmationArtifact(input: {
   }
 
   const key = artifactKey(writePlanPath, idempotencyKey);
-  const existing = pendingArtifacts.get(key);
+  const existing = pendingArtifacts.get(key) || getPersistedArtifact(key);
   if (existing && !isUsed(existing) && !isExpired(existing)) {
     throw new Error("write_confirmation already pending for this exact write plan and idempotencyKey.");
   }
@@ -156,7 +213,7 @@ export function registerWriteConfirmationArtifact(input: {
     createdAt: createdAt.toISOString(),
     expiresAt: new Date(createdAt.getTime() + ttlMs).toISOString()
   };
-  pendingArtifacts.set(key, artifact);
+  persistArtifact(key, artifact);
   return artifact;
 }
 
@@ -178,12 +235,22 @@ function validateArtifactState(
   }
 
   const key = artifactKey(writePlanPath, idempotencyKey);
-  const artifact = pendingArtifacts.get(key);
+  let artifact: ApprovalArtifact | undefined;
+  try {
+    artifact = pendingArtifacts.get(key) || getPersistedArtifact(key);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      reason: "store_unavailable",
+      message: `Cannot read pi_ask_user write_confirmation artifact store at ${artifactStorePath()}: ${detail}. Re-run pi_ask_user(flow=write_confirmation) in the active runtime or explicitly allow conversation fallback if UI approval is unavailable.`
+    };
+  }
   if (!artifact) {
     return {
       ok: false,
       reason: "missing_or_stale",
-      message: "No active pi_ask_user write_confirmation approval exists for this exact write plan and idempotencyKey. Call pi_ask_user(flow=write_confirmation) after dry-run before real apply."
+      message: `No active pi_ask_user write_confirmation approval is persisted for this exact write plan and idempotencyKey in ${artifactStorePath()}. The approval may be unregistered, expired, or written by a different runtime path/store. Re-run pi_ask_user(flow=write_confirmation) in the active runtime before real apply, or explicitly allow conversation fallback if UI approval is unavailable.`
     };
   }
 
@@ -240,6 +307,6 @@ export function consumeWriteConfirmationArtifact(params: WriteConfirmationApplyP
 
   const usedAt = new Date().toISOString();
   const consumed: ApprovalArtifact = { ...validated.artifact, usedAt };
-  pendingArtifacts.set(artifactKey(consumed.writePlanPath, consumed.idempotencyKey), consumed);
+  persistArtifact(artifactKey(consumed.writePlanPath, consumed.idempotencyKey), consumed);
   return { ok: true as const, artifact: consumed };
 }
