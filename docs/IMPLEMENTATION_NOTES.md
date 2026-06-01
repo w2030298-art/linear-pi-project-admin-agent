@@ -48,6 +48,17 @@ Dry-run compilation and real apply use separate protocol gates:
 - `scripts/write-plan-execution.mjs` computes the effective apply mode. If the source write-plan file is still `dryRun=true` but the tool/CLI call is `dryRun=false` with `--confirmed`, the CLI uses an in-memory effective plan with `dryRun=false` / `confirmedByUser=true` and records `reason.cliConfirmedOverride=true`.
 - This avoids silent dry-run when the user already approved real apply, while preserving explicit dry-run when `--dry-run` or `LINEAR_WRITE_MODE=dry-run` is present.
 
+### Low-risk write wrapper
+
+`scripts/low-risk-write-plan.mjs` and the Pi tool `linear_prepare_low_risk_write` provide a narrow wrapper for L1/L2 writes. The whitelist is intentionally small:
+
+- `project_update`: one `projectUpdate.create`.
+- `issue_create`: one `issue.create` with existing Project Milestone readback.
+
+The wrapper accepts current session facts or a compact Project baseline, then generates a normal write plan with `idempotencyKey`, `readbackRequired=true`, `auditLogRequired=true`, `dryRun=true`, `confirmedByUser=false`, and a dry-run summary. It also returns the exact next tool calls for quality review, dry-run, `pi_ask_user(write_confirmation)`, and real apply. These are orchestration hints, not permissions; the existing reviewer, dry-run, approval artifact, readback, and audit gates remain mandatory.
+
+When required evidence is missing, the wrapper returns `status=evidence_gap` with open questions. It does not infer target Project, milestone, team, labels, or acceptance criteria. Requests outside the whitelist must use the full Fact Pack and planning path.
+
 `linear-cli.mjs apply` 已实现真实写入，但默认仍由 dry-run 和确认门禁保护。
 
 已支持的 operation type：
