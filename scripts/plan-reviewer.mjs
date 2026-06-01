@@ -187,6 +187,10 @@ function requiresMilestoneTarget(operations) {
 function requiresIssueOperation(operations) {
   return operations.some(operation => {
     const type = operationType(operation);
+    const input = operation.input || {};
+    if (/^(issueRelation|issue\.relation)\.create$/.test(type)) {
+      return isBlank(firstText(input.issueId, input.issueRef)) || isBlank(firstText(input.relatedIssueId, input.relatedIssueRef));
+    }
     return /^issue\.(create|update)$/.test(type) ||
       /^(issueRelation|issue\.relation)\.create$/.test(type);
   });

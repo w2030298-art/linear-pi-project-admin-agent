@@ -85,6 +85,20 @@ export default function (pi: ExtensionAPI) {
     }
   };
 
+  const runStructuredWritePlanBuilder = async (signal: AbortSignal | undefined, params: any) => {
+    const inputPath = path.join("state", "sessions", `write-plan-builder-${Date.now()}.json`);
+    fs.mkdirSync(path.dirname(inputPath), { recursive: true });
+    fs.writeFileSync(inputPath, JSON.stringify(params, null, 2));
+    const args = ["scripts/write-plan-builder.mjs", "--input", inputPath];
+    if (params.writePlanPath) args.push("--out", params.writePlanPath);
+    const result = await pi.exec("node", args, { signal, timeout: 120000 });
+    try {
+      return text(JSON.parse(result.stdout));
+    } catch {
+      return text(result.stdout || result.stderr || { code: result.code });
+    }
+  };
+
   pi.registerTool({
     name: "linear_prepare_low_risk_write",
     label: "Prepare Low-Risk Linear Write",
@@ -108,6 +122,35 @@ export default function (pi: ExtensionAPI) {
     ],
     async execute(_id, params, signal) {
       return runLowRiskWritePlan(signal, params);
+    }
+  });
+
+  pi.registerTool({
+    name: "linear_build_write_plan",
+    label: "Build Linear Write Plan",
+    description: "Run the structured write plan builder for projectUpdate.create, issue.create, issue.update, and issueRelation.create. Generates idempotencyKey, operation keys, summaries, planDigest, and required next steps. Never performs mutations.",
+    parameters: Type.Object({
+      targetProjectId: Type.Optional(Type.String()),
+      targetProjectName: Type.Optional(Type.String()),
+      projectBaseline: Type.Optional(Type.Any()),
+      workspaceManifest: Type.Optional(Type.Any()),
+      workspaceManifestPath: Type.Optional(Type.String()),
+      source: Type.Optional(Type.Any()),
+      evidenceRefs: Type.Optional(Type.Array(Type.String())),
+      operations: Type.Array(Type.Any()),
+      writePlanPath: Type.Optional(Type.String()),
+      idempotencyKey: Type.Optional(Type.String())
+    }),
+    promptSnippet: "linear_build_write_plan: structured write plan builder that generates idempotencyKey, operation keys, summaries, planDigest, and ordered quality review, dry-run, pi_ask_user approval, and real apply steps.",
+    promptGuidelines: [
+      "Use this to build standard write plans for projectUpdate.create, issue.create, issue.update, or issueRelation.create instead of hand-writing JSON.",
+      "Pass a workspaceManifest or workspaceManifestPath when resolving team, label, workflow state, or Project Milestone names.",
+      "If the tool returns evidence_gap, stop and refresh the missing target, team, label, state, or milestone evidence instead of guessing.",
+      "After it returns write_plan_ready, run the returned quality review, dry-run, pi_ask_user approval, and real apply steps in order.",
+      "The builder only creates a plan and planDigest for approval UI binding; it does not replace quality review, risk judgment, dry-run, readback, or audit."
+    ],
+    async execute(_id, params, signal) {
+      return runStructuredWritePlanBuilder(signal, params);
     }
   });
 
