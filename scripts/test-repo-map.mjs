@@ -121,9 +121,21 @@ repos:
   assert.equal(output.factPack.scope.repo.localPath, path.resolve(localPath));
   assert.equal(output.factPack.scope.repo.linearProjectName, 'linear-bridge');
   assert.equal(output.factPack.scope.linearProjectIdOrKey, 'linear-bridge');
+  assert.equal(output.factPack.runtime.cwd, process.cwd());
+  assert.equal(output.factPack.runtime.repoMap.localPath, path.resolve(localPath));
+  assert.equal(output.factPack.runtime.repoMap.localPathRelation, 'different_path');
+  assert.equal(output.factPack.runtime.repoMap.extensionSourceRelation, 'different_path');
+  assert.equal(output.factPack.runtime.repoMap.effectiveLocalEvidenceRoot, path.resolve(localPath));
+  assert.equal(output.factPack.runtime.repoMap.localRootsFallbackUsed, false);
+  assert.match(output.factPack.runtime.repoMap.driftAdvice.join('\n'), /repo-map localPath differs from runtime cwd/i);
+  assert.match(output.factPack.runtime.repoMap.driftAdvice.join('\n'), /extension source path differs from repo-map localPath/i);
+  assert.match(output.factPack.runtime.packageRoot, /linear-pi-project-admin-agent$/);
+  assert.ok(output.factPack.runtime.extensionSourcePath.endsWith(path.join('.pi', 'extensions')));
   assert.deepEqual(output.factPack.openQuestions, []);
   assert.match(output.factPack.conflicts.join('\n'), /GITHUB_DEFAULT_OWNER/);
+  assert.match(output.factPack.conflicts.join('\n'), /LOCAL_REPO_ROOTS/);
   assert.doesNotMatch(output.factPack.evidenceGaps.join('\n'), /GITHUB_DEFAULT_OWNER/);
+  assert.doesNotMatch(output.factPack.scope.repo.localPath, /wrong-local-path/);
 }
 
 {

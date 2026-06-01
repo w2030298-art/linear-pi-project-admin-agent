@@ -130,6 +130,9 @@ resetWriteConfirmationArtifactsForTests();
   assert.equal(approved.approvalArtifact?.planDigest, 'sha256:abc');
   assert.equal(approved.approvalArtifact?.storage?.persisted, true);
   assert.match(approved.approvalArtifact?.storage?.path || '', /write-confirmation-artifacts/i);
+  assert.match(approved.approvalArtifact?.source?.sourcePath || '', /write-confirmation-artifact\.ts$/);
+  assert.match(approved.approvalArtifact?.source?.packageRoot || '', /linear-pi-project-admin-agent$/);
+  assert.ok(approved.approvalArtifact?.source?.runtimeCwd);
   assert.equal(approved.artifactStorage?.persisted, true);
   assert.deepEqual(approved.artifactBinding, {
     writePlanPath: 'state/write-plans/test.json',

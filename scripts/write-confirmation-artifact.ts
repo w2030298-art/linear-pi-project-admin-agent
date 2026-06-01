@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const WRITE_CONFIRMATION_UI_TITLE = "Approve & Write";
 export const DEFAULT_APPROVAL_ARTIFACT_TTL_MS = 30 * 60 * 1000;
@@ -46,6 +47,7 @@ type ArtifactValidationFailure = {
 const pendingArtifacts = new Map<string, ApprovalArtifact>();
 const STORE_ENV = "WRITE_CONFIRMATION_ARTIFACT_STORE_PATH";
 const DEFAULT_STORE_FILE = "write-confirmation-artifacts.json";
+const SOURCE_PATH = fileURLToPath(import.meta.url);
 
 function artifactKey(writePlanPath: string, idempotencyKey: string) {
   return `${writePlanPath.trim()}::${idempotencyKey.trim()}`;
@@ -101,6 +103,24 @@ function persistArtifact(key: string, artifact: ApprovalArtifact) {
   artifacts.set(key, artifact);
   pendingArtifacts.set(key, artifact);
   writeArtifactStore(artifacts);
+}
+
+function findPackageRoot(start: string) {
+  let current = path.dirname(start);
+  while (true) {
+    if (fs.existsSync(path.join(current, "package.json"))) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return path.dirname(start);
+    current = parent;
+  }
+}
+
+function sourceStatus() {
+  return {
+    sourcePath: SOURCE_PATH,
+    packageRoot: findPackageRoot(SOURCE_PATH),
+    runtimeCwd: process.cwd()
+  };
 }
 
 export function getWriteConfirmationArtifactStorageStatus(artifact?: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey">) {
@@ -220,7 +240,8 @@ export function toApprovalArtifactResponse(artifact: ApprovalArtifact) {
     createdAt: artifact.createdAt,
     expiresAt: artifact.expiresAt,
     usedAt: artifact.usedAt,
-    storage: getWriteConfirmationArtifactStorageStatus(artifact)
+    storage: getWriteConfirmationArtifactStorageStatus(artifact),
+    source: sourceStatus()
   };
 }
 

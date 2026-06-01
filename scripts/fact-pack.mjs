@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { arg, has, json, now, ensureDir, writeJson, hash } from './utils.mjs';
 import { listRepoMapProjectOptions, resolveRepoMapEntry } from './repo-map.mjs';
 import { buildEvidenceBackedFact, compactFactPack, loadProjectBaselineFromFactPack, writeEvidenceFile } from './fact-pack-utils.mjs';
@@ -20,6 +20,88 @@ const requestedWorkspaceReview = has('--portfolio') || /portfolio|组合巡检|�
 function runNode(args) {
   const r = spawnSync('node', args, { encoding: 'utf8', env: process.env });
   try { return JSON.parse(r.stdout); } catch { return { error: r.stderr || r.stdout, code: r.status }; }
+}
+
+function sh(command, cwd) {
+  try { return execSync(command, { cwd, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); }
+  catch { return null; }
+}
+
+function samePath(left, right) {
+  if (!left || !right) return false;
+  return path.normalize(left).toLowerCase() === path.normalize(right).toLowerCase();
+}
+
+function findPackageRoot(start = process.cwd()) {
+  let current = path.resolve(start);
+  while (true) {
+    if (fs.existsSync(path.join(current, 'package.json'))) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+function runtimeRepoDiagnostics(repoMapping) {
+  const cwd = process.cwd();
+  const packageRoot = findPackageRoot(cwd);
+  const repoMapLocalPath = repoMapping?.ok ? repoMapping.local?.root || null : null;
+  const localRoots = (process.env.LOCAL_REPO_ROOTS || '').split(',').map(value => value.trim()).filter(Boolean);
+  const firstLocalRoot = localRoots[0] ? path.resolve(cwd, localRoots[0]) : null;
+  const localPathRelation = !repoMapLocalPath
+    ? 'missing_repo_map_localPath'
+    : samePath(cwd, repoMapLocalPath)
+      ? 'same_path'
+      : 'different_path';
+  const runtimeGitRemote = sh('git remote get-url origin', cwd);
+  const repoMapGitRemote = repoMapLocalPath && fs.existsSync(repoMapLocalPath)
+    ? sh('git remote get-url origin', repoMapLocalPath)
+    : null;
+  const extensionSourcePath = path.join(cwd, '.pi', 'extensions');
+  const extensionSourceRelation = !repoMapLocalPath
+    ? 'missing_repo_map_localPath'
+    : samePath(path.dirname(path.dirname(extensionSourcePath)), repoMapLocalPath)
+      ? 'same_path'
+      : 'different_path';
+  const driftAdvice = [];
+
+  if (localPathRelation === 'different_path') {
+    driftAdvice.push('repo-map localPath differs from runtime cwd; verify whether this is a legitimate runtime wrapper checkout or an unintended repo-map drift.');
+  }
+  if (firstLocalRoot && repoMapLocalPath && !samePath(firstLocalRoot, repoMapLocalPath)) {
+    driftAdvice.push('repo-map localPath overrides LOCAL_REPO_ROOTS for this repoKey; local facts must be collected from repo-map localPath.');
+  }
+  if (extensionSourceRelation === 'different_path') {
+    driftAdvice.push('extension source path differs from repo-map localPath; verify whether the runtime wrapper is expected to load extensions from the wrapper while collecting implementation facts from repo-map localPath.');
+  }
+  if (runtimeGitRemote && repoMapGitRemote && runtimeGitRemote !== repoMapGitRemote) {
+    driftAdvice.push('runtime cwd and repo-map localPath have different git remotes; verify repo-map GitHub mapping before collecting or writing facts.');
+  }
+
+  return {
+    cwd,
+    packageRoot,
+    extensionSourcePath,
+    gitRemote: runtimeGitRemote,
+    repoMap: {
+      key: repoMapping?.ok ? repoMapping.key : repoKey || null,
+      source: repoMapping?.source || null,
+      localPath: repoMapLocalPath,
+      localPathExists: Boolean(repoMapLocalPath && fs.existsSync(repoMapLocalPath)),
+      localPathRelation,
+      extensionSourceRelation,
+      gitRemote: repoMapGitRemote,
+      github: repoMapping?.ok ? repoMapping.github : null,
+      linear: repoMapping?.ok ? repoMapping.linear : null,
+      localRoots: {
+        configured: localRoots,
+        first: firstLocalRoot
+      },
+      localRootsFallbackUsed: false,
+      effectiveLocalEvidenceRoot: repoMapLocalPath || null,
+      driftAdvice
+    }
+  };
 }
 
 function fact(claim, sourceType, source, confidence = 'medium', rawRef = null) {
@@ -80,6 +162,7 @@ const repoMapping = needsProjectSelection || skipRepoEvidenceWithoutRepoKey
   : resolveRepoMapEntry(repoKey);
 if (repoMapping.evidenceGaps?.length) pack.evidenceGaps.push(...repoMapping.evidenceGaps);
 if (repoMapping.conflicts?.length) pack.conflicts.push(...repoMapping.conflicts);
+pack.runtime = runtimeRepoDiagnostics(repoMapping);
 if (skipRepoEvidenceWithoutRepoKey) {
   pack.evidenceGaps.push('No repoKey provided with explicit Linear project locator; GitHub/local evidence skipped to avoid fallback to an unrelated repo.');
 }

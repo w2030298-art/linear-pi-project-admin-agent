@@ -97,6 +97,10 @@ Single `Approve & Write` flow:
 
 - For single-Project tasks without an explicit target, call `pi_ask_user` with `flow=project_select` first. The options must come from the merged repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`) and include `User input` last; do not query Linear for the candidate list before the user chooses.
 - `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from the merged repo-map first. Local overlay entries override tracked config entries with the same repoKey.
+- Fact Pack output includes `runtime`: current `cwd`, package root, extension source path, runtime git remote, repo-map localPath, repo-map git remote, `LOCAL_REPO_ROOTS`, effective local evidence root, path relation fields, and drift advice.
+- `repo-map localPath != runtime cwd` can be legitimate when Pi is launched from a runtime wrapper checkout and repo-map points at the implementation repo. This is acceptable only when GitHub repo, Linear Project, package identity, and intended source path are clear in `runtime.repoMap`.
+- Repo-map localPath is the source of truth for local evidence for a selected `repoKey`; `LOCAL_REPO_ROOTS` is diagnostic/fallback context only and must not override a complete repo-map entry.
+- If `runtime.repoMap.driftAdvice` reports different git remotes or an unexpected localPath, stop before planning/writing and repair the local repo-map overlay or choose the correct project. Do not silently collect facts from the runtime wrapper just because it is the current `cwd`.
 - If a repoKey is missing or incomplete, record an evidence gap instead of falling back to another repo.
 - Run `npm run test:repo-map` after changing repo-map behavior.
 

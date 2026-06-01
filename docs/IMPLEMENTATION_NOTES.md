@@ -139,6 +139,14 @@ Project governance templates live in `scripts/project-governance-template.mjs`:
 
 Active planning and reporting paths process one Project at a time. Workspace-level commands may list candidates, but they must not load every Project's detailed context into the prompt.
 
+## Runtime Repo Diagnostics
+
+`scripts/fact-pack.mjs` records a `runtime` diagnostic block for repo-scoped Fact Packs. It includes the Agent runtime `cwd`, package root, extension source path, runtime git remote, selected repo-map localPath, repo-map git remote, GitHub/Linear mapping, `LOCAL_REPO_ROOTS`, effective local evidence root, path relation fields, and drift advice.
+
+The selected repo-map entry remains the source of truth for local evidence. A complete repo-map entry overrides `LOCAL_REPO_ROOTS`; environment roots are reported only so operators can see when stale fallback settings disagree with repo-map. If repo-map localPath differs from runtime cwd, the diagnostic distinguishes the paths instead of assuming one is wrong. This supports the intended wrapper pattern where Pi runs from `linear-pi-project-admin-agent-runtime` while repo-map points at the implementation checkout, as long as the mapped GitHub repo and Linear Project still match the selected repoKey.
+
+Write confirmation approval artifacts also include source metadata for the artifact module path, package root, and runtime cwd. This lets apply failures be correlated with the actual extension/source path that produced the approval.
+
 ## Pi Write Confirmation UI
 
 The generic Linear write confirmation channel is `pi_ask_user(flow=write_confirmation)` with a single `Approve & Write` / `Cancel` dialog. After dry-run, the Agent calls this flow once; `linear_apply_write_plan(dryRun=false)` consumes the returned approval artifact and never shows a second confirmation UI. `linear-write-guard` only gates real apply against a valid artifact. Current-conversation text fallback is used only when Pi UI is unavailable and the user explicitly allowed that fallback.
