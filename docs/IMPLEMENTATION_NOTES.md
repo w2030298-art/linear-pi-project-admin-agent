@@ -10,7 +10,7 @@
 
 - `project_select`: first step for single-Project planning/reporting/review when the user did not specify a target. Options are loaded only from the merged local three-source repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`): every entry with a local project directory is listed by repoKey/project ID, followed by `User input`. Local overlay entries override tracked config entries with the same repoKey. Linear is not queried until after this selection.
 - `repo_map`: stepwise repo-map repair/draft flow.
-- `plan_confirmation`: planning-time `Yes` / `No` / `调整意见` UI for an exact Linear write plan. `Yes` creates a signed approval artifact bound to `writePlanPath`, `idempotencyKey`, and `planDigest`; `No` cancels without mutation; `调整意见` returns feedback so the Agent can rewrite the plan and ask again.
+- `plan_confirmation`: planning-time `Yes` / `No` / `调整意见` UI for an exact Linear write plan. The UI renders a structured Chinese review surface (项目概览 / 计划结构树 / 风险 / 非变更 / 证据 / 审批绑定) from the write plan file plus summaries. `Yes` creates a signed approval artifact bound to `writePlanPath`, `idempotencyKey`, and `planDigest`; `No` cancels without mutation; `调整意见` returns feedback so the Agent can rewrite the plan and ask again.
 - `write_confirmation`: legacy one-time approve/cancel UI for an exact dry-run Linear write plan. It only collects approval and never executes Linear mutations.
 
 For `repo_map`:

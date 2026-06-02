@@ -3,9 +3,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  buildPlanConfirmationMessage as renderPlanConfirmationMessage,
+  buildPlanConfirmationText as renderPlanConfirmationText,
+  PLAN_CONFIRMATION_UI_TITLE_ZH
+} from "./plan-confirmation-ui.ts";
 
 export const WRITE_CONFIRMATION_UI_TITLE = "Approve & Write";
-export const PLAN_CONFIRMATION_UI_TITLE = "Confirm Linear Write Plan";
+export const PLAN_CONFIRMATION_UI_TITLE = PLAN_CONFIRMATION_UI_TITLE_ZH;
 export const DEFAULT_APPROVAL_ARTIFACT_TTL_MS = 30 * 60 * 1000;
 export type ApprovalKind = "write_confirmation" | "plan_confirmation";
 
@@ -351,18 +356,7 @@ export function buildPlanConfirmationText(input: {
   nonChangesSummary?: string;
   planDigest?: string;
 }) {
-  const lines = [
-    "Confirmation channel: pi_ask_user plan_confirmation Yes/No/Adjustment UI.",
-    "User approval: User approved exact Linear write plan during planning via Pi UI.",
-    `Write plan: ${input.writePlanPath}`,
-    `Idempotency key: ${input.idempotencyKey}`
-  ];
-  if (input.targetProjectSummary) lines.push(`Target project: ${input.targetProjectSummary}`);
-  if (input.operationsSummary) lines.push(`Operations: ${input.operationsSummary}`);
-  if (input.risksSummary) lines.push(`Risks: ${input.risksSummary}`);
-  if (input.nonChangesSummary) lines.push(`Non-changes: ${input.nonChangesSummary}`);
-  if (input.planDigest) lines.push(`Plan digest: ${input.planDigest}`);
-  return lines.join("\n");
+  return renderPlanConfirmationText(input);
 }
 
 export function buildWriteConfirmationMessage(input: {
@@ -397,18 +391,7 @@ export function buildPlanConfirmationMessage(input: {
   nonChangesSummary?: string;
   planDigest?: string;
 }) {
-  const sections = [
-    "Review the exact Linear write plan. This planning approval is the only user confirmation source for the real apply.",
-    `Write plan: ${input.writePlanPath}`,
-    `Idempotency key: ${input.idempotencyKey}`
-  ];
-  if (input.targetProjectSummary) sections.push(`Target project: ${input.targetProjectSummary}`);
-  if (input.operationsSummary) sections.push(`Operations:\n${input.operationsSummary}`);
-  if (input.risksSummary) sections.push(`Risks:\n${input.risksSummary}`);
-  if (input.nonChangesSummary) sections.push(`Non-changes:\n${input.nonChangesSummary}`);
-  if (input.planDigest) sections.push(`Plan digest: ${input.planDigest}`);
-  sections.push("Choose Yes to approve this exact plan, No to cancel without Linear mutation, or 调整意见 to provide revision feedback.");
-  return sections.join("\n\n");
+  return renderPlanConfirmationMessage(input);
 }
 
 export function toApprovalArtifactResponse(artifact: ApprovalArtifact) {

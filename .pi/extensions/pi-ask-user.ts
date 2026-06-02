@@ -976,7 +976,7 @@ export default function (pi: ExtensionAPI) {
       "For single-project planning/reporting/review tasks without an explicit target, call pi_ask_user with flow=project_select before reading Linear.",
       "Project selection options must come from the local repo-map, with User input as the last option; do not list projects from Linear before the user selects one.",
       "Use pi_ask_user for repo-map gaps when GitHub, Linear Project, and local repo facts do not line up.",
-      "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation to show Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, planDigest, and summaries.",
+      "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation to show the structured Chinese confirmation UI (项目概览 / 计划结构树 / 风险 / 审批绑定) with Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, planDigest, and summaries.",
       "If plan_confirmation returns revision_requested, rewrite the plan from feedback, rerun quality review and dry-run, then call plan_confirmation again.",
       "If plan_confirmation returns cancelled or interactive_confirmation_unavailable, do not apply real Linear mutations.",
       "When plan_confirmation returns approved, immediately call linear_apply_write_plan(dryRun=false) with the returned approval artifact. Do not show a second confirmation UI.",

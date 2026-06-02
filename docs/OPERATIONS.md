@@ -96,7 +96,7 @@ npm test
 Single planning confirmation flow:
 
 1. Automatically run `linear_plan_quality_review` and `linear_apply_write_plan(dryRun=true)` after generating a write plan. Dry-run is not user confirmation.
-2. Show one planning UI: `pi_ask_user(flow=plan_confirmation)` with `Yes` / `No` / `调整意见` for the exact `writePlanPath`, `idempotencyKey`, summaries, and `planDigest`.
+2. Show one planning UI: `pi_ask_user(flow=plan_confirmation)` with structured Chinese sections and `Yes` / `No` / `调整意见` for the exact `writePlanPath`, `idempotencyKey`, summaries, and `planDigest`.
 3. On `Yes`, immediately call `linear_apply_write_plan(dryRun=false, ...)` with the returned approval artifact. On `No`, stop without mutation. On `调整意见`, rewrite the plan, rerun review/dry-run, and ask again. Apply does not pop a second UI.
 4. `linear-write-guard` only blocks real apply when the artifact is missing, expired, reused, or mismatched.
 

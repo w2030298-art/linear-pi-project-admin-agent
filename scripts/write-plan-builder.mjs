@@ -217,8 +217,8 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
           planDigest: writePlan.planDigest,
           targetProjectSummary: summary.targetProjectSummary,
           operationsSummary: summary.operationsSummary,
-          risksSummary: 'Structured builder generated the plan only; quality review, dry-run, approval artifact, readback, and audit remain required.',
-          nonChangesSummary: 'No Linear mutation is executed by the builder.'
+          risksSummary: '• 本计划仅由 builder 生成\n• quality review、dry-run、approval artifact、readback 与 audit 仍为必填步骤',
+          nonChangesSummary: '• builder 本身不执行 Linear mutation\n• repo-map / workspace manifest 除 resolver 冻结字段外不做额外变更'
         }
       },
       apply: {
@@ -305,6 +305,10 @@ export function buildWritePlan(input, options = {}) {
   writePlan.planDigest = planDigest;
 
   const writePlanPath = options.writePlanPath || input.writePlanPath || path.join('state', 'write-plans', `${idempotencyKey}.json`);
+  const operationsSummary = operations.map((operation, index) => {
+    const title = clean(operation.input?.title) || clean(operation.key) || `${operation.type}-${index + 1}`;
+    return `- ${operation.type}: ${title}`;
+  }).join('\n');
   const summary = {
     writePlanPath,
     idempotencyKey,
@@ -313,7 +317,7 @@ export function buildWritePlan(input, options = {}) {
     operationTypes: operations.map(operation => operation.type),
     targetProjectId: project.id,
     targetProjectSummary: project.name || project.id,
-    operationsSummary: operations.map(operation => operation.type).join(', ')
+    operationsSummary
   };
 
   return {

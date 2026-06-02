@@ -221,7 +221,7 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: "linear_apply_write_plan: dry-run automatically; real apply consumes one planning approval artifact only.",
     promptGuidelines: [
       "After generating a write plan, automatically run linear_plan_quality_review and linear_apply_write_plan with dryRun=true. Dry-run is validation only and is not user confirmation.",
-      "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation once to show Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, planDigest, and summaries.",
+      "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation once to show the structured Chinese confirmation UI with Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, planDigest, and summaries.",
       "After the user chooses Yes, immediately call linear_apply_write_plan with dryRun=false and the approval artifact fields returned by pi_ask_user. Do not show a second confirmation UI and do not ask the user to type a confirmation phrase.",
       "linear_apply_write_plan never pops its own confirmation UI; it only consumes the approval artifact produced by pi_ask_user(plan_confirmation) or a legacy write_confirmation artifact.",
       "If pi_ask_user plan_confirmation is unavailable and conversation fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",
