@@ -20,6 +20,7 @@
     "bridge:start": "node dist/services/linear-bridge/src/server.js",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "test:webhook-signature": "node scripts/test-webhook-signature.mjs",
+    "test:webhook-prompt-injection": "tsx scripts/test-webhook-prompt-injection.ts",
     "test:plan-review": "node scripts/test-plan-reviewer.mjs",
     "test:project-description-fields": "node scripts/test-project-description-fields.mjs",
     "test:repo-map": "node scripts/test-repo-map.mjs",
