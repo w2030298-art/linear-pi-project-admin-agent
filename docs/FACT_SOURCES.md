@@ -14,6 +14,8 @@
 - Workflow states resolve only inside the requested team; cross-team fallback is not allowed.
 - Project Milestones resolve by exact `projectId` plus milestone name; workspace-level milestone-name matching is not allowed.
 - Dry-run output includes each name-to-ID `resolutions` entry with the workspace manifest `evidenceRef`. Missing or ambiguous resolutions block real apply.
+- Workspace object manifest reads use cursor pagination for teams, labels, workflow states, Project statuses, Projects, and Project Milestones. The manifest records `completeness` and `truncated`; incomplete manifests block real apply.
+- Dry-run freezes the approved resolver facts by writing a manifest snapshot, `manifestHash`, `manifestPath`, `manifestCompleteness`, object `resolutions`, and a recomputed `planDigest` back into the write plan. Real apply recomputes the current manifest hash and resolution diff before consuming the approval artifact; mismatch requires a new dry-run and approval.
 - The cached manifest defaults to `state/workspace-object-manifest.json` and can be redirected with `LINEAR_WORKSPACE_OBJECT_MANIFEST_PATH`.
 
 ## Issue Relation Exact Resolver

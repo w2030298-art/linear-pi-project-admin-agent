@@ -104,6 +104,8 @@ Default artifact TTL is 30 minutes. Artifacts are stored in a shared persistent 
 
 Validation distinguishes missing or stale artifacts, unreadable stores, expired artifacts, reused artifacts, `confirmationId` mismatch, `planDigest` mismatch or omission, and `confirmationText` mismatch. Blocked apply messages include the machine-readable reason and the next step. Successful real apply marks the artifact with `usedAt` and persists that consumed state before the Linear mutation path records audit/readback output. The CLI receives `confirmationChannel`, `confirmationText`, and `confirmationId`, and artifact validation audit records include `approvalKind`, so `state/audit.jsonl` distinguishes planning approval from write-time apply consume.
 
+Dry-run also freezes Linear object resolver inputs. `linear_apply_write_plan(dryRun=true)` persists the current workspace manifest snapshot, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, object `resolutions`, and a recomputed `planDigest` into the write plan, and records `linear_apply_manifest_compile` in audit. Real apply recomputes the current manifest and resolution snapshot before consuming the approval artifact; `manifestHash` mismatch, resolution drift, or incomplete manifests block mutation and record `linear_apply_manifest_validation` with `resolutionDiff`.
+
 Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it. If UI approval is available, do not downgrade to `conversation_fallback`; re-run `pi_ask_user(flow=plan_confirmation)` when the artifact is missing, expired, consumed, mismatched, or stored under the wrong runtime path.
 
 安全机制：

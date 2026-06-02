@@ -6,6 +6,7 @@ import { resolveLinearProjectId } from './linear-project-resolver.mjs';
 import { listProjectStatuses } from './linear-project-status-resolver.mjs';
 import { appendAuditWarning, errorMessage } from './linear-apply/audit.mjs';
 import { applyPlanCommand } from './linear-apply/command.mjs';
+import { collectConnectionNodes, manifestCompleteness, manifestHash } from './linear-workspace-manifest.mjs';
 
 const apiKey = process.env.LINEAR_API_KEY;
 const cmd = process.argv[2] || 'smoke';
@@ -24,29 +25,14 @@ async function smoke() {
 async function workspace() {
   const linear = client();
   const viewer = await linear.viewer;
-  const teams = await linear.teams();
-  const labels = await linear.issueLabels();
-  const users = await linear.users();
+  const teams = await workspaceTeams(linear);
+  const labels = await workspaceLabels(linear);
+  const users = await workspaceUsers(linear);
   const projects = await workspaceProjectSummaries(linear);
   const projectStatuses = await workspaceProjectStatuses(linear);
   let workflowStates = [];
   try {
-    const statesData = await linear.client.rawRequest(`
-      query WorkspaceWorkflowStates {
-        teams(first: 50) {
-          nodes {
-            id
-            key
-            name
-            states {
-              nodes { id name type position }
-            }
-          }
-        }
-      }`);
-    workflowStates = statesData.data.teams.nodes.flatMap(team =>
-      team.states.nodes.map(state => ({ ...state, teamId: team.id, teamKey: team.key, teamName: team.name }))
-    );
+    workflowStates = await workspaceWorkflowStates(linear, teams);
   } catch (err) {
     appendAuditWarning('workspace.workflowStates.empty', err, { command: 'workspace' });
     workflowStates = [];
@@ -57,12 +43,21 @@ async function workspace() {
     sourceType: 'linear_live',
     collectedAt: collected.toISOString(),
     viewer: { id: viewer.id, name: viewer.name },
-    teams: teams.nodes.map(t => ({ id: t.id, key: t.key, name: t.name })),
-    labels: labels.nodes.map(l => ({ id: l.id, name: l.name, color: l.color })),
-    users: users.nodes.slice(0, 100).map(u => ({ id: u.id, name: u.name, active: u.active, admin: u.admin })),
+    teams,
+    labels: labels.map(l => ({ id: l.id, name: l.name, color: l.color })),
+    users: users.map(u => ({ id: u.id, name: u.name, active: u.active, admin: u.admin })),
     projects,
     projectStatuses,
-    workflowStates
+    workflowStates,
+    completeness: manifestCompleteness({
+      teams: teams.length,
+      labels: labels.length,
+      users: users.length,
+      projects: projects.length,
+      projectStatuses: projectStatuses.length,
+      workflowStates: workflowStates.length
+    }, false),
+    truncated: false
   });
 }
 
@@ -78,37 +73,12 @@ function projectIdsFromPlan(plan) {
 }
 
 async function workspaceObjectManifest(linear, projectIds = []) {
-  const [base, statesData, projectStatuses] = await Promise.all([
-    linear.client.rawRequest(`
-      query WorkspaceObjectManifest {
-        teams(first: 50) {
-          nodes { id key name }
-        }
-        issueLabels(first: 250) {
-          nodes {
-            id
-            name
-            color
-            team { id key name }
-            parent { id name }
-          }
-        }
-      }`),
-    linear.client.rawRequest(`
-      query WorkspaceWorkflowStates {
-        teams(first: 50) {
-          nodes {
-            id
-            key
-            name
-            states { nodes { id name type position } }
-          }
-        }
-      }`),
+  const [teams, rawLabels, projectStatuses] = await Promise.all([
+    workspaceTeams(linear),
+    workspaceLabels(linear, true),
     workspaceProjectStatuses(linear)
   ]);
-  const teams = base.data.teams.nodes.map(team => ({ id: team.id, key: team.key, name: team.name }));
-  const labels = base.data.issueLabels.nodes.map(label => ({
+  const labels = rawLabels.map(label => ({
     id: label.id,
     name: label.name,
     color: label.color,
@@ -117,47 +87,14 @@ async function workspaceObjectManifest(linear, projectIds = []) {
     teamKey: label.team?.key || null,
     teamName: label.team?.name || null
   }));
-  const workflowStates = statesData.data.teams.nodes.flatMap(team =>
-    team.states.nodes.map(state => ({
-      id: state.id,
-      name: state.name,
-      type: state.type,
-      position: state.position,
-      teamId: team.id,
-      teamKey: team.key,
-      teamName: team.name
-    }))
-  );
-  const projectMilestoneResults = await Promise.all(projectIds.map(projectId =>
-    linear.client.rawRequest(`
-      query ProjectMilestonesForResolver($id: String!) {
-        project(id: $id) {
-          id
-          name
-          projectMilestones(first: 100) {
-            nodes { id name targetDate sortOrder }
-          }
-        }
-      }`, { id: projectId })
-  ));
-  const projectMilestones = projectMilestoneResults.flatMap(result => {
-    const project = result.data.project;
-    if (!project) return [];
-    return project.projectMilestones.nodes.map(milestone => ({
-      id: milestone.id,
-      name: milestone.name,
-      targetDate: milestone.targetDate,
-      sortOrder: milestone.sortOrder,
-      projectId: project.id,
-      projectName: project.name
-    }));
-  });
+  const workflowStates = await workspaceWorkflowStates(linear, teams);
+  const projectMilestones = (await Promise.all(projectIds.map(projectId => projectMilestonesForProject(linear, projectId)))).flat();
   const labelGroups = {};
   for (const label of labels) {
     if (!label.group) continue;
     labelGroups[label.group] ||= {};
   }
-  return {
+  const manifest = {
     version: 1,
     sourceType: 'linear_live',
     collectedAt: now(),
@@ -168,25 +105,108 @@ async function workspaceObjectManifest(linear, projectIds = []) {
     workflowStates,
     projectMilestones
   };
+  manifest.completeness = manifestCompleteness({
+    teams: teams.length,
+    labels: labels.length,
+    projectStatuses: projectStatuses.length,
+    workflowStates: workflowStates.length,
+    projectMilestones: projectMilestones.length
+  }, false);
+  manifest.truncated = false;
+  manifest.manifestHash = manifestHash(manifest);
+  return manifest;
+}
+
+async function workspaceTeams(linear) {
+  return (await collectConnectionNodes(linear.client, {
+    rootField: 'teams',
+    nodeSelection: 'id key name',
+    pageSize: 250,
+    queryName: 'WorkspaceTeamsPaginated'
+  })).map(team => ({ id: team.id, key: team.key, name: team.name }));
+}
+
+async function workspaceLabels(linear, includeRelations = false) {
+  return collectConnectionNodes(linear.client, {
+    rootField: 'issueLabels',
+    nodeSelection: includeRelations
+      ? 'id name color team { id key name } parent { id name }'
+      : 'id name color',
+    pageSize: 250,
+    queryName: 'WorkspaceLabelsPaginated'
+  });
+}
+
+async function workspaceUsers(linear) {
+  return collectConnectionNodes(linear.client, {
+    rootField: 'users',
+    nodeSelection: 'id name active admin',
+    pageSize: 250,
+    queryName: 'WorkspaceUsersPaginated'
+  });
+}
+
+async function workflowStatesForTeam(linear, team) {
+  const states = await collectConnectionNodes(linear.client, {
+    rootField: 'states',
+    nodeSelection: 'id name type position',
+    variables: { teamId: team.id },
+    pageSize: 250,
+    queryName: 'TeamWorkflowStatesPaginated',
+    variableDefinitions: ', $teamId: String!',
+    queryPrefix: 'team(id: $teamId) {',
+    querySuffix: '}'
+  });
+  return states.map(state => ({
+      id: state.id,
+      name: state.name,
+      type: state.type,
+      position: state.position,
+      teamId: team.id,
+      teamKey: team.key,
+      teamName: team.name
+  }));
+}
+
+async function workspaceWorkflowStates(linear, teams) {
+  return (await Promise.all(teams.map(team => workflowStatesForTeam(linear, team)))).flat();
+}
+
+async function projectMilestonesForProject(linear, projectId) {
+  const first = await linear.client.rawRequest(`
+    query ProjectForMilestones($id: String!) {
+      project(id: $id) { id name }
+    }`, { id: projectId });
+  const project = first.data?.project;
+  if (!project) return [];
+  const milestones = await collectConnectionNodes(linear.client, {
+    rootField: 'projectMilestones',
+    nodeSelection: 'id name targetDate sortOrder',
+    variables: { projectId },
+    pageSize: 250,
+    queryName: 'ProjectMilestonesPaginated',
+    variableDefinitions: ', $projectId: String!',
+    queryPrefix: 'project(id: $projectId) {',
+    querySuffix: '}'
+  });
+  return milestones.map(milestone => ({
+      id: milestone.id,
+      name: milestone.name,
+      targetDate: milestone.targetDate,
+      sortOrder: milestone.sortOrder,
+      projectId: project.id,
+      projectName: project.name
+  }));
 }
 
 async function workspaceProjectStatuses(linear) {
-  const res = await linear.client.rawRequest(`
-    query WorkspaceProjectStatuses {
-      projectStatuses(first: 100) {
-        nodes {
-          id
-          name
-          type
-          color
-          description
-          position
-          indefinite
-          archivedAt
-        }
-      }
-    }`);
-  const statuses = res.data.projectStatuses.nodes.map(status => ({
+  const rawStatuses = await collectConnectionNodes(linear.client, {
+    rootField: 'projectStatuses',
+    nodeSelection: 'id name type color description position indefinite archivedAt',
+    pageSize: 250,
+    queryName: 'WorkspaceProjectStatusesPaginated'
+  });
+  const statuses = rawStatuses.map(status => ({
     id: status.id,
     name: status.name,
     type: status.type,
@@ -208,23 +228,13 @@ async function cachedWorkspaceObjectManifest(linear, plan = {}) {
 }
 
 async function workspaceProjectSummaries(linear) {
-  const projectsData = await linear.client.rawRequest(`
-    query WorkspaceProjects {
-      projects(first: 100) {
-        nodes {
-          id
-          name
-          url
-          state
-          createdAt
-          updatedAt
-          startDate
-          targetDate
-          archivedAt
-        }
-      }
-    }`);
-  return projectsData.data.projects.nodes.map(project => ({
+  const projects = await collectConnectionNodes(linear.client, {
+    rootField: 'projects',
+    nodeSelection: 'id name url state createdAt updatedAt startDate targetDate archivedAt',
+    pageSize: 250,
+    queryName: 'WorkspaceProjectsPaginated'
+  });
+  return projects.map(project => ({
     id: project.id,
     name: project.name,
     url: project.url,
