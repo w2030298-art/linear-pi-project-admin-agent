@@ -25,5 +25,5 @@
     "enabled": true,
     "maxRetries": 3
   },
-  "enabledModels": ["claude-*", "gpt-*", "gemini-*"]
+  "enabledModels": ["claude-3-5-sonnet-latest", "gpt-4.1", "gemini-2.5-pro"]
 }

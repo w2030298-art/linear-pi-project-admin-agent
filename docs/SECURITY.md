@@ -63,3 +63,11 @@ ALLOW_GITHUB_WRITES=false
 3. 设置 `ALLOW_LINEAR_WRITES=false` 和 `LINEAR_WRITE_MODE=dry-run`。
 4. 检查 `state/audit.jsonl` 最近一次 mutation 的 idempotencyKey、operation 和 readback。
 5. 如需人工回滚 Linear 内容，只根据 audit/readback 中的对象 URL 逐项处理，不批量删除或归档。
+
+## Model and Provider Trust Boundary
+
+The Linear write agent trusts only the explicit model IDs listed in `.pi/settings.json`. Wildcard model allowlists are blocked by `scripts/config-security-gate.mjs`.
+
+User-level Pi settings overrides may remove or disable local capabilities, but they must not add trusted models, register external providers, or replace built-in provider resolution for this repo. Expanding the trusted model/provider set requires a reviewed PR that updates the allowlist, the config gate registry, and the operational docs together.
+
+Dependency versions in `package.json` must be pinned to reviewed lockfile versions. Do not use `latest`; update dependencies through an intentional lockfile refresh and rerun `npm run validate` plus `npm test`.
