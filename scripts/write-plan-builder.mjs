@@ -156,12 +156,12 @@ function normalizeOperation(operation, index, project, manifestInfo) {
   }
 
   const resolved = manifestInfo.manifest
-    ? resolveOperationInput(input, {
+    ? resolveOperationInput(input, /** @type {any} */ ({
       manifest: manifestInfo.manifest,
       manifestPath: manifestInfo.manifestPath,
       pathPrefix: `$.operations[${index}].input`,
       operationType: type
-    })
+    }))
     : { ok: true, input, findings: [], resolutions: [] };
 
   if (!resolved.ok) return { gaps: resolved.findings.map(finding => finding.message), findings: resolved.findings };
@@ -273,7 +273,7 @@ export function buildWritePlan(input, options = {}) {
     }
   };
   const idempotencyKey = clean(input.idempotencyKey) || `write-plan-${project.id}-${sha256(planSeed).slice(0, 12)}`;
-  const writePlan = {
+  const writePlan = /** @type {any} */ ({
     idempotencyKey,
     dryRun: true,
     confirmedByUser: false,
@@ -296,7 +296,7 @@ export function buildWritePlan(input, options = {}) {
       createdAt: now()
     },
     operations
-  };
+  });
   if (manifestInfo.manifest) collectMilestoneReadback(writePlan, manifestInfo.manifest);
 
   const digestPlan = { ...writePlan };
@@ -343,7 +343,7 @@ async function main() {
   const inputPath = arg('--input', '');
   const outPath = arg('--out', '');
   const input = readInput(inputPath);
-  const result = buildWritePlan(input, { writePlanPath: outPath || input.writePlanPath });
+  const result = /** @type {any} */ (buildWritePlan(input, { writePlanPath: outPath || input.writePlanPath }));
   if (result.ok && result.writePlanPath) {
     ensureDir(path.dirname(result.writePlanPath));
     writeJson(result.writePlanPath, result.writePlan);

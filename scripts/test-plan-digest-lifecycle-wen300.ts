@@ -66,7 +66,7 @@ function mockCompiledOperations() {
   const writePlanPath = path.join(root, "state", "write-plans", "wen300-test-plan.json");
   const manifest = minimalManifest();
 
-  const built = buildWritePlan(
+  const built: any = buildWritePlan(
     {
       targetProjectId: "project-linear-admin",
       projectBaseline: { project: { id: "project-linear-admin", name: "Linear Admin" } },
