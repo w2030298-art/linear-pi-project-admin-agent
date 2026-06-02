@@ -125,6 +125,20 @@ To make a feature available in the runtime launcher:
 2. Start `Linear Project Admin Pi (WezTerm)` again.
 3. The launcher fast-forwards the runtime checkout to the new `master`.
 
+## Runtime Deployment Gates
+
+Runtime updates should be accepted before they reach the stable launcher path:
+
+1. Pull requests and `master` pushes run `.github/workflows/runtime-ci.yml`.
+2. The workflow installs dependencies on `windows-latest`, runs `npm run validate`, runs `npm run typecheck`, then runs `npm run runtime:acceptance -- --ci`.
+3. Before relying on the local WezTerm runtime after a merge, run:
+
+```powershell
+npm run runtime:acceptance -- --sync
+```
+
+The local acceptance command verifies that `C:\Users\22003\linear-pi-project-admin-agent-runtime` is a clean `master` checkout with the same `origin` remote as the source repo, fast-forwards it with `git pull --ff-only origin master`, refreshes dependencies, and runs the runtime reload, local protection, instruction boundary, and WezTerm launch tests inside the runtime checkout.
+
 ## Refresh While Running
 
 Use Pi's built-in `/reload` when local files are already updated and only the in-process extensions, skills, prompts, and themes need to reload.

@@ -69,6 +69,8 @@ const installerSelfTest = spawnSync('powershell.exe', [
   'Bypass',
   '-File',
   'scripts/install-wezterm-linear-pi-shortcut.ps1',
+  '-WezTermGui',
+  process.execPath,
   '-SkipRuntimeInit',
   '-SelfTestAllowedRuntimeDirty'
 ], { encoding: 'utf8' });
