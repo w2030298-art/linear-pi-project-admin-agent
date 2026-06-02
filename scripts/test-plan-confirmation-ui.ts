@@ -168,7 +168,7 @@ assert.equal(PLAN_CONFIRMATION_UI_TITLE, PLAN_CONFIRMATION_UI_TITLE_ZH);
   });
 
   let capturedPrompt = "";
-  const approved = await runPlanConfirmationFlow(
+  const approved: any = await runPlanConfirmationFlow(
     {
       hasUI: true,
       ui: {
