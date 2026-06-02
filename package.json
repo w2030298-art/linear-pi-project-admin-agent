@@ -34,6 +34,8 @@
     "test:runtime-reload-master": "tsx scripts/test-runtime-reload-master.ts",
     "test:runtime-local-protection": "node scripts/test-runtime-local-protection.mjs",
     "test:runtime-instruction-boundary": "node scripts/test-runtime-instruction-boundary.mjs",
+    "test:runtime-deployment-gates": "node scripts/test-runtime-deployment-gates.mjs",
+    "runtime:acceptance": "node scripts/runtime-acceptance.mjs",
     "test:unsupported-fields": "tsx scripts/test-write-plan-unsupported-fields.ts",
     "test:linear-apply-mode": "node scripts/test-linear-apply-mode.mjs",
     "test:linear-apply-reliability": "tsx scripts/test-linear-apply-reliability.ts",

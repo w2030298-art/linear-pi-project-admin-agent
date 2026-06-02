@@ -1,0 +1,32 @@
+name: Runtime CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  runtime:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate layout
+        run: npm run validate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Runtime acceptance
+        run: npm run runtime:acceptance -- --ci
