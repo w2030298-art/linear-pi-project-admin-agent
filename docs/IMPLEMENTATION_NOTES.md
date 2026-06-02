@@ -108,6 +108,18 @@ Dry-run also freezes Linear object resolver inputs. `linear_apply_write_plan(dry
 
 Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it. If UI approval is available, do not downgrade to `conversation_fallback`; re-run `pi_ask_user(flow=plan_confirmation)` when the artifact is missing, expired, consumed, mismatched, or stored under the wrong runtime path.
 
+### Known structural issue: planDigest lifecycle (WEN-300)
+
+The write protocol promises one final plan confirmation per write intent, but `planDigest` authority is split across three stages:
+
+1. **Builder** (`write-plan-builder.mjs`) computes a pre-dry-run digest and returns it in `workflow.approval.params.planDigest`.
+2. **Dry-run** (`freezePlanManifest`) mutates the same write plan file, adds manifest/resolution fields, and recomputes `planDigest`.
+3. **Apply** consumes an approval artifact strictly bound to one digest; mismatch returns `plan_digest_mismatch`.
+
+If the Agent confirms with the builder digest after dry-run, real apply blocks with `plan_digest_mismatch`. A second confirmation for the same `writePlanPath` / `idempotencyKey` returns `duplicate_confirmation` because the first (unusable) artifact still occupies the store key—even though apply never consumed it.
+
+This is a framework state-machine conflict, not a user or Agent wording mistake. See `docs/WEN-300-plan-digest-lifecycle.md` and `scripts/test-plan-digest-lifecycle-wen300.ts` for the WEN-299 incident chain and characterization tests. WEN-300 records the problem only; it does not prescribe a fix.
+
 安全机制：
 
 - create operation 会基于 `idempotencyKey + operation key` 生成稳定 UUID。
