@@ -18,7 +18,7 @@ import {
   assert.equal(decision.dryRun, true);
   assert.equal(decision.reason.confirmationChannel.channel, 'unavailable');
   assert.equal(decision.confirmationSelfCheck.canApproveAfterDryRun, false);
-  assert.match(decision.confirmationSelfCheck.nextAction, /pi_ask_user\(flow=write_confirmation\)/i);
+  assert.match(decision.confirmationSelfCheck.nextAction, /pi_ask_user\(flow=plan_confirmation\)/i);
 }
 
 {
@@ -97,7 +97,7 @@ import {
   });
   assert.equal(fallbackChannel.channel, 'conversation_fallback');
   assert.equal(fallbackChannel.label, 'current conversation explicit approval fallback');
-  assert.match(fallbackChannel.fallbackReason, /pi_ask_user\(flow=write_confirmation\)/i);
+  assert.match(fallbackChannel.fallbackReason, /pi_ask_user\(flow=plan_confirmation\)/i);
 
   const unavailableChannel = resolveConfirmationChannel({
     hostCapabilities: {
@@ -150,7 +150,7 @@ import {
       }
     }),
     confirmationText: [
-      'Fallback reason: Generic ask_user is unavailable; use pi_ask_user(flow=write_confirmation) for Linear write confirmation.',
+      'Fallback reason: Generic ask_user is unavailable; use pi_ask_user(flow=plan_confirmation) for Linear plan confirmation.',
       'User approval: user approved via prior fallback.',
       'Write plan: stale-plan.json',
       'Idempotency key: stale-key'

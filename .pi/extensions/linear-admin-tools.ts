@@ -17,17 +17,17 @@ export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string
   if (params.confirmationChannel === "conversation_fallback") {
     if (params.allowConversationFallback !== true) {
       throw new Error(
-        "interactive confirmation unavailable; real write not applied. pi_ask_user write_confirmation is unavailable and current-conversation fallback was not explicitly allowed."
+        "interactive confirmation unavailable; real write not applied. pi_ask_user plan_confirmation is unavailable and current-conversation fallback was not explicitly allowed."
       );
     }
     if (params.confirmedByUser !== true) {
       throw new Error(
-        "pi_ask_user write_confirmation is unavailable; request one explicit approval in the current conversation before real apply."
+        "pi_ask_user plan_confirmation is unavailable; request one explicit approval in the current conversation before real apply."
       );
     }
     if (!params.confirmationText?.trim()) {
       throw new Error(
-        "pi_ask_user write_confirmation is unavailable; current conversation fallback requires confirmationText with the user's explicit approval."
+        "pi_ask_user plan_confirmation is unavailable; current conversation fallback requires confirmationText with the user's explicit approval."
       );
     }
     return {
@@ -38,7 +38,7 @@ export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string
 
   if (params.confirmedByUser !== true) {
     throw new Error(
-      "linear_apply_write_plan cancelled: real writes require one Approve & Write approval from pi_ask_user(flow=write_confirmation) before apply."
+      "linear_apply_write_plan cancelled: real writes require one planning approval artifact from pi_ask_user(flow=plan_confirmation) before apply."
     );
   }
 
@@ -206,7 +206,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_apply_write_plan",
     label: "Apply Linear Write Plan",
-    description: "Compile a dry-run write plan automatically, or apply a real write plan after one Approve & Write approval artifact. Uses idempotency and readback.",
+    description: "Compile a dry-run write plan automatically, or apply a real write plan after one planning approval artifact. Uses idempotency and readback.",
     parameters: Type.Object({
       writePlanPath: Type.String(),
       confirmedByUser: Type.Boolean(),
@@ -218,13 +218,13 @@ export default function (pi: ExtensionAPI) {
       allowConversationFallback: Type.Optional(Type.Boolean({ default: false })),
       dryRun: Type.Optional(Type.Boolean({ default: true }))
     }),
-    promptSnippet: "linear_apply_write_plan: dry-run automatically; real apply consumes one Approve & Write approval artifact only.",
+    promptSnippet: "linear_apply_write_plan: dry-run automatically; real apply consumes one planning approval artifact only.",
     promptGuidelines: [
       "After generating a write plan, automatically run linear_plan_quality_review and linear_apply_write_plan with dryRun=true. Dry-run is validation only and is not user confirmation.",
-      "When dry-run succeeds, call pi_ask_user with flow=write_confirmation once to show Approve & Write / Cancel for the exact writePlanPath, idempotencyKey, and dry-run summaries.",
-      "After the user clicks Approve & Write, immediately call linear_apply_write_plan with dryRun=false and the approval artifact fields returned by pi_ask_user. Do not show a second confirmation UI and do not ask the user to type a confirmation phrase.",
-      "linear_apply_write_plan never pops its own confirmation UI; it only consumes the approval artifact produced by pi_ask_user(write_confirmation).",
-      "If pi_ask_user write_confirmation is unavailable and conversation fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",
+      "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation once to show Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, planDigest, and summaries.",
+      "After the user chooses Yes, immediately call linear_apply_write_plan with dryRun=false and the approval artifact fields returned by pi_ask_user. Do not show a second confirmation UI and do not ask the user to type a confirmation phrase.",
+      "linear_apply_write_plan never pops its own confirmation UI; it only consumes the approval artifact produced by pi_ask_user(plan_confirmation) or a legacy write_confirmation artifact.",
+      "If pi_ask_user plan_confirmation is unavailable and conversation fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",
       "Conversation fallback is allowed only when Pi UI is unavailable and the user explicitly allows it via allowConversationFallback=true with confirmationChannel=conversation_fallback.",
       "Never call linear_apply_write_plan with confirmedByUser=true unless the approval artifact or explicit fallback approval is present."
     ],

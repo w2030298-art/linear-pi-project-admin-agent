@@ -55,6 +55,7 @@ function approvalAuditRecord(result, source) {
     return {
       ok: true,
       source,
+      approvalKind: result.artifact.approvalKind || null,
       writePlanPath: result.artifact.writePlanPath,
       idempotencyKey: result.artifact.idempotencyKey,
       planDigest: result.artifact.planDigest || null,
@@ -70,6 +71,7 @@ function approvalAuditRecord(result, source) {
     message: result.message,
     writePlanPath: result.artifact?.writePlanPath || null,
     idempotencyKey: result.artifact?.idempotencyKey || null,
+    approvalKind: result.artifact?.approvalKind || null,
     planDigest: result.artifact?.planDigest || null,
     confirmationId: result.artifact?.confirmationId || null,
     expiresAt: result.artifact?.expiresAt || null,

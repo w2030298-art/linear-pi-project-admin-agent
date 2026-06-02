@@ -60,7 +60,7 @@ export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
       label: 'current conversation explicit approval fallback',
       canApplyAfterExplicitApproval: true,
       fallbackReason: piAskUserAvailable
-        ? 'Generic ask_user is unavailable; use pi_ask_user(flow=write_confirmation) for Linear write confirmation.'
+        ? 'Generic ask_user is unavailable; use pi_ask_user(flow=plan_confirmation) for Linear plan confirmation.'
         : 'Generic ask_user is unavailable in this host.',
       userPrompt:
         'Generic ask_user is unavailable; tell the user that one explicit approval in the current conversation will be used as the confirmation source.'
@@ -136,12 +136,12 @@ function buildConfirmationSelfCheck({ channel, hostCapabilities, dryRun }) {
     piAskUserWriteConfirmationAvailable: piAskUserAvailable,
     conversationFallbackAllowed: canUseConversationFallback,
     nextAction: canUseDirectAskUser
-      ? 'After dry-run, call pi_ask_user(flow=write_confirmation) and pass the returned approval artifact to real apply.'
+      ? 'After dry-run, call pi_ask_user(flow=plan_confirmation) and pass the returned approval artifact to real apply.'
       : piAskUserAvailable
-        ? 'After dry-run, call pi_ask_user(flow=write_confirmation); dry-run has not proven the approval artifact is persisted or visible to real apply.'
+        ? 'After dry-run, call pi_ask_user(flow=plan_confirmation); dry-run has not proven the approval artifact is persisted or visible to real apply.'
         : canUseConversationFallback
           ? 'Pi UI approval is unavailable; ask for explicit permission before using conversation_fallback.'
-          : 'Real apply is blocked until pi_ask_user(flow=write_confirmation) is available or the user explicitly allows conversation_fallback.'
+          : 'Real apply is blocked until pi_ask_user(flow=plan_confirmation) is available or the user explicitly allows conversation_fallback.'
   };
 }
 

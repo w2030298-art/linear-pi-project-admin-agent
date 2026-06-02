@@ -78,18 +78,18 @@ npm run bridge:dev
 
 ## Linear Write Confirmation
 
-Single `Approve & Write` flow:
+Single planning confirmation flow:
 
 1. Automatically run `linear_plan_quality_review` and `linear_apply_write_plan(dryRun=true)` after generating a write plan. Dry-run is not user confirmation.
-2. Show one approval UI: `pi_ask_user(flow=write_confirmation)` with exact `writePlanPath`, `idempotencyKey`, summaries, and optional `planDigest`.
-3. On `Approve & Write`, immediately call `linear_apply_write_plan(dryRun=false, ...)` with the returned approval artifact. Apply does not pop a second UI.
+2. Show one planning UI: `pi_ask_user(flow=plan_confirmation)` with `Yes` / `No` / `调整意见` for the exact `writePlanPath`, `idempotencyKey`, summaries, and `planDigest`.
+3. On `Yes`, immediately call `linear_apply_write_plan(dryRun=false, ...)` with the returned approval artifact. On `No`, stop without mutation. On `调整意见`, rewrite the plan, rerun review/dry-run, and ask again. Apply does not pop a second UI.
 4. `linear-write-guard` only blocks real apply when the artifact is missing, expired, reused, or mismatched.
 
-- Dry-run output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. If it says `channel=unavailable` but `piAskUserWriteConfirmationAvailable=true`, continue by calling `pi_ask_user(flow=write_confirmation)`; the dry-run has not proven artifact persistence yet.
+- Dry-run output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. If it says `channel=unavailable` but `piAskUserWriteConfirmationAvailable=true`, continue by calling `pi_ask_user(flow=plan_confirmation)`; the dry-run has not proven artifact persistence yet.
 - Approval output includes `artifactStorage` and `artifactBinding`. Pass the returned `confirmationId`, `confirmationText`, `planDigest`, `writePlanPath`, and `idempotencyKey` back to real apply unchanged.
-- If `pi_ask_user write_confirmation` returns `interactive_confirmation_unavailable` or `cancelled`, real apply stays blocked unless the user explicitly allows conversation fallback.
+- If `pi_ask_user plan_confirmation` returns `interactive_confirmation_unavailable`, `cancelled`, or `revision_requested`, real apply stays blocked unless the user explicitly allows conversation fallback.
 - Approval artifacts are persisted outside the repo by default at `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, or can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH`. This makes the artifact visible across Pi tool calls, extension reloads, and runtime/source checkout path differences.
-- Each artifact is bound to `writePlanPath`, `idempotencyKey`, optional `planDigest`, `confirmationId`, and exact `confirmationText`. Real apply consumes it once; reused, expired, mismatched, missing, or unreadable artifacts are blocked with a diagnostic error that names the reason, store path when relevant, and next step.
+- Each artifact is bound to `writePlanPath`, `idempotencyKey`, `planDigest`, `confirmationId`, exact `confirmationText`, and `approvalKind`. Real apply consumes it once; reused, expired, mismatched, missing, or unreadable artifacts are blocked with a diagnostic error that names the reason, store path when relevant, and next step.
 - Do not downgrade an available `pi_ask_user` approval to `conversation_fallback`. Use fallback only when UI approval is unavailable or cancelled, the user explicitly allows fallback, and the apply call records `confirmationChannel=conversation_fallback`, `allowConversationFallback=true`, and the explicit approval text. Fallback audit text must be one clean record; do not paste a previous formatted fallback record back into `confirmationText`.
 - Run `npm run test:write-confirmation` after changing this flow.
 
@@ -100,7 +100,7 @@ Use `linear_prepare_low_risk_write` or `node scripts/low-risk-write-plan.mjs --i
 - `project_update`: one `projectUpdate.create` for an already identified Project.
 - `issue_create`: one `issue.create` under an already identified Project and verified existing Project Milestone.
 
-The wrapper only generates a standard write plan, idempotency key, dry-run summary, and ordered next tool calls. It never performs Linear mutations and it never bypasses `confirmed-only`. After `write_plan_ready`, run the returned steps in order: `linear_plan_quality_review`, `linear_apply_write_plan(dryRun=true)`, `pi_ask_user(flow=write_confirmation)`, then `linear_apply_write_plan(dryRun=false)` with the approval artifact.
+The wrapper only generates a standard write plan, idempotency key, plan digest, dry-run summary, and ordered next tool calls. It never performs Linear mutations and it never bypasses `confirmed-only`. After `write_plan_ready`, run the returned steps in order: `linear_plan_quality_review`, `linear_apply_write_plan(dryRun=true)`, `pi_ask_user(flow=plan_confirmation)`, then `linear_apply_write_plan(dryRun=false)` with the approval artifact.
 
 Fallback to full Fact Pack / full planning when any of these are missing or out of scope:
 

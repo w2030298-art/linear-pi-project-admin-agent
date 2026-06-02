@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { prepareWriteConfirmation } from '../.pi/extensions/linear-admin-tools.ts';
 import { linearWriteGuardDecision } from '../.pi/extensions/linear-write-guard.ts';
-import { runWriteConfirmationFlow } from '../.pi/extensions/pi-ask-user.ts';
+import { runPlanConfirmationFlow, runWriteConfirmationFlow } from '../.pi/extensions/pi-ask-user.ts';
 import {
   consumeWriteConfirmationArtifact,
   registerWriteConfirmationArtifact,
@@ -149,6 +149,7 @@ resetWriteConfirmationArtifactsForTests();
   assert.equal(approved.status, 'approved');
   assert.equal(approved.approved, true);
   assert.equal(approved.approvalArtifact?.confirmationChannel, 'ask_user');
+  assert.equal(approved.approvalArtifact?.approvalKind, 'write_confirmation');
   assert.equal(approved.approvalArtifact?.planDigest, 'sha256:abc');
   assert.equal(approved.approvalArtifact?.storage?.persisted, true);
   assert.match(approved.approvalArtifact?.storage?.path || '', /write-confirmation-artifacts/i);
@@ -188,6 +189,146 @@ resetWriteConfirmationArtifactsForTests();
 
 {
   resetWriteConfirmationArtifactsForTests();
+  const selected: string[] = [];
+  const approved = await runPlanConfirmationFlow(
+    {
+      hasUI: true,
+      ui: {
+        async input() { return undefined; },
+        async select(title: string, options: string[]) {
+          selected.push(title, ...options);
+          return 'Yes';
+        }
+      }
+    },
+    {
+      writePlanPath: 'state/write-plans/plan-confirm.json',
+      idempotencyKey: 'plan-confirm-key',
+      targetProjectSummary: 'Demo Project (proj-1)',
+      operationsSummary: '1 issue.update',
+      risksSummary: 'No destructive mutation',
+      nonChangesSummary: 'No repo-map change',
+      planDigest: 'sha256:plan-confirm'
+    }
+  );
+  assert.equal(approved.ok, true);
+  assert.equal(approved.status, 'approved');
+  assert.equal(approved.approved, true);
+  assert.equal(approved.approvalArtifact?.approvalKind, 'plan_confirmation');
+  assert.equal(approved.approvalArtifact?.planDigest, 'sha256:plan-confirm');
+  assert.match(approved.confirmationText, /User approved exact Linear write plan during planning via Pi UI/i);
+  assert.deepEqual(approved.artifactBinding, {
+    writePlanPath: 'state/write-plans/plan-confirm.json',
+    idempotencyKey: 'plan-confirm-key',
+    planDigest: 'sha256:plan-confirm',
+    confirmationId: approved.confirmationId
+  });
+  assert.ok(selected.includes('Yes'));
+  assert.ok(selected.includes('No'));
+  assert.ok(selected.includes('调整意见'));
+
+  const guard = linearWriteGuardDecision({
+    dryRun: false,
+    writePlanPath: 'state/write-plans/plan-confirm.json',
+    idempotencyKey: 'plan-confirm-key',
+    planDigest: 'sha256:plan-confirm',
+    confirmationId: approved.confirmationId,
+    confirmedByUser: true,
+    confirmationChannel: 'ask_user',
+    confirmationText: approved.confirmationText
+  });
+  assert.deepEqual(guard, { action: 'allow' });
+}
+
+{
+  resetWriteConfirmationArtifactsForTests();
+  const cancelled = await runPlanConfirmationFlow(
+    {
+      hasUI: true,
+      ui: {
+        async input() { return undefined; },
+        async select() { return 'No'; }
+      }
+    },
+    {
+      writePlanPath: 'state/write-plans/plan-no.json',
+      idempotencyKey: 'plan-no-key'
+    }
+  );
+  assert.equal(cancelled.ok, false);
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.approved, false);
+
+  const blocked = linearWriteGuardDecision({
+    dryRun: false,
+    writePlanPath: 'state/write-plans/plan-no.json',
+    idempotencyKey: 'plan-no-key',
+    confirmedByUser: true,
+    confirmationChannel: 'ask_user',
+    confirmationText: 'stale approval'
+  });
+  assert.equal(blocked.action, 'block');
+  assert.match(blocked.message, /flow=plan_confirmation/i);
+}
+
+{
+  resetWriteConfirmationArtifactsForTests();
+  const revision = await runPlanConfirmationFlow(
+    {
+      hasUI: true,
+      ui: {
+        async input(title: string) {
+          assert.match(title, /调整意见|Adjustment/i);
+          return 'Split issue creation into two operations.';
+        },
+        async select() { return '调整意见'; }
+      }
+    },
+    {
+      writePlanPath: 'state/write-plans/plan-revision-a.json',
+      idempotencyKey: 'plan-revision-key-a'
+    }
+  );
+  assert.equal(revision.ok, false);
+  assert.equal(revision.status, 'revision_requested');
+  assert.equal(revision.approved, false);
+  assert.equal(revision.feedback, 'Split issue creation into two operations.');
+  assert.match(revision.nextActions?.[0] || '', /rewrite/i);
+
+  const approvedAfterRevision = await runPlanConfirmationFlow(
+    {
+      hasUI: true,
+      ui: {
+        async input() { return undefined; },
+        async select() { return 'Yes'; }
+      }
+    },
+    {
+      writePlanPath: 'state/write-plans/plan-revision-b.json',
+      idempotencyKey: 'plan-revision-key-b',
+      planDigest: 'sha256:revision-b'
+    }
+  );
+  assert.equal(approvedAfterRevision.ok, true);
+  assert.equal(approvedAfterRevision.status, 'approved');
+  assert.equal(approvedAfterRevision.approvalArtifact?.approvalKind, 'plan_confirmation');
+}
+
+{
+  const unavailable = await runPlanConfirmationFlow(
+    { hasUI: false, ui: { async input() { return undefined; } } },
+    {
+      writePlanPath: 'state/write-plans/plan-no-ui.json',
+      idempotencyKey: 'plan-no-ui-key'
+    }
+  );
+  assert.equal(unavailable.ok, false);
+  assert.equal(unavailable.status, 'interactive_confirmation_unavailable');
+  assert.match(unavailable.evidenceGaps?.[0] || '', /plan_confirmation/i);
+}
+
+{
+  resetWriteConfirmationArtifactsForTests();
   const cancelled = await runWriteConfirmationFlow(
     {
       hasUI: true,
@@ -217,7 +358,7 @@ resetWriteConfirmationArtifactsForTests();
         confirmationText: 'stale approval'
       }
     ),
-    /No active pi_ask_user write_confirmation approval/i
+    /No active pi_ask_user approval/i
   );
 }
 
@@ -403,7 +544,7 @@ resetWriteConfirmationArtifactsForTests();
     { ALLOW_LINEAR_WRITES: 'true' }
   );
   assert.equal(decision.action, 'block');
-  assert.match(decision.message, /Approve & Write/i);
+  assert.match(decision.message, /plan_confirmation/i);
 }
 
 {
@@ -486,7 +627,7 @@ const askUserTool = fs.readFileSync('.pi/extensions/pi-ask-user.ts', 'utf8');
 const guardSource = fs.readFileSync('.pi/extensions/linear-write-guard.ts', 'utf8');
 assert.match(adminTools, /dry-run automatically/i);
 assert.match(adminTools, /never pops its own confirmation UI/i);
-assert.match(adminTools, /Approve & Write/i);
+assert.match(adminTools, /plan_confirmation/i);
 assert.doesNotMatch(adminTools, /genericAskUser|ctx\.ui\.confirm/i);
 assert.match(askUserTool, /WRITE_CONFIRMATION_UI_TITLE/);
 assert.match(guardSource, /validateWriteConfirmationArtifact/);

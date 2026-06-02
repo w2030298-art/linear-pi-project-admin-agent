@@ -15,14 +15,20 @@ function tempJson(name: string, value: unknown) {
   return { dir, file };
 }
 
-function writePlan(writePlanPath: string, idempotencyKey = "approval-key", planDigest = "sha256:approval") {
+function writePlan(
+  writePlanPath: string,
+  idempotencyKey = "approval-key",
+  planDigest = "sha256:approval",
+  confirmationId = "approval-confirmation",
+  confirmationText = "User approved exact dry-run write plan via Pi UI."
+) {
   fs.writeFileSync(writePlanPath, JSON.stringify({
     dryRun: false,
     idempotencyKey,
     confirmedByUser: true,
     confirmationChannel: "ask_user",
-    confirmationText: "User approved exact dry-run write plan via Pi UI.",
-    confirmationId: "approval-confirmation",
+    confirmationText,
+    confirmationId,
     planDigest,
     readbackRequired: true,
     auditLogRequired: true,
@@ -130,6 +136,39 @@ async function applyWithAuditPath(planPath: string, options: ReturnType<typeof b
   assert.match(audit, /signatureValid/);
   assert.match(audit, /skip_completed/);
   assert.doesNotMatch(audit, /test-private-key/);
+}
+
+{
+  const { dir, file: planPath } = tempJson("plan.json", {});
+  const storePath = path.join(dir, "artifacts.json");
+  const auditPath = path.join(dir, "audit.jsonl");
+  writePlan(
+    planPath,
+    "planning-approval-key",
+    "sha256:planning-approval",
+    "planning-approval-confirmation",
+    "User approved exact Linear write plan during planning via Pi UI."
+  );
+  process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH = storePath;
+  process.env.LINEAR_APPROVAL_PRIVATE_KEY = "test-private-key";
+  resetWriteConfirmationArtifactsForTests();
+  registerWriteConfirmationArtifact({
+    approvalKind: "plan_confirmation",
+    writePlanPath: planPath,
+    idempotencyKey: "planning-approval-key",
+    planDigest: "sha256:planning-approval",
+    confirmationId: "planning-approval-confirmation",
+    confirmationText: "User approved exact Linear write plan during planning via Pi UI."
+  });
+
+  const state = { mutated: 0 };
+  await applyWithAuditPath(planPath, baseOptions(state, storePath, auditPath), auditPath);
+  assert.equal(state.mutated, 1, "planning approval artifact should authorize one real apply without write-time UI");
+
+  const audit = fs.readFileSync(auditPath, "utf8");
+  assert.match(audit, /linear_apply_artifact_validation/);
+  assert.match(audit, /plan_confirmation/);
+  assert.match(audit, /planning-approval-confirmation/);
 }
 
 {

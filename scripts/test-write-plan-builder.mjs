@@ -53,6 +53,7 @@ function assertReviewPass(writePlan, message) {
   assert.equal(result.writePlan.planDigest, result.planDigest);
   assert.equal(result.writePlan.operations[0].key, 'project-update-1');
   assert.equal(result.summary.operationCount, 1);
+  assert.equal(result.nextToolCalls.approval.params.flow, 'plan_confirmation');
   assert.equal(result.nextToolCalls.approval.params.planDigest, result.planDigest);
   assertReviewPass(result.writePlan, 'project update builder output must pass review');
 }
