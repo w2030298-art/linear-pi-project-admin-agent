@@ -7,6 +7,7 @@ import { Check, Errors } from 'typebox/value';
 import { arg, ensureDir, json, now } from './utils.mjs';
 import { PROJECT_DESCRIPTION_MAX_LENGTH, projectDescriptionLimit } from './project-field-normalizer.mjs';
 import { resolveWritePlanObjects } from './linear-object-resolver.mjs';
+import { manifestIsIncomplete } from './linear-workspace-manifest.mjs';
 
 const DEFAULT_SCHEMA_PATH = 'schemas/project-plan.schema.json';
 
@@ -344,6 +345,13 @@ export function reviewWritePlan(plan, options = {}) {
   findings.push(...reviewUnsupportedIssueFields(operations));
 
   if (options.workspaceManifest || options.workspaceManifestPath) {
+    if (manifestIsIncomplete(options.workspaceManifest)) {
+      findings.push(makeFinding(
+        'workspace_manifest_incomplete',
+        'Workspace object manifest is incomplete or truncated; rerun paginated workspace manifest sync before real apply.',
+        { path: '$.workspaceManifest' }
+      ));
+    }
     const resolved = resolveWritePlanObjects(plan, {
       manifest: options.workspaceManifest || null,
       manifestPath: options.workspaceManifestPath || null

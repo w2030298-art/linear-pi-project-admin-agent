@@ -304,7 +304,7 @@ export async function compileOperations(linear, plan, options) {
   const refs = {};
   const compiled = [];
   const planIdempotencyKey = plan.idempotencyKey || `dry-run-${hash(JSON.stringify(plan)).slice(0, 12)}`;
-  const workspaceManifest = await options.cachedWorkspaceObjectManifest(linear, plan);
+  const workspaceManifest = options.workspaceManifestInfo || await options.cachedWorkspaceObjectManifest(linear, plan);
 
   for (const [index, rawOp] of plan.operations.entries()) {
     const op = { ...rawOp, planIdempotencyKey };
@@ -334,5 +334,6 @@ export async function compileOperations(linear, plan, options) {
       evidenceRef: workspaceManifest.manifestPath
     });
   }
+  /** @type {any} */ (compiled).workspaceManifestInfo = workspaceManifest;
   return compiled;
 }

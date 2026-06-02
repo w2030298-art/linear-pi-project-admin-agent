@@ -19,6 +19,7 @@ import {
 } from './progress.mjs';
 import { isCreate, normalizeType, parseWritePlan, SUPPORTED_WRITE_MODES, typeToKind } from './schema.mjs';
 import { consumeWriteConfirmationArtifact } from '../write-confirmation-artifact.ts';
+import { freezePlanManifest, validateApplyManifest } from '../linear-workspace-manifest.mjs';
 
 function argValue(argv, name, fallback = '') {
   const index = argv.indexOf(name);
@@ -116,8 +117,58 @@ export async function applyPlanCommand(planPath, options) {
     throw new Error('plan/input hash changed; run a new dry-run and approval before applying this write plan.');
   }
 
+  const linear = options.client();
+  const compiled = await compileOperations(linear, effectivePlan, {
+    cachedWorkspaceObjectManifest: options.cachedWorkspaceObjectManifest,
+    exactIssueLookup
+  });
+  const workspaceManifestInfo = /** @type {any} */ (compiled).workspaceManifestInfo || { manifest: null, manifestPath: null };
+
+  if (dryRun) {
+    const frozenPlan = freezePlanManifest(planPath, effectivePlan, workspaceManifestInfo.manifest, workspaceManifestInfo.manifestPath, compiled);
+    appendAudit({
+      type: 'linear_apply_manifest_compile',
+      dryRun: true,
+      writePlanPath: planPath,
+      idempotencyKey: effectivePlan.idempotencyKey || null,
+      manifestHash: frozenPlan.manifestHash || null,
+      planDigest: frozenPlan.planDigest || null,
+      manifestPath: frozenPlan.manifestPath || workspaceManifestInfo.manifestPath || null,
+      resolutionCount: frozenPlan.resolutions?.length || 0
+    });
+    json({
+      ok: true,
+      dryRun: true,
+      mode,
+      reason: applyMode.reason,
+      confirmationChannel: applyMode.reason.confirmationChannel,
+      confirmationSelfCheck: applyMode.confirmationSelfCheck,
+      manifestHash: frozenPlan.manifestHash || null,
+      manifestPath: frozenPlan.manifestPath || workspaceManifestInfo.manifestPath || null,
+      resolutions: frozenPlan.resolutions || [],
+      operations: compiled
+    });
+    return;
+  }
+
+  const currentResolutions = compiled.flatMap(operation => operation.resolutions || []);
+  const manifestValidation = validateApplyManifest(effectivePlan, workspaceManifestInfo.manifest, currentResolutions);
+  appendAudit({
+    type: 'linear_apply_manifest_validation',
+    ok: manifestValidation.ok,
+    writePlanPath: planPath,
+    idempotencyKey: effectivePlan.idempotencyKey || null,
+    manifestPath: workspaceManifestInfo.manifestPath || null,
+    approvedManifestHash: manifestValidation.approvedManifestHash || null,
+    currentManifestHash: manifestValidation.currentManifestHash || null,
+    resolutionDiff: manifestValidation.resolutionDiff || []
+  });
+  if (!manifestValidation.ok) {
+    throw new Error(manifestValidation.message);
+  }
+
   let consumedApproval = null;
-  if (!dryRun && !existingProgress) {
+  if (!existingProgress) {
     consumedApproval = withApprovalSigningKey(env, () => withApprovalStorePath(approvalArtifactPath, () => consumeWriteConfirmationArtifact({
       writePlanPath: planPath,
       idempotencyKey: effectivePlan.idempotencyKey,
@@ -129,7 +180,7 @@ export async function applyPlanCommand(planPath, options) {
     if (!consumedApproval.ok) {
       throw new Error(`approval artifact blocked: ${consumedApproval.message}`);
     }
-  } else if (!dryRun) {
+  } else {
     appendAudit({
       type: 'linear_apply_artifact_validation',
       ok: true,
@@ -141,25 +192,6 @@ export async function applyPlanCommand(planPath, options) {
       signatureValid: true,
       replayAction: 'reuse_checkpoint'
     });
-  }
-
-  const linear = options.client();
-  const compiled = await compileOperations(linear, effectivePlan, {
-    cachedWorkspaceObjectManifest: options.cachedWorkspaceObjectManifest,
-    exactIssueLookup
-  });
-
-  if (dryRun) {
-    json({
-      ok: true,
-      dryRun: true,
-      mode,
-      reason: applyMode.reason,
-      confirmationChannel: applyMode.reason.confirmationChannel,
-      confirmationSelfCheck: applyMode.confirmationSelfCheck,
-      operations: compiled
-    });
-    return;
   }
 
   const refs = {};
@@ -174,7 +206,7 @@ export async function applyPlanCommand(planPath, options) {
   for (const [key, record] of Object.entries(progress.operations || {})) {
     if (record?.status === 'success' && record.ref?.id) refs[key] = record.ref;
   }
-  const workspaceManifest = await options.cachedWorkspaceObjectManifest(linear, effectivePlan);
+  const workspaceManifest = workspaceManifestInfo;
   const confirmation = {
     channel: effectivePlan.confirmationChannel || applyMode.reason.confirmationChannel.channel,
     fallbackReason: effectivePlan.confirmationFallbackReason || null,
