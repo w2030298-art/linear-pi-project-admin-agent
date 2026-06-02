@@ -27,7 +27,7 @@ app.post("/hooks/linear", express.raw({ type: "application/json" }), async (req,
 
   // Respond quickly to Linear. Dispatch is lightweight by default and queues a prompt file.
   try {
-    const result = await dispatchLinearEvent(payload);
+    const result = await dispatchLinearEvent(payload, { deliveryId });
     return res.status(200).json({ ok: true, result });
   } catch (err: any) {
     appendEvent({ deliveryId, dispatchError: err.message });
