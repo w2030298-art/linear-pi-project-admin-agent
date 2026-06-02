@@ -168,7 +168,7 @@ The runtime checkout may contain machine-local files that are not owned by `mast
 - `state/pi-queue/*.md` and `state/pi-queue/*.log`.
 - `state/repo-map.draft.yaml`, `state/repo-map.local.yaml`, and `state/repo-map-audit.jsonl`.
 - `state/workspace.manifest.draft.json` and other root `state/*.draft.json` / `state/*.draft.yaml` drafts.
-- `state/write-plans/`, `state/audit-reports/`, and local `state/sessions/*` files except `.gitkeep`.
+- `state/write-plans/`, `state/audit-reports/`, `state/linear-apply-progress/`, and local `state/sessions/*` files except `.gitkeep`.
 - Root `nul` / `NUL` files accidentally created by Windows command redirection mistakes.
 
 For the installed WezTerm runtime, the launcher exports `REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml` before starting Pi. This keeps durable machine-local repo mappings outside the runtime checkout, so startup sync and `/reload-master` do not see them as local Git changes.

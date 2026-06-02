@@ -35,19 +35,24 @@ import registerRuntimeMasterReload, {
 {
   assert.equal(isAllowedRuntimeDirtyStatus(' M state/fact-packs/evidence/fact-1/local-repo.json'), true);
   assert.equal(isAllowedRuntimeDirtyStatus(' M .pi/sessions/session.jsonl'), true);
+  assert.equal(isAllowedRuntimeDirtyStatus('?? state/linear-apply-progress/'), true);
+  assert.equal(isAllowedRuntimeDirtyStatus(' M state/linear-apply-progress/WEN-300.json'), true);
   assert.equal(isAllowedRuntimeDirtyStatus('?? nul'), false);
   assert.equal(isAllowedRuntimeDirtyStatus(' M scripts/linear-cli.mjs'), false);
 }
 
 {
   assert.ok(RUNTIME_LOCAL_EXCLUDE_ENTRIES.includes('nul'));
+  assert.ok(RUNTIME_LOCAL_EXCLUDE_ENTRIES.includes('state/linear-apply-progress/'));
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-local-exclude-'));
   fs.mkdirSync(path.join(tempDir, '.git', 'info'), { recursive: true });
   ensureRuntimeLocalExclude(tempDir);
   ensureRuntimeLocalExclude(tempDir);
   const excludeText = fs.readFileSync(path.join(tempDir, '.git', 'info', 'exclude'), 'utf8');
   assert.match(excludeText, /^nul$/m);
+  assert.match(excludeText, /^state\/linear-apply-progress\/$/m);
   assert.equal((excludeText.match(/^nul$/gm) || []).length, 1);
+  assert.equal((excludeText.match(/^state\/linear-apply-progress\/$/gm) || []).length, 1);
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
 

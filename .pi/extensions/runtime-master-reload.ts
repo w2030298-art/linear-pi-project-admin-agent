@@ -33,7 +33,8 @@ const NPM_TIMEOUT_MS = 300000;
 const STABLE_BRANCH = "master";
 const DEPENDENCY_STAMP = ".linear-pi-runtime-deps.stamp";
 export const RUNTIME_LOCAL_EXCLUDE_ENTRIES = [
-  "nul"
+  "nul",
+  "state/linear-apply-progress/"
 ];
 const ALLOWED_RUNTIME_DIRTY_PATTERNS = [
   /^state\/portfolio-review\/[^/]+\.json$/,
@@ -41,6 +42,7 @@ const ALLOWED_RUNTIME_DIRTY_PATTERNS = [
   /^state\/fact-packs\/evidence\/.+$/,
   /^state\/write-plans\/.+$/,
   /^state\/audit-reports\/.+$/,
+  /^state\/linear-apply-progress(?:\/.*)?$/,
   /^state\/[^/]+\.jsonl$/,
   /^state\/repo-map\.draft\.yaml$/,
   /^state\/repo-map-audit\.jsonl$/,
