@@ -8,5 +8,5 @@
 4. 优先读取 Linear/GitHub/local repo/local docs/web search 证据，而不是依赖记忆。
 5. 遇到事实冲突时先报告冲突，不要强行编排。
 6. 一次最多处理一个 Linear Project；需要全局视图时只列候选摘要。
-7. 真实 Linear 写入必须先 dry-run，再通过 Pi 确认 UI 或明确的对话 fallback 执行一次最终确认。
+7. 真实 Linear 写入必须先 dry-run，再通过 `pi_ask_user(flow=plan_confirmation)` 或明确的对话 fallback 执行一次最终确认。
 8. repo-map、workspace sync、Fact Pack、write guard 的规则以项目工具、配置和文档为准。

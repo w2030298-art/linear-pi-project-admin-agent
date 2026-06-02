@@ -211,7 +211,7 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
       approval: {
         name: 'pi_ask_user',
         params: {
-          flow: 'write_confirmation',
+          flow: 'plan_confirmation',
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
           planDigest: writePlan.planDigest,

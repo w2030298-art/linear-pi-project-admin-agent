@@ -43,7 +43,7 @@ export function linearWriteGuardDecision(
     return {
       action: "block" as const,
       message:
-        "Blocked linear_apply_write_plan: real writes require one Approve & Write approval from pi_ask_user(flow=write_confirmation) before apply."
+        "Blocked linear_apply_write_plan: real writes require one planning approval artifact from pi_ask_user(flow=plan_confirmation) before apply."
     };
   }
 

@@ -5,11 +5,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const WRITE_CONFIRMATION_UI_TITLE = "Approve & Write";
+export const PLAN_CONFIRMATION_UI_TITLE = "Confirm Linear Write Plan";
 export const DEFAULT_APPROVAL_ARTIFACT_TTL_MS = 30 * 60 * 1000;
+export type ApprovalKind = "write_confirmation" | "plan_confirmation";
 
 export interface ApprovalArtifact {
   approved: true;
   confirmationChannel: "ask_user";
+  approvalKind: ApprovalKind;
   writePlanPath: string;
   idempotencyKey: string;
   planDigest?: string;
@@ -23,7 +26,7 @@ export interface ApprovalArtifact {
 
 export interface ApprovalArtifactSignature {
   algorithm: "hmac-sha256";
-  signedFields: Array<"writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">;
+  signedFields: Array<"approvalKind" | "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">;
   value: string;
 }
 
@@ -62,7 +65,7 @@ const DEFAULT_STORE_FILE = "write-confirmation-artifacts.json";
 const SOURCE_PATH = fileURLToPath(import.meta.url);
 const LOCK_TIMEOUT_MS = 5_000;
 const STALE_LOCK_MS = 30_000;
-const SIGNED_FIELDS: ApprovalArtifactSignature["signedFields"] = ["writePlanPath", "idempotencyKey", "planDigest", "expiresAt", "confirmationId"];
+const SIGNED_FIELDS: ApprovalArtifactSignature["signedFields"] = ["approvalKind", "writePlanPath", "idempotencyKey", "planDigest", "expiresAt", "confirmationId"];
 
 function artifactKey(writePlanPath: string, idempotencyKey: string) {
   return `${writePlanPath.trim()}::${idempotencyKey.trim()}`;
@@ -72,8 +75,9 @@ function signingKey() {
   return clean(process.env[SIGNING_KEY_ENV]);
 }
 
-function signaturePayload(artifact: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">) {
+function signaturePayload(artifact: Pick<ApprovalArtifact, "approvalKind" | "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">) {
   return JSON.stringify({
+    approvalKind: artifact.approvalKind,
     writePlanPath: artifact.writePlanPath,
     idempotencyKey: artifact.idempotencyKey,
     planDigest: artifact.planDigest || "",
@@ -82,7 +86,7 @@ function signaturePayload(artifact: Pick<ApprovalArtifact, "writePlanPath" | "id
   });
 }
 
-function signArtifact(artifact: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">): ApprovalArtifactSignature {
+function signArtifact(artifact: Pick<ApprovalArtifact, "approvalKind" | "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">): ApprovalArtifactSignature {
   const key = signingKey();
   if (!key) {
     throw new Error(`${SIGNING_KEY_ENV} is required to create pi_ask_user write_confirmation approval artifacts.`);
@@ -98,6 +102,7 @@ function artifactAuditFields(artifact: ApprovalArtifact, signatureValid?: boolea
   return {
     writePlanPath: artifact.writePlanPath,
     idempotencyKey: artifact.idempotencyKey,
+    approvalKind: artifact.approvalKind,
     planDigest: artifact.planDigest,
     confirmationId: artifact.confirmationId,
     expiresAt: artifact.expiresAt,
@@ -139,7 +144,7 @@ function verifyArtifactSignature(artifact: ApprovalArtifact): ArtifactValidation
     return {
       ok: false,
       reason: "signature_mismatch",
-      message: "signature_mismatch: Approval artifact signature does not match writePlanPath, idempotencyKey, planDigest, expiresAt, and confirmationId.",
+      message: "signature_mismatch: Approval artifact signature does not match approvalKind, writePlanPath, idempotencyKey, planDigest, expiresAt, and confirmationId.",
       artifact: artifactAuditFields(artifact, false)
     };
   }
@@ -337,6 +342,29 @@ export function buildWriteConfirmationText(input: {
   return lines.join("\n");
 }
 
+export function buildPlanConfirmationText(input: {
+  writePlanPath: string;
+  idempotencyKey: string;
+  targetProjectSummary?: string;
+  operationsSummary?: string;
+  risksSummary?: string;
+  nonChangesSummary?: string;
+  planDigest?: string;
+}) {
+  const lines = [
+    "Confirmation channel: pi_ask_user plan_confirmation Yes/No/Adjustment UI.",
+    "User approval: User approved exact Linear write plan during planning via Pi UI.",
+    `Write plan: ${input.writePlanPath}`,
+    `Idempotency key: ${input.idempotencyKey}`
+  ];
+  if (input.targetProjectSummary) lines.push(`Target project: ${input.targetProjectSummary}`);
+  if (input.operationsSummary) lines.push(`Operations: ${input.operationsSummary}`);
+  if (input.risksSummary) lines.push(`Risks: ${input.risksSummary}`);
+  if (input.nonChangesSummary) lines.push(`Non-changes: ${input.nonChangesSummary}`);
+  if (input.planDigest) lines.push(`Plan digest: ${input.planDigest}`);
+  return lines.join("\n");
+}
+
 export function buildWriteConfirmationMessage(input: {
   writePlanPath: string;
   idempotencyKey: string;
@@ -360,10 +388,34 @@ export function buildWriteConfirmationMessage(input: {
   return sections.join("\n\n");
 }
 
+export function buildPlanConfirmationMessage(input: {
+  writePlanPath: string;
+  idempotencyKey: string;
+  targetProjectSummary?: string;
+  operationsSummary?: string;
+  risksSummary?: string;
+  nonChangesSummary?: string;
+  planDigest?: string;
+}) {
+  const sections = [
+    "Review the exact Linear write plan. This planning approval is the only user confirmation source for the real apply.",
+    `Write plan: ${input.writePlanPath}`,
+    `Idempotency key: ${input.idempotencyKey}`
+  ];
+  if (input.targetProjectSummary) sections.push(`Target project: ${input.targetProjectSummary}`);
+  if (input.operationsSummary) sections.push(`Operations:\n${input.operationsSummary}`);
+  if (input.risksSummary) sections.push(`Risks:\n${input.risksSummary}`);
+  if (input.nonChangesSummary) sections.push(`Non-changes:\n${input.nonChangesSummary}`);
+  if (input.planDigest) sections.push(`Plan digest: ${input.planDigest}`);
+  sections.push("Choose Yes to approve this exact plan, No to cancel without Linear mutation, or 调整意见 to provide revision feedback.");
+  return sections.join("\n\n");
+}
+
 export function toApprovalArtifactResponse(artifact: ApprovalArtifact) {
   return {
     approved: artifact.approved,
     confirmationChannel: artifact.confirmationChannel,
+    approvalKind: artifact.approvalKind,
     writePlanPath: artifact.writePlanPath,
     idempotencyKey: artifact.idempotencyKey,
     planDigest: artifact.planDigest,
@@ -381,6 +433,7 @@ export function toApprovalArtifactResponse(artifact: ApprovalArtifact) {
 export function registerWriteConfirmationArtifact(input: {
   writePlanPath: string;
   idempotencyKey: string;
+  approvalKind?: ApprovalKind;
   planDigest?: string;
   confirmationText: string;
   confirmationId?: string;
@@ -406,6 +459,7 @@ export function registerWriteConfirmationArtifact(input: {
     const artifact: ApprovalArtifact = {
       approved: true,
       confirmationChannel: "ask_user",
+      approvalKind: input.approvalKind || "write_confirmation",
       writePlanPath,
       idempotencyKey,
       planDigest: clean(input.planDigest),
@@ -448,14 +502,14 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "store_unavailable",
-      message: `store_unavailable: Cannot read pi_ask_user write_confirmation artifact store at ${artifactStorePath()}: ${detail}. Next step: re-run pi_ask_user(flow=write_confirmation) in the active runtime or explicitly allow conversation fallback if UI approval is unavailable.`
+      message: `store_unavailable: Cannot read pi_ask_user approval artifact store at ${artifactStorePath()}: ${detail}. Next step: re-run pi_ask_user(flow=plan_confirmation) in the active runtime or explicitly allow conversation fallback if UI approval is unavailable.`
     };
   }
   if (!artifact) {
     return {
       ok: false,
       reason: "missing_or_stale",
-      message: `missing_or_stale: No active pi_ask_user write_confirmation approval is persisted for this exact write plan and idempotencyKey in ${artifactStorePath()}. The approval may be unregistered, expired, consumed, or written by a different runtime path/store. Next step: re-run pi_ask_user(flow=write_confirmation) in the active runtime before real apply, or explicitly allow conversation fallback if UI approval is unavailable.`
+      message: `missing_or_stale: No active pi_ask_user approval is persisted for this exact write plan and idempotencyKey in ${artifactStorePath()}. The approval may be unregistered, expired, consumed, or written by a different runtime path/store. Next step: re-run pi_ask_user(flow=plan_confirmation) in the active runtime before real apply, or explicitly allow conversation fallback if UI approval is unavailable.`
     };
   }
 
@@ -463,7 +517,7 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "already_used",
-      message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=write_confirmation) to create a fresh approval.",
+      message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=plan_confirmation) to create a fresh approval.",
       artifact: artifactAuditFields(artifact, hasValidArtifactSignature(artifact))
     };
   }
@@ -472,7 +526,7 @@ function validateArtifactState(
     return {
       ok: false,
       reason: "expired",
-      message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=write_confirmation) again.",
+      message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=plan_confirmation) again.",
       artifact: artifactAuditFields(artifact, hasValidArtifactSignature(artifact))
     };
   }
@@ -489,11 +543,11 @@ function validateArtifactState(
     };
   }
 
-  if (planDigest && artifact.planDigest && planDigest !== artifact.planDigest) {
+  if (artifact.planDigest && planDigest !== artifact.planDigest) {
     return {
       ok: false,
       reason: "plan_digest_mismatch",
-      message: "plan_digest_mismatch: planDigest does not match the approved pi_ask_user write_confirmation artifact. Next step: re-run dry-run and approve the exact current write plan.",
+      message: "plan_digest_mismatch: planDigest does not match the approved pi_ask_user artifact. Next step: re-run dry-run and approve the exact current write plan with pi_ask_user(flow=plan_confirmation).",
       artifact: artifactAuditFields(artifact, true)
     };
   }
@@ -527,7 +581,7 @@ export function consumeWriteConfirmationArtifact(params: WriteConfirmationApplyP
       return {
         ok: false as const,
         reason: "missing_or_stale" as const,
-        message: `missing_or_stale: No active pi_ask_user write_confirmation approval is persisted for this exact write plan and idempotencyKey in ${artifactStorePath()}. The approval may be unregistered, expired, consumed, or written by a different runtime path/store. Next step: re-run pi_ask_user(flow=write_confirmation) in the active runtime before real apply, or explicitly allow conversation fallback if UI approval is unavailable.`
+        message: `missing_or_stale: No active pi_ask_user approval is persisted for this exact write plan and idempotencyKey in ${artifactStorePath()}. The approval may be unregistered, expired, consumed, or written by a different runtime path/store. Next step: re-run pi_ask_user(flow=plan_confirmation) in the active runtime before real apply, or explicitly allow conversation fallback if UI approval is unavailable.`
       };
     }
     if (isUsed(current)) {
@@ -535,7 +589,7 @@ export function consumeWriteConfirmationArtifact(params: WriteConfirmationApplyP
       return {
         ok: false as const,
         reason: "already_used" as const,
-        message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=write_confirmation) to create a fresh approval.",
+        message: "already_used: Approval artifact was already consumed by a previous real apply and cannot be reused. Next step: re-run dry-run and pi_ask_user(flow=plan_confirmation) to create a fresh approval.",
         artifact: artifactAuditFields(current, hasValidArtifactSignature(current))
       };
     }
@@ -544,7 +598,7 @@ export function consumeWriteConfirmationArtifact(params: WriteConfirmationApplyP
       return {
         ok: false as const,
         reason: "expired" as const,
-        message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=write_confirmation) again.",
+        message: "expired: Approval artifact expired before real apply. Next step: re-run dry-run and call pi_ask_user(flow=plan_confirmation) again.",
         artifact: artifactAuditFields(current, hasValidArtifactSignature(current))
       };
     }

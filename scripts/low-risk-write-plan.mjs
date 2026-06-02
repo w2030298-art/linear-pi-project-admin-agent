@@ -19,6 +19,10 @@ function stableSuffix(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 12);
 }
 
+function sha256(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
 function projectFromBaseline(input) {
   const baseline = input?.projectBaseline || input?.baseline || null;
   const project = baseline?.project || input?.project || {};
@@ -174,9 +178,10 @@ function buildWorkflow(writePlanPath, writePlan) {
       approval: {
         name: 'pi_ask_user',
         params: {
-          flow: 'write_confirmation',
+          flow: 'plan_confirmation',
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
+          planDigest: writePlan.planDigest,
           targetProjectSummary: writePlan.targetProject?.name || writePlan.targetProjectId,
           operationsSummary: writePlan.operations.map(operation => operation.type).join(', '),
           risksSummary: 'L1/L2 low-risk single-operation write; confirmed-only, readback, and audit remain required.',
@@ -188,6 +193,7 @@ function buildWorkflow(writePlanPath, writePlan) {
         params: {
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
+          planDigest: writePlan.planDigest,
           confirmedByUser: true,
           confirmationChannel: 'ask_user',
           confirmationText: '<from pi_ask_user approvalArtifact.confirmationText>',
@@ -216,6 +222,10 @@ export function buildLowRiskWritePlan(input, options = {}) {
     ? buildProjectUpdatePlan(input, project)
     : buildIssueCreatePlan(input, project);
   if (!built.ok) return { ...built, lowRiskWhitelist: [...LOW_RISK_KINDS] };
+
+  const digestPlan = { ...built.writePlan };
+  delete digestPlan.planDigest;
+  built.writePlan.planDigest = `sha256:${sha256(digestPlan)}`;
 
   const writePlanPath = options.writePlanPath || input.writePlanPath || path.join(
     'state',
