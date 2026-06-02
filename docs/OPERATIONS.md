@@ -4,6 +4,7 @@
 
 ```bash
 npm run validate
+npm test
 npm run test:plan-review
 npm run test:project-description-fields
 npm run test:repo-map
@@ -19,6 +20,17 @@ npm run linear:workspace
 npm run fact:pack -- --task "project review" --linear "<project-id-or-key>"
 npm run bridge:dev
 ```
+
+## Merge Gate
+
+Before merging runtime or Linear write-agent changes, run:
+
+```bash
+npm run validate
+npm test
+```
+
+`npm run validate` runs the configuration security gate. It blocks wildcard model allowlists, `latest` dependency specs, missing test umbrella scripts, and too-small compaction buffers. User-level Pi settings overrides must not expand this repo's trusted model/provider set; use a reviewed PR when the trust boundary needs to change.
 
 ## 日常流程
 

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { json } from './utils.mjs';
+import { validateConfigSecurityGate } from './config-security-gate.mjs';
 
 const required = [
   '.pi/settings.json',
@@ -12,12 +13,14 @@ const required = [
   'config/workspace.manifest.json',
   'schemas/repo-map.schema.json',
   'services/linear-bridge/src/server.ts',
+  'scripts/config-security-gate.mjs',
   'scripts/repo-map.mjs',
   'scripts/repo-map-drift.mjs',
   'scripts/plan-reviewer.mjs',
   'scripts/portfolio-snapshot-utils.mjs',
   'scripts/retrieval-utils.mjs',
   'scripts/test-linear-snapshot.mjs',
+  'scripts/test-config-security-gate.mjs',
   'scripts/test-retrieval-ux.mjs',
   'scripts/test-write-confirmation-ux.ts',
   'scripts/test-runtime-reload-master.ts',
@@ -34,5 +37,7 @@ const required = [
 ];
 
 const missing = required.filter(p => !fs.existsSync(p));
-json({ ok: missing.length === 0, missing });
-if (missing.length) process.exit(1);
+const configSecurity = validateConfigSecurityGate();
+const ok = missing.length === 0 && configSecurity.ok;
+json({ ok, missing, configSecurity });
+if (!ok) process.exit(1);

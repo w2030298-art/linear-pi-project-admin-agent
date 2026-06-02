@@ -6,6 +6,7 @@
   "description": "A Pi Agent project scaffold for a Linear-native project administrator with GitHub, local repo/docs, and web evidence sources.",
   "scripts": {
     "validate": "node scripts/validate-layout.mjs",
+    "test": "npm run test:config-security && npm run typecheck && npm run test:webhook-signature && npm run test:webhook-prompt-injection && npm run test:unsupported-fields",
     "fact:local": "node scripts/local-evidence.mjs --root .",
     "fact:repo": "node scripts/github-evidence.mjs snapshot",
     "fact:web": "node scripts/web-search.mjs",
@@ -19,6 +20,7 @@
     "bridge:dev": "tsx services/linear-bridge/src/server.ts",
     "bridge:start": "node dist/services/linear-bridge/src/server.js",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "test:config-security": "node scripts/test-config-security-gate.mjs",
     "test:webhook-signature": "node scripts/test-webhook-signature.mjs",
     "test:webhook-prompt-injection": "tsx scripts/test-webhook-prompt-injection.ts",
     "test:plan-review": "node scripts/test-plan-reviewer.mjs",
@@ -51,21 +53,21 @@
     "test:pipeline-refactor-goals": "tsx scripts/test-pipeline-refactor-goals.mjs"
   },
   "dependencies": {
-    "@linear/sdk": "latest",
-    "@modelcontextprotocol/sdk": "latest",
-    "@tavily/core": "latest",
-    "dotenv": "latest",
-    "express": "latest",
-    "fast-glob": "latest",
-    "yaml": "latest",
-    "zod": "latest",
-    "typebox": "latest"
+    "@linear/sdk": "86.0.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@tavily/core": "0.7.3",
+    "dotenv": "17.4.2",
+    "express": "5.2.1",
+    "fast-glob": "3.3.3",
+    "yaml": "2.9.0",
+    "zod": "4.4.3",
+    "typebox": "1.1.38"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "latest",
-    "@types/express": "latest",
-    "@types/node": "latest",
-    "tsx": "latest",
-    "typescript": "latest"
+    "@earendil-works/pi-coding-agent": "0.76.0",
+    "@types/express": "5.0.6",
+    "@types/node": "25.9.1",
+    "tsx": "4.22.3",
+    "typescript": "6.0.3"
   }
 }

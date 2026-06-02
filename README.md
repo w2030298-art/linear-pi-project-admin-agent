@@ -83,6 +83,7 @@ npm run bridge:dev
 
 ```bash
 npm run validate
+npm test
 npm run test:plan-review
 npm run test:repo-map
 npm run test:repo-map-drift
@@ -96,3 +97,11 @@ npm run linear:workspace
 npm run fact:pack -- --task "smoke test"
 npm run test:webhook-signature
 ```
+
+## Model Trust Boundary
+
+`.pi/settings.json` must list explicit reviewed model IDs in `enabledModels`. Wildcard entries such as `gpt-*`, `claude-*`, or `gemini-*` are not allowed for the Linear write agent because user-level settings overrides or future external provider registration could expand the runtime trust boundary without code review.
+
+User-level Pi settings may narrow local availability, but must not add models or providers for this repo's Linear write runtime. Any model/provider expansion requires a tracked PR that updates `.pi/settings.json`, `scripts/config-security-gate.mjs`, docs, and the lockfile-backed validation evidence.
+
+`npm run validate` includes the configuration security gate. `npm test` is the merge-gate umbrella for the focused safety checks used by this repo.
