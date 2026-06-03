@@ -43,8 +43,8 @@ const projectBaseline = {
   assert.equal(result.nextToolCalls.dryRun.params.dryRun, true);
   assert.match(result.writePlan.planDigest, /^sha256:/);
   assert.equal(result.nextToolCalls.approval.params.flow, 'plan_confirmation');
-  assert.equal(result.nextToolCalls.approval.params.planDigest, result.writePlan.planDigest);
-  assert.equal(result.nextToolCalls.apply.params.planDigest, result.writePlan.planDigest);
+  assert.equal(result.nextToolCalls.approval.params.planDigest, '<from linear_apply_write_plan dry-run result planDigest>');
+  assert.equal(result.nextToolCalls.apply.params.planDigest, '<from pi_ask_user approvalArtifact.planDigest>');
   assert.equal(result.nextToolCalls.apply.params.dryRun, false);
   const review = reviewWritePlan(result.writePlan);
   assert.equal(review.ok, true, JSON.stringify(review.findings, null, 2));

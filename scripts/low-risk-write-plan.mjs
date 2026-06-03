@@ -181,7 +181,7 @@ function buildWorkflow(writePlanPath, writePlan) {
           flow: 'plan_confirmation',
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
-          planDigest: writePlan.planDigest,
+          planDigest: '<from linear_apply_write_plan dry-run result planDigest>',
           targetProjectSummary: writePlan.targetProject?.name || writePlan.targetProjectId,
           operationsSummary: writePlan.operations.map(operation => operation.type).join(', '),
           risksSummary: 'L1/L2 low-risk single-operation write; confirmed-only, readback, and audit remain required.',
@@ -193,7 +193,7 @@ function buildWorkflow(writePlanPath, writePlan) {
         params: {
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
-          planDigest: writePlan.planDigest,
+          planDigest: '<from pi_ask_user approvalArtifact.planDigest>',
           confirmedByUser: true,
           confirmationChannel: 'ask_user',
           confirmationText: '<from pi_ask_user approvalArtifact.confirmationText>',

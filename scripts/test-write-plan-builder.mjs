@@ -54,7 +54,8 @@ function assertReviewPass(writePlan, message) {
   assert.equal(result.writePlan.operations[0].key, 'project-update-1');
   assert.equal(result.summary.operationCount, 1);
   assert.equal(result.nextToolCalls.approval.params.flow, 'plan_confirmation');
-  assert.equal(result.nextToolCalls.approval.params.planDigest, result.planDigest);
+  assert.equal(result.nextToolCalls.approval.params.planDigest, '<from linear_apply_write_plan dry-run result planDigest>');
+  assert.equal(result.nextToolCalls.apply.params.planDigest, '<from pi_ask_user approvalArtifact.planDigest>');
   assertReviewPass(result.writePlan, 'project update builder output must pass review');
 }
 
@@ -108,6 +109,25 @@ function assertReviewPass(writePlan, message) {
   assert.deepEqual(input.labelIds, ['label-backend']);
   assert.equal(result.writePlan.targetMilestoneReadback.id, 'milestone-1');
   assertReviewPass(result.writePlan, 'issue create builder output must pass review');
+}
+
+{
+  const result = buildWritePlan({
+    projectBaseline,
+    workspaceManifest,
+    operations: [{
+      kind: 'issue.create',
+      title: 'Create builder issue with kind alias',
+      description: 'Acceptance criteria:\n- Builder accepts kind as an input alias',
+      teamKey: 'WEN',
+      labelNames: ['Backend'],
+      milestoneName: 'M1'
+    }]
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.writePlan.operations[0].type, 'issue.create');
+  assert.equal(result.writePlan.operations[0].input.title, 'Create builder issue with kind alias');
+  assertReviewPass(result.writePlan, 'kind alias builder output must pass review');
 }
 
 {
@@ -191,6 +211,27 @@ function assertReviewPass(writePlan, message) {
   assert.equal(result.ok, false);
   assert.equal(result.status, 'evidence_gap');
   assert.match(result.evidenceGaps.join('\n'), /label could not be resolved/i);
+}
+
+{
+  const result = buildWritePlan({
+    projectBaseline,
+    workspaceManifest,
+    operations: [{
+      title: 'Missing operation type',
+      description: 'Acceptance criteria:\n- Error explains operation format',
+      teamKey: 'WEN',
+      labelNames: ['Backend'],
+      milestoneName: 'M1'
+    }]
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 'evidence_gap');
+  const gaps = result.evidenceGaps.join('\n');
+  assert.match(gaps, /operations\[0\]\.type/i);
+  assert.match(gaps, /kind alias/i);
+  assert.match(gaps, /issue\.create/i);
+  assert.match(gaps, /example/i);
 }
 
 {
