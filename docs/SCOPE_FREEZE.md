@@ -4,6 +4,33 @@
 GitHub 仓库：https://github.com/w2030298-art/linear-pi-project-admin-agent  
 本地基线 commit：`ce72f3de35a9255df979aec210f29f068e97e591`
 
+## M6 解冻（2026-06-03）
+
+| 字段 | 值 |
+|---|---|
+| 状态 | **已解冻**（M6 写入栈重构） |
+| 解冻 Issue | WEN-312 |
+| 决策记录 | `docs/ADR-002-m6-write-stack-decisions.md` |
+| 解冻理由 | M6 层级 2 写入栈降级（MCP 迁移、planDigest 退场、builder 合并、policy 收缩）触碰 v0.1 冻结的写入治理范围；继续冻结会阻塞 WEN-313 ~ WEN-322 |
+
+### 解冻后新范围
+
+- 允许重构 `scripts/linear-apply/*`、4 个 resolver、write plan builder、plan_confirmation UX、planDigest 体系、write-policy solo 收缩。
+- 允许新增 Linear MCP adapter 与 `LINEAR_WRITE_BACKEND` 双路径切换（WEN-319/320）。
+- 允许删除 legacy write_confirmation、冗余测试与 god-file 拆分。
+
+### 解冻后仍冻结
+
+- OAuth app、多 workspace SaaS 化、dispatch UI、dashboard、长期 HTTPS endpoint。
+- 无确认自动写入、GitHub MCP 写入型 toolsets、凭据进 Git/Linear。
+- L4/L5 硬 deny 与 `protectedFields`（见 ADR-002 决策 6）。
+
+### 恢复冻结条件
+
+M6 里程碑全部 Issue（WEN-313 ~ WEN-322）合并且 `npm run validate` + `npm test` 全绿后，由 owner 决定是否发布 M6 范围冻结或进入 vNext 规划。
+
+---
+
 ## 事实
 
 - Linear 项目为 `linear-pi-project-admin-agent｜Linear 项目管理员 Agent 运行时`。

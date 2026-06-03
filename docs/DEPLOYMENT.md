@@ -41,6 +41,8 @@ LINEAR_WEBHOOK_SECRET=whsec_xxx
 LINEAR_DEFAULT_TEAM_KEY=ENG
 LINEAR_WRITE_MODE=dry-run
 ALLOW_LINEAR_WRITES=false
+# M6: sdk (default) | mcp — see docs/ADR-002-m6-write-stack-decisions.md
+LINEAR_WRITE_BACKEND=sdk
 ```
 
 测试：
@@ -273,7 +275,19 @@ LINEAR_WRITE_MODE=dry-run
 ```bash
 ALLOW_LINEAR_WRITES=true
 LINEAR_WRITE_MODE=confirmed-only
+LINEAR_WRITE_BACKEND=sdk
 ```
+
+### M6 写入后端切换（WEN-312 / ADR-002）
+
+M6 引入 `LINEAR_WRITE_BACKEND` 环境变量，在旧 `@linear/sdk` 执行栈与官方 Linear MCP 之间切换：
+
+| 值 | 阶段 | 说明 |
+|---|---|---|
+| `sdk` | M6 阶段 1 默认 | 现有 hand-rolled executor + resolver 路径 |
+| `mcp` | WEN-319 平价通过后 | Linear MCP `save_*` / `get_*` / `list_*` 路径 |
+
+切换时序与 T3 分阶段安全网见 `docs/ADR-002-m6-write-stack-decisions.md`。平价验证通过前禁止删除旧 `@linear/sdk` 栈。
 
 上线前必须通过：
 

@@ -49,3 +49,7 @@
 ## v0.1 范围冻结
 
 `docs/SCOPE_FREEZE.md` 是 v0.1 的范围冻结文件。MVP 只包含本地安装、事实层、Pi 交互、Webhook Bridge、Project Plan reviewer、写入治理和安全运维；OAuth app、长期 HTTPS endpoint、dispatch UI、dashboard、多 workspace SaaS 化进入 vNext / Later。
+
+## M6 写入栈重构（2026-06-03 解冻）
+
+WEN-312 已解冻 SCOPE_FREEZE 并锁定 M6 前置决策（见 `docs/ADR-002-m6-write-stack-decisions.md`）：写入路径 A（官方 Linear MCP）、T3 分阶段并存安全网、`LINEAR_WRITE_BACKEND` 双路径切换、planDigest 退场保留 idempotencyKey、L4/L5 硬 deny 不变。后续 WEN-313 ~ WEN-322 按 ADR-002 依赖顺序执行。
