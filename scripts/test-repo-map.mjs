@@ -204,6 +204,30 @@ repos:
 }
 
 {
+  const result = spawnSync(process.execPath, ['scripts/fact-pack.mjs', '--task', 'incomplete repo map test', '--repo', 'incomplete', '--no-github', '--no-local', '--no-linear'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      REPO_MAP_PATH: repoMapPath,
+      REPO_MAP_LOCAL_PATH: localRepoMapPath,
+      GITHUB_DEFAULT_OWNER: 'fallback-owner',
+      GITHUB_DEFAULT_REPO: 'fallback-repo',
+      LOCAL_REPO_ROOTS: localPath
+    },
+    encoding: 'utf8'
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.factPack.scope.repo, undefined);
+  assert.match(output.factPack.evidenceGaps.join('\n'), /github\.repo/);
+  assert.match(output.factPack.evidenceGaps.join('\n'), /localPath/);
+  assert.match(output.factPack.evidenceGaps.join('\n'), /Repo map entry incomplete is incomplete/i);
+  assert.doesNotMatch(JSON.stringify(output.factPack), /fallback-repo/);
+  assert.equal(output.factPack.runtime.repoMap.effectiveLocalEvidenceRoot, null);
+  assert.equal(output.factPack.runtime.repoMap.localRootsFallbackUsed, false);
+}
+
+{
   const current = resolveRepoMapEntry('linear-pi-project-admin-agent', {
     cwd: process.cwd(),
     repoMapPath: path.join(process.cwd(), 'config/repo-map.yaml'),
@@ -217,7 +241,10 @@ repos:
   assert.equal(current.linear.projectName, 'linear-pi-project-admin-agent｜Linear 项目管理员 Agent 运行时');
   assert.equal(current.linear.projectPrefix, 'linear-pi-project-admin-agent');
   assert.ok(current.local.root);
-  assert.equal(current.evidenceGaps.length, 0);
+  assert.deepEqual(
+    current.evidenceGaps.filter(gap => !/localPath does not exist/.test(gap)),
+    []
+  );
 }
 
 console.log('repo map tests passed');

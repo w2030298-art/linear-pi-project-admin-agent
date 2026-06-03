@@ -4,6 +4,9 @@ import { validateConfigSecurityGate } from './config-security-gate.mjs';
 
 const required = [
   '.pi/settings.json',
+  '.mcp.json',
+  '.claude/settings.json',
+  '.claude/skills/fact-pack/SKILL.md',
   '.pi/extensions/linear-admin-tools.ts',
   '.pi/extensions/fact-source-router.ts',
   '.pi/extensions/runtime-master-reload.ts',
@@ -36,7 +39,8 @@ const required = [
   'docs/DEPLOYMENT.md',
   'docs/SCOPE_FREEZE.md',
   'docs/SECURITY.md',
-  'docs/OPERATIONS.md'
+  'docs/OPERATIONS.md',
+  'docs/CLAUDE_CODE_FACT_PACK.md'
 ];
 
 const missing = required.filter(p => !fs.existsSync(p));
