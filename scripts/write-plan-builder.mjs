@@ -13,6 +13,8 @@ const SUPPORTED_TYPES = new Set([
   'issueRelation.create'
 ]);
 
+export const LOW_RISK_KINDS = new Set(['project_update', 'issue_create']);
+
 function clean(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -121,7 +123,87 @@ function baseInput(operation, project) {
   return input;
 }
 
-function normalizeOperation(operation, index, project, manifestInfo) {
+function expandLowRiskKind(input) {
+  const kind = clean(input?.kind);
+  if (!LOW_RISK_KINDS.has(kind)) {
+    return evidenceGap([`kind ${kind || '(missing)'} is not in low-risk whitelist: ${[...LOW_RISK_KINDS].join(', ')}.`], {
+      lowRiskWhitelist: [...LOW_RISK_KINDS]
+    });
+  }
+
+  const project = projectFromInput(input);
+  if (!project.id) {
+    return evidenceGap(['Low-risk write requires compact Project baseline with project.id or explicit targetProjectId.']);
+  }
+
+  if (kind === 'project_update') {
+    const update = input.projectUpdate || input.update || {};
+    const body = clean(update.body || input.body);
+    if (!body) return evidenceGap(['project_update requires projectUpdate.body.']);
+    return {
+      ok: true,
+      kind,
+      project,
+      operations: [{
+        key: 'project-update',
+        type: 'projectUpdate.create',
+        body,
+        health: clean(update.health || input.health) || undefined,
+        reason: 'Low-risk single Project Update generated from current session facts.'
+      }]
+    };
+  }
+
+  const issue = input.issue || {};
+  const title = clean(issue.title || input.title);
+  const description = clean(issue.description || input.description);
+  const teamKey = clean(issue.teamKey || input.teamKey);
+  const teamId = clean(issue.teamId || input.teamId);
+  const labels = asArray(issue.labels || input.labels);
+  const labelNames = asArray(issue.labelNames || input.labelNames);
+  const milestoneId = clean(issue.projectMilestoneId || issue.targetMilestoneId || input.targetMilestoneId);
+  const milestoneReadback = issue.projectMilestoneReadback || issue.targetMilestoneReadback || input.targetMilestoneReadback || null;
+  const gaps = [];
+
+  if (!title) gaps.push('issue_create requires issue.title.');
+  if (!description) gaps.push('issue_create requires issue.description with acceptance criteria.');
+  else if (!/acceptance|验收/i.test(description)) gaps.push('issue_create description must include acceptance criteria.');
+  if (!teamKey && !teamId) gaps.push('issue_create requires issue.teamKey or issue.teamId.');
+  if (!labels.length && !labelNames.length) gaps.push('issue_create requires issue.labels or issue.labelNames.');
+  if (!milestoneId) gaps.push('issue_create requires projectMilestoneId for the existing target milestone.');
+  if (!milestoneReadback || milestoneReadback.id !== milestoneId || milestoneReadback.projectId !== project.id) {
+    gaps.push('issue_create requires projectMilestoneReadback matching projectMilestoneId and target projectId.');
+  }
+  if (gaps.length) return evidenceGap(gaps, { lowRiskWhitelist: [...LOW_RISK_KINDS] });
+
+  const operation = {
+    key: 'issue-create',
+    type: 'issue.create',
+    title,
+    description,
+    teamKey: teamKey || undefined,
+    teamId: teamId || undefined,
+    projectMilestoneId: milestoneId,
+    labels,
+    labelNames,
+    reason: 'Low-risk single Issue create generated from compact Project baseline.'
+  };
+  if (!operation.teamKey) delete operation.teamKey;
+  if (!operation.teamId) delete operation.teamId;
+  if (!operation.labels.length) delete operation.labels;
+  if (!operation.labelNames.length) delete operation.labelNames;
+
+  return {
+    ok: true,
+    kind,
+    project,
+    targetMilestoneId: milestoneId,
+    targetMilestoneReadback: milestoneReadback,
+    operations: [operation]
+  };
+}
+
+function normalizeOperation(operation, index, project, manifestInfo, options = {}) {
   const type = operationType(operation);
   if (!SUPPORTED_TYPES.has(type)) {
     return { gaps: unsupportedOperationGap(operation, index) };
@@ -134,6 +216,7 @@ function normalizeOperation(operation, index, project, manifestInfo) {
 
   if (type === 'projectUpdate.create') {
     if (!clean(input.body)) return { gaps: ['projectUpdate.create requires body.'] };
+    if (!clean(input.health)) delete input.health;
   }
   if (type === 'issue.create') {
     const gaps = [];
@@ -144,7 +227,7 @@ function normalizeOperation(operation, index, project, manifestInfo) {
     if (!asArray(input.labels).length && !asArray(input.labelNames).length && !asArray(input.labelIds).length) {
       gaps.push('issue.create requires labels, labelNames, or labelIds.');
     }
-    if (!clean(input.projectMilestoneId) && !clean(input.milestoneName) && !clean(input.projectMilestoneName)) {
+    if (!options.lowRisk && !clean(input.projectMilestoneId) && !clean(input.milestoneName) && !clean(input.projectMilestoneName)) {
       gaps.push('issue.create requires projectMilestoneId or milestoneName.');
     }
     if (gaps.length) return { gaps };
@@ -197,6 +280,66 @@ function collectMilestoneReadback(plan, manifest) {
   }
 }
 
+function buildLowRiskWorkflowExtras(writePlanPath, writePlan) {
+  return {
+    dryRunSummary: {
+      writePlanPath,
+      idempotencyKey: writePlan.idempotencyKey,
+      operationCount: writePlan.operations.length,
+      operationTypes: writePlan.operations.map(operation => operation.type),
+      targetProjectId: writePlan.targetProjectId,
+      riskLevel: 'L1/L2 low-risk whitelist'
+    },
+    workflow: {
+      qualityReviewRequired: true,
+      dryRunRequired: true,
+      approvalRequired: true,
+      readbackRequired: true,
+      auditLogRequired: true,
+      confirmedOnlyRequired: true,
+      fallbackToFullFactPackWhenEvidenceGap: true
+    },
+    nextToolCalls: {
+      qualityReview: {
+        name: 'linear_plan_quality_review',
+        params: { planPath: writePlanPath }
+      },
+      dryRun: {
+        name: 'linear_apply_write_plan',
+        params: {
+          writePlanPath,
+          confirmedByUser: false,
+          confirmationText: '',
+          dryRun: true
+        }
+      },
+      approval: {
+        name: 'pi_ask_user',
+        params: {
+          flow: 'plan_confirmation',
+          writePlanPath,
+          idempotencyKey: writePlan.idempotencyKey,
+          targetProjectSummary: writePlan.targetProject?.name || writePlan.targetProjectId,
+          operationsSummary: writePlan.operations.map(operation => operation.type).join(', '),
+          risksSummary: 'L1/L2 low-risk single-operation write; confirmed-only, readback, and audit remain required.',
+          nonChangesSummary: 'No cross-Project batch writes, no repo-map writes, no confirmed-only bypass.'
+        }
+      },
+      apply: {
+        name: 'linear_apply_write_plan',
+        params: {
+          writePlanPath,
+          idempotencyKey: writePlan.idempotencyKey,
+          confirmedByUser: true,
+          confirmationChannel: 'ask_user',
+          confirmationText: '<from pi_ask_user confirmationText>',
+          dryRun: false
+        }
+      }
+    }
+  };
+}
+
 function buildWorkflow(writePlanPath, writePlan, summary) {
   return {
     nextToolCalls: {
@@ -240,16 +383,39 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
   };
 }
 
+
 export function buildWritePlan(input, options = {}) {
-  const project = projectFromInput(input || {});
+  const kind = clean(input?.kind);
+  const lowRisk = LOW_RISK_KINDS.has(kind);
+  let lowRiskExpansion = null;
+  let workingInput = input || {};
+
+  if (kind && !lowRisk && !asArray(workingInput.operations).length) {
+    return evidenceGap([`kind ${kind} is not in low-risk whitelist: ${[...LOW_RISK_KINDS].join(', ')}.`], {
+      lowRiskWhitelist: [...LOW_RISK_KINDS]
+    });
+  }
+
+  if (lowRisk) {
+    lowRiskExpansion = expandLowRiskKind(workingInput);
+    if (!lowRiskExpansion.ok) return lowRiskExpansion;
+    workingInput = {
+      ...workingInput,
+      operations: lowRiskExpansion.operations,
+      targetProjectId: lowRiskExpansion.project.id,
+      projectBaseline: workingInput.projectBaseline || { project: lowRiskExpansion.project }
+    };
+  }
+
+  const project = lowRiskExpansion?.project || projectFromInput(workingInput);
   if (!project.id) return evidenceGap(['Write plan builder requires targetProjectId or projectBaseline.project.id.']);
 
-  const manifestInfo = loadManifest(input || {});
-  if ((input.workspaceManifestPath || input.workspaceManifest) && !manifestInfo.manifest) {
+  const manifestInfo = loadManifest(workingInput);
+  if ((workingInput.workspaceManifestPath || workingInput.workspaceManifest) && !manifestInfo.manifest) {
     return evidenceGap(['Workspace manifest could not be loaded for label/state/milestone/team preflight.']);
   }
 
-  const requested = asArray(input.operations);
+  const requested = asArray(workingInput.operations);
   if (!requested.length) return evidenceGap(['Write plan builder requires at least one operation.']);
 
   const operations = [];
@@ -257,36 +423,55 @@ export function buildWritePlan(input, options = {}) {
   const findings = [];
   const resolutions = [];
   requested.forEach((operation, index) => {
-    const result = normalizeOperation(operation, index, project, manifestInfo);
+    const result = normalizeOperation(operation, index, project, manifestInfo, { lowRisk });
     if (result.gaps) evidenceGaps.push(...result.gaps);
     if (result.findings) findings.push(...result.findings);
     if (result.operation) operations.push(result.operation);
     if (result.resolutions) resolutions.push(...result.resolutions);
   });
-  if (evidenceGaps.length) return evidenceGap(evidenceGaps, { findings });
+  if (evidenceGaps.length) {
+    return evidenceGap(evidenceGaps, {
+      findings,
+      ...(lowRisk ? { lowRiskWhitelist: [...LOW_RISK_KINDS] } : {})
+    });
+  }
 
-  const source = input.source || {};
-  const planSeed = {
-    projectId: project.id,
-    operations,
-    source: {
-      issueIdentifier: clean(source.issueIdentifier),
-      factPackPath: clean(source.factPackPath)
+  const source = workingInput.source || {};
+  const planSeed = lowRisk
+    ? {
+      kind: lowRiskExpansion.kind,
+      project,
+      operation: operations[0],
+      source: {
+        issueIdentifier: clean(source.issueIdentifier),
+        factPackPath: clean(source.factPackPath)
+      }
     }
-  };
-  const idempotencyKey = clean(input.idempotencyKey) || `write-plan-${project.id}-${stableSuffix(planSeed)}`;
+    : {
+      projectId: project.id,
+      operations,
+      source: {
+        issueIdentifier: clean(source.issueIdentifier),
+        factPackPath: clean(source.factPackPath)
+      }
+    };
+  const idempotencyKey = clean(workingInput.idempotencyKey) || (lowRisk
+    ? `low-risk-${lowRiskExpansion.kind.replace(/_/g, '-')}-${project.id}-${stableSuffix(planSeed)}`
+    : `write-plan-${project.id}-${stableSuffix(planSeed)}`);
   const writePlan = /** @type {any} */ ({
     idempotencyKey,
     dryRun: true,
     confirmedByUser: false,
     targetProjectId: project.id,
     targetProject: project,
-    dependencyValidation: operations.some(operation => operation.type === 'issueRelation.create')
-      ? 'Issue relation operation explicitly records dependency intent.'
-      : 'Structured builder request contains no dependency relation changes.',
+    dependencyValidation: lowRisk
+      ? 'Low-risk single-operation write; no dependency relation changes requested.'
+      : operations.some(operation => operation.type === 'issueRelation.create')
+        ? 'Issue relation operation explicitly records dependency intent.'
+        : 'Structured builder request contains no dependency relation changes.',
     readbackRequired: true,
     auditLogRequired: true,
-    evidenceRefs: asArray(input.evidenceRefs).concat([
+    evidenceRefs: asArray(workingInput.evidenceRefs).concat([
       source.factPackPath,
       manifestInfo.manifest?.evidenceRef,
       manifestInfo.manifestPath
@@ -299,9 +484,14 @@ export function buildWritePlan(input, options = {}) {
     },
     operations
   });
-  if (manifestInfo.manifest) collectMilestoneReadback(writePlan, manifestInfo.manifest);
+  if (lowRiskExpansion?.targetMilestoneReadback) {
+    writePlan.targetMilestoneId = lowRiskExpansion.targetMilestoneId;
+    writePlan.targetMilestoneReadback = lowRiskExpansion.targetMilestoneReadback;
+  } else if (manifestInfo.manifest) {
+    collectMilestoneReadback(writePlan, manifestInfo.manifest);
+  }
 
-  const writePlanPath = options.writePlanPath || input.writePlanPath || path.join('state', 'write-plans', `${idempotencyKey}.json`);
+  const writePlanPath = options.writePlanPath || workingInput.writePlanPath || path.join('state', 'write-plans', `${idempotencyKey}.json`);
   const operationsSummary = operations.map((operation, index) => {
     const title = clean(operation.input?.title) || clean(operation.key) || `${operation.type}-${index + 1}`;
     return `- ${operation.type}: ${title}`;
@@ -316,7 +506,7 @@ export function buildWritePlan(input, options = {}) {
     operationsSummary
   };
 
-  return {
+  const baseResult = {
     ok: true,
     status: 'write_plan_ready',
     writesPerformed: false,
@@ -325,8 +515,18 @@ export function buildWritePlan(input, options = {}) {
     summary,
     resolutions,
     writePlan,
-    ...buildWorkflow(writePlanPath, writePlan, summary)
+    ...(lowRisk
+      ? {
+        lowRiskWhitelist: [...LOW_RISK_KINDS],
+        ...buildLowRiskWorkflowExtras(writePlanPath, writePlan)
+      }
+      : buildWorkflow(writePlanPath, writePlan, summary))
   };
+  return baseResult;
+}
+
+export function buildLowRiskWritePlan(input, options = {}) {
+  return buildWritePlan(input, options);
 }
 
 function readInput(filePath) {

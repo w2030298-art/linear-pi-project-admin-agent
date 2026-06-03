@@ -66,7 +66,7 @@ export default function (pi: ExtensionAPI) {
     const inputPath = path.join("state", "sessions", `low-risk-write-${Date.now()}.json`);
     fs.mkdirSync(path.dirname(inputPath), { recursive: true });
     fs.writeFileSync(inputPath, JSON.stringify(params, null, 2));
-    const args = ["scripts/low-risk-write-plan.mjs", "--input", inputPath];
+    const args = ["scripts/write-plan-builder.mjs", "--input", inputPath];
     if (params.writePlanPath) args.push("--out", params.writePlanPath);
     const result = await pi.exec("node", args, { signal, timeout: 120000 });
     try {
