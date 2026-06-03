@@ -6,6 +6,14 @@ import { appendAudit, errorMessage } from './audit.mjs';
 import { compileOperations, normalizeInput, opRefKey } from './normalize.mjs';
 import { exactIssueLookup, mutate, readback, targetIdForUpdate } from './executor.mjs';
 import {
+  connectLinearMcp,
+  enrichCompiledOperationsForMcp,
+  exactIssueLookupMcp,
+  mutateMcp,
+  readbackMcp,
+  resolveWriteBackend
+} from './mcp-adapter.mjs';
+import {
   checkpointFailure,
   checkpointSuccess,
   completedOperation,
@@ -58,15 +66,33 @@ export async function applyPlanCommand(planPath, options) {
     throw new Error('plan/input hash changed; run a new dry-run and approval before applying this write plan.');
   }
 
+  const writeBackend = resolveWriteBackend(env);
   const linear = options.client();
+  let mcpSession = null;
+  if (writeBackend === 'mcp' && !dryRun) {
+    mcpSession = await connectLinearMcp(env);
+  }
+  const exactIssueLookupFn = writeBackend === 'mcp' && mcpSession
+    ? identifierOrId => exactIssueLookupMcp(mcpSession, identifierOrId)
+    : identifierOrId => exactIssueLookup(linear, identifierOrId);
+  const mutateFn = writeBackend === 'mcp' && mcpSession
+    ? (op, input, refs) => mutateMcp(mcpSession, op, input, refs)
+    : (op, input, refs) => mutate(linear, op, input, refs);
+  const readbackFn = writeBackend === 'mcp' && mcpSession
+    ? (kind, id) => readbackMcp(mcpSession, kind, id)
+    : (kind, id) => readback(linear, kind, id);
+
   const compiled = await compileOperations(linear, effectivePlan, {
     cachedWorkspaceObjectManifest: options.cachedWorkspaceObjectManifest,
-    exactIssueLookup
+    exactIssueLookup: exactIssueLookupFn
   });
   const workspaceManifestInfo = /** @type {any} */ (compiled).workspaceManifestInfo || { manifest: null, manifestPath: null };
 
   if (dryRun) {
     const frozenPlan = freezePlanManifest(planPath, effectivePlan, workspaceManifestInfo.manifest, workspaceManifestInfo.manifestPath, compiled);
+    const operations = writeBackend === 'mcp'
+      ? enrichCompiledOperationsForMcp(compiled)
+      : compiled;
     appendAudit({
       type: 'linear_apply_manifest_compile',
       dryRun: true,
@@ -80,13 +106,14 @@ export async function applyPlanCommand(planPath, options) {
       ok: true,
       dryRun: true,
       mode,
+      writeBackend,
       reason: applyMode.reason,
       confirmationChannel: applyMode.reason.confirmationChannel,
       confirmationSelfCheck: applyMode.confirmationSelfCheck,
       manifestHash: frozenPlan.manifestHash || null,
       manifestPath: frozenPlan.manifestPath || workspaceManifestInfo.manifestPath || null,
       resolutions: frozenPlan.resolutions || [],
-      operations: compiled
+      operations
     });
     return;
   }
@@ -193,12 +220,12 @@ export async function applyPlanCommand(planPath, options) {
       let readbackEntity = null;
       try {
         if (type === 'project.update' || type === 'issue.update') {
-          before = await readback(linear, kind, targetIdForUpdate(op, refs));
+          before = await readbackFn(kind, targetIdForUpdate(op, refs));
           if (!before && effectivePlan.readbackRequired !== false) throw new Error(`Before readback failed for ${type}`);
         }
-        mutationResult = await mutate(linear, op, input, refs);
+        mutationResult = await mutateFn(op, input, refs);
         entity = mutationResult.entity;
-        readbackEntity = entity?.id ? await readback(linear, kind, entity.id) : null;
+        readbackEntity = entity?.id ? await readbackFn(kind, entity.id) : null;
         if (!readbackEntity && effectivePlan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
       } catch (err) {
         checkpointFailure(progress, String(key), {
@@ -249,6 +276,7 @@ export async function applyPlanCommand(planPath, options) {
       ok: true,
       dryRun: false,
       mode,
+      writeBackend,
       idempotencyKey: effectivePlan.idempotencyKey,
       reason: applyMode.reason,
       confirmationSelfCheck: applyMode.confirmationSelfCheck,
@@ -259,5 +287,7 @@ export async function applyPlanCommand(planPath, options) {
   } catch (err) {
     appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: false, error: errorMessage(err), partialResults: results, confirmation });
     throw err;
+  } finally {
+    if (mcpSession) await mcpSession.close();
   }
 }

@@ -29,6 +29,7 @@
     "test:claude-code-fact-pack": "node scripts/test-claude-code-fact-pack.mjs",
     "test:repo-map-drift": "node scripts/test-repo-map-drift.mjs",
     "test:write-plan-builder": "node scripts/test-write-plan-builder.mjs",
+    "test:write-backend-wen319": "node scripts/test-write-backend-wen319.mjs",
     "test:pi-ask-user": "tsx scripts/test-pi-ask-user-repo-map.ts",
     "test:wezterm-launch": "node scripts/test-wezterm-launch-docs.mjs",
     "test:runtime-reload-master": "tsx scripts/test-runtime-reload-master.ts",
