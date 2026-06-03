@@ -45,6 +45,7 @@ function findPackageRoot(start = process.cwd()) {
 function runtimeRepoDiagnostics(repoMapping) {
   const cwd = process.cwd();
   const packageRoot = findPackageRoot(cwd);
+  const repoMapComplete = Boolean(repoMapping?.ok && repoMapping.complete !== false);
   const repoMapLocalPath = repoMapping?.ok ? repoMapping.local?.root || null : null;
   const localRoots = (process.env.LOCAL_REPO_ROOTS || '').split(',').map(value => value.trim()).filter(Boolean);
   const firstLocalRoot = localRoots[0] ? path.resolve(cwd, localRoots[0]) : null;
@@ -98,7 +99,8 @@ function runtimeRepoDiagnostics(repoMapping) {
         first: firstLocalRoot
       },
       localRootsFallbackUsed: false,
-      effectiveLocalEvidenceRoot: repoMapLocalPath || null,
+      mappingComplete: repoMapComplete,
+      effectiveLocalEvidenceRoot: repoMapComplete ? repoMapLocalPath || null : null,
       driftAdvice
     }
   };
@@ -166,6 +168,11 @@ pack.runtime = runtimeRepoDiagnostics(repoMapping);
 if (skipRepoEvidenceWithoutRepoKey) {
   pack.evidenceGaps.push('No repoKey provided with explicit Linear project locator; GitHub/local evidence skipped to avoid fallback to an unrelated repo.');
 }
+const repoEvidenceReady = Boolean(repoMapping.ok && repoMapping.complete !== false);
+if (repoMapping.ok && !repoEvidenceReady && repoKey) {
+  pack.evidenceGaps.push(`Repo map entry ${repoKey} is incomplete; GitHub/local evidence skipped until required repo-map fields are repaired.`);
+  pack.planningImplications.push('Do not infer GitHub or local repo facts from runtime cwd or environment defaults when the selected repo-map entry is incomplete.');
+}
 
 if (needsProjectSelection) {
   pack.piAskUser = {
@@ -199,7 +206,7 @@ if (needsProjectSelection) {
   pack.planningImplications.push('Do not read Linear, GitHub, or local repo evidence until the user selects a local project ID or custom target.');
 }
 
-if (repoMapping.ok) {
+if (repoEvidenceReady) {
   pack.scope.repo = {
     source: repoMapping.source,
     key: repoMapping.key,
@@ -247,8 +254,8 @@ if (requestedWorkspaceReview && !effectiveLinear) {
 }
 
 if (!has('--no-github') && !needsProjectSelection && !skipRepoEvidenceWithoutRepoKey) {
-  const owner = repoMapping.ok ? repoMapping.github.owner : null;
-  const repo = repoMapping.ok ? repoMapping.github.repo : null;
+  const owner = repoEvidenceReady ? repoMapping.github.owner : null;
+  const repo = repoEvidenceReady ? repoMapping.github.repo : null;
   if (owner && repo) {
     const ghArgs = ['scripts/github-evidence.mjs', 'snapshot', '--owner', owner, '--repo', repo];
     if (repoMapping.github.defaultBranch) ghArgs.push('--ref', repoMapping.github.defaultBranch);
@@ -266,7 +273,7 @@ if (!has('--no-github') && !needsProjectSelection && !skipRepoEvidenceWithoutRep
 }
 
 if (!has('--no-local') && !needsProjectSelection && !skipRepoEvidenceWithoutRepoKey) {
-  const localRoot = repoMapping.ok ? repoMapping.local.root : null;
+  const localRoot = repoEvidenceReady ? repoMapping.local.root : null;
   if (localRoot && fs.existsSync(localRoot)) {
     const local = runNode(['scripts/local-evidence.mjs', '--root', localRoot]);
     if (local.error) pack.evidenceGaps.push(`Local repo evidence unavailable: ${local.error}`);

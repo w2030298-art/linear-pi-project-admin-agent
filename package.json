@@ -26,6 +26,7 @@
     "test:plan-review": "node scripts/test-plan-reviewer.mjs",
     "test:project-description-fields": "node scripts/test-project-description-fields.mjs",
     "test:repo-map": "node scripts/test-repo-map.mjs",
+    "test:claude-code-fact-pack": "node scripts/test-claude-code-fact-pack.mjs",
     "test:repo-map-drift": "node scripts/test-repo-map-drift.mjs",
     "test:low-risk-write-plan": "node scripts/test-low-risk-write-plan.mjs",
     "test:write-plan-builder": "node scripts/test-write-plan-builder.mjs",

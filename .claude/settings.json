@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(*LINEAR_WRITE_MODE=real*)",
+      "Bash(*ALLOW_LINEAR_WRITES=true*)"
+    ],
+    "allow": [
+      "Bash(node scripts/fact-pack.mjs*)",
+      "Bash(node scripts/linear-cli.mjs project*)",
+      "Bash(node scripts/github-evidence.mjs snapshot*)",
+      "Bash(node scripts/local-evidence.mjs*)",
+      "Bash(node scripts/web-search.mjs*)",
+      "Bash(node scripts/repo-map.mjs*)",
+      "Bash(node scripts/repo-map-drift.mjs check*)",
+      "mcp__github__get_file_contents",
+      "mcp__github__search_code",
+      "mcp__github__search_issues",
+      "mcp__github__search_pull_requests",
+      "mcp__github__list_commits",
+      "mcp__github__list_pull_requests"
+    ]
+  },
+  "env": {
+    "LINEAR_WRITE_MODE": "dry-run",
+    "ALLOW_LINEAR_WRITES": "false"
+  }
+}
