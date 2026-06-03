@@ -3,10 +3,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { applyPlanCommand } from "./linear-apply/command.mjs";
-import {
-  registerWriteConfirmationArtifact,
-  resetWriteConfirmationArtifactsForTests
-} from "./write-confirmation-artifact.ts";
 
 type Request = { query: string; variables: Record<string, any> };
 
@@ -18,21 +14,8 @@ function writeJson(file: string, value: unknown) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-function registerApproval(planPath: string, idempotencyKey: string, storePath: string) {
-  process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH = storePath;
-  process.env.LINEAR_APPROVAL_PRIVATE_KEY = "test-private-key";
-  resetWriteConfirmationArtifactsForTests();
-  registerWriteConfirmationArtifact({
-    writePlanPath: planPath,
-    idempotencyKey,
-    confirmationId: `${idempotencyKey}-approval`,
-    confirmationText: "User approved exact dry-run write plan via Pi UI."
-  });
-}
-
 function options(args: {
   client: any;
-  storePath: string;
   auditPath: string;
   progressPath: string;
 }) {
@@ -41,8 +24,6 @@ function options(args: {
       LINEAR_WRITE_MODE: "confirmed-only",
       ALLOW_LINEAR_WRITES: "true",
       LINEAR_API_KEY: "test-key",
-      LINEAR_APPROVAL_PRIVATE_KEY: "test-private-key",
-      WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: args.storePath,
       AUDIT_LOG_PATH: args.auditPath,
       LINEAR_APPLY_PROGRESS_PATH: args.progressPath
     },
@@ -53,9 +34,7 @@ function options(args: {
       "plan.json",
       "--confirmed",
       "--confirmation-channel",
-      "ask_user",
-      "--approval-artifact-path",
-      args.storePath
+      "ask_user"
     ],
     cwd: process.cwd(),
     client: () => args.client,
@@ -87,7 +66,6 @@ function issueReadback(id: string, state: Record<string, any>) {
 {
   const dir = tempDir();
   const planPath = path.join(dir, "plan.json");
-  const storePath = path.join(dir, "artifacts.json");
   const auditPath = path.join(dir, "audit.jsonl");
   const progressPath = path.join(dir, "progress.json");
   const idempotencyKey = "create-readback-failure";
@@ -104,7 +82,6 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "parent", type: "issue.create", input: { teamId: "team-id", title: "Parent" } }
     ]
   });
-  registerApproval(planPath, idempotencyKey, storePath);
   const requests: Request[] = [];
   const client = {
     client: {
@@ -120,7 +97,7 @@ function issueReadback(id: string, state: Record<string, any>) {
   };
 
   await assert.rejects(
-    () => applyWithEnv(planPath, options({ client, storePath, auditPath, progressPath })),
+    () => applyWithEnv(planPath, options({ client, auditPath, progressPath })),
     /Readback failed/
   );
   const progress = JSON.parse(fs.readFileSync(progressPath, "utf8"));
@@ -131,7 +108,6 @@ function issueReadback(id: string, state: Record<string, any>) {
 {
   const dir = tempDir();
   const planPath = path.join(dir, "plan.json");
-  const storePath = path.join(dir, "artifacts.json");
   const auditPath = path.join(dir, "audit.jsonl");
   const progressPath = path.join(dir, "progress.json");
   const idempotencyKey = "update-replay";
@@ -148,7 +124,6 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "rename", type: "issue.update", input: { issueId: "issue-1", title: "After" } }
     ]
   });
-  registerApproval(planPath, idempotencyKey, storePath);
   const state: Record<string, any> = { "issue-1": { id: "issue-1", title: "Before", updatedAt: "t0" } };
   let updateMutations = 0;
   const client = {
@@ -165,8 +140,8 @@ function issueReadback(id: string, state: Record<string, any>) {
     }
   };
 
-  await applyWithEnv(planPath, options({ client, storePath, auditPath, progressPath }));
-  await applyWithEnv(planPath, options({ client, storePath, auditPath, progressPath }));
+  await applyWithEnv(planPath, options({ client, auditPath, progressPath }));
+  await applyWithEnv(planPath, options({ client, auditPath, progressPath }));
   assert.equal(updateMutations, 1, "completed update replay should be skipped instead of resent");
 
   const progress = JSON.parse(fs.readFileSync(progressPath, "utf8"));
@@ -179,7 +154,6 @@ function issueReadback(id: string, state: Record<string, any>) {
 {
   const dir = tempDir();
   const planPath = path.join(dir, "plan.json");
-  const storePath = path.join(dir, "artifacts.json");
   const auditPath = path.join(dir, "audit.jsonl");
   const progressPath = path.join(dir, "progress.json");
   const idempotencyKey = "partial-retry";
@@ -197,7 +171,6 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "two", type: "issue.create", input: { teamId: "team-id", title: "Two" } }
     ]
   });
-  registerApproval(planPath, idempotencyKey, storePath);
   const state: Record<string, any> = {};
   let createMutations = 0;
   let failSecondCreate = true;
@@ -217,11 +190,11 @@ function issueReadback(id: string, state: Record<string, any>) {
   };
 
   await assert.rejects(
-    () => applyWithEnv(planPath, options({ client, storePath, auditPath, progressPath })),
+    () => applyWithEnv(planPath, options({ client, auditPath, progressPath })),
     /temporary create failure/
   );
   failSecondCreate = false;
-  await applyWithEnv(planPath, options({ client, storePath, auditPath, progressPath }));
+  await applyWithEnv(planPath, options({ client, auditPath, progressPath }));
   assert.equal(createMutations, 3, "retry should skip the first successful create and only send the failed create");
 
   const changedPlanPath = path.join(dir, "changed-plan.json");
@@ -240,7 +213,7 @@ function issueReadback(id: string, state: Record<string, any>) {
     ]
   });
   await assert.rejects(
-    () => applyWithEnv(changedPlanPath, options({ client, storePath, auditPath, progressPath })),
+    () => applyWithEnv(changedPlanPath, options({ client, auditPath, progressPath })),
     /plan\/input hash changed/i
   );
 }

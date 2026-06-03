@@ -26,7 +26,6 @@ const required = [
   'scripts/test-linear-snapshot.mjs',
   'scripts/test-config-security-gate.mjs',
   'scripts/test-retrieval-ux.mjs',
-  'scripts/test-write-confirmation-ux.ts',
   'scripts/test-runtime-reload-master.ts',
   'scripts/test-runtime-local-protection.mjs',
   'scripts/test-runtime-instruction-boundary.mjs',

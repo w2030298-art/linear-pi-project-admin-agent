@@ -133,12 +133,12 @@ function buildConfirmationSelfCheck({ channel, hostCapabilities, dryRun }) {
     channel: channel.channel,
     label: channel.label,
     canApproveAfterDryRun: canUseDirectAskUser,
-    piAskUserWriteConfirmationAvailable: piAskUserAvailable,
+    piAskUserPlanConfirmationAvailable: piAskUserAvailable,
     conversationFallbackAllowed: canUseConversationFallback,
     nextAction: canUseDirectAskUser
-      ? 'After dry-run, call pi_ask_user(flow=plan_confirmation) and pass the returned approval artifact to real apply.'
+      ? 'After dry-run, call pi_ask_user(flow=plan_confirmation) and pass the returned confirmation fields to real apply.'
       : piAskUserAvailable
-        ? 'After dry-run, call pi_ask_user(flow=plan_confirmation); dry-run has not proven the approval artifact is persisted or visible to real apply.'
+        ? 'After dry-run, call pi_ask_user(flow=plan_confirmation); dry-run is not user confirmation.'
         : canUseConversationFallback
           ? 'Pi UI approval is unavailable; ask for explicit permission before using conversation_fallback.'
           : 'Real apply is blocked until pi_ask_user(flow=plan_confirmation) is available or the user explicitly allows conversation_fallback.'

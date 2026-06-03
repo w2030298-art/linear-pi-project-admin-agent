@@ -3,6 +3,8 @@ import path from "node:path";
 
 export const PLAN_CONFIRMATION_UI_TITLE_ZH = "确认 Linear 写入计划";
 
+export const PLAN_CONFIRMATION_UI_TITLE = PLAN_CONFIRMATION_UI_TITLE_ZH;
+
 export interface PlanConfirmationViewInput {
   writePlanPath: string;
   idempotencyKey: string;
@@ -276,7 +278,7 @@ export function buildPlanConfirmationMessage(input: PlanConfirmationViewInput) {
     `  writePlanPath: ${input.writePlanPath}`,
     `  idempotencyKey: ${input.idempotencyKey}`,
     ...SECTION("下一步"),
-    "  · 选择 Yes：为当前 writePlanPath / idempotencyKey 生成 approval artifact",
+    "  - Yes: confirm current writePlanPath / idempotencyKey and continue to real apply",
     "  · 选择 No：取消，不执行 Linear 写入",
     "  · 选择 调整意见：返回修改建议，Agent 需重算 write plan 并重新 dry-run + 确认"
   ];

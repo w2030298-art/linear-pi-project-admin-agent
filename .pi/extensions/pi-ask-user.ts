@@ -6,14 +6,8 @@ import YAML from "yaml";
 import {
   buildPlanConfirmationMessage,
   buildPlanConfirmationText,
-  buildWriteConfirmationMessage,
-  buildWriteConfirmationText,
-  registerWriteConfirmationArtifact,
-  getWriteConfirmationArtifactStorageStatus,
-  toApprovalArtifactResponse,
-  PLAN_CONFIRMATION_UI_TITLE,
-  WRITE_CONFIRMATION_UI_TITLE
-} from "../../scripts/write-confirmation-artifact.ts";
+  PLAN_CONFIRMATION_UI_TITLE
+} from "../../scripts/plan-confirmation-ui.ts";
 
 type InputValue = string | undefined;
 
@@ -69,7 +63,7 @@ interface RepoMapAskContext {
   };
 }
 
-export interface WriteConfirmationInputs {
+export interface PlanConfirmationInputs {
   writePlanPath: string;
   idempotencyKey: string;
   targetProjectSummary?: string;
@@ -605,22 +599,7 @@ async function askField(ctx: RepoMapAskContext, field: (typeof FIELD_ORDER)[numb
   return { ok: false, reason: "invalid", inputs: lastCandidate, evidenceGaps: lastFieldErrors };
 }
 
-export function createNonInteractiveWriteConfirmationResult(inputs: WriteConfirmationInputs = { writePlanPath: "", idempotencyKey: "" }) {
-  return {
-    ok: false,
-    status: "interactive_confirmation_unavailable" as const,
-    approved: false,
-    writesPerformed: false,
-    writePlanPath: clean(inputs.writePlanPath),
-    idempotencyKey: clean(inputs.idempotencyKey),
-    evidenceGaps: ["Pi UI is not available; pi_ask_user write_confirmation cannot show the approval UI."],
-    openQuestions: [
-      "Real Linear write is blocked until pi_ask_user write_confirmation is available, or the user explicitly allows current-conversation text fallback through linear_apply_write_plan."
-    ]
-  };
-}
-
-export function createNonInteractivePlanConfirmationResult(inputs: WriteConfirmationInputs = { writePlanPath: "", idempotencyKey: "" }) {
+export function createNonInteractivePlanConfirmationResult(inputs: PlanConfirmationInputs = { writePlanPath: "", idempotencyKey: "" }) {
   return {
     ok: false,
     status: "interactive_confirmation_unavailable" as const,
@@ -645,7 +624,7 @@ function normalizedPlanChoice(value: string | undefined): PlanConfirmationChoice
   return undefined;
 }
 
-export async function runPlanConfirmationFlow(ctx: RepoMapAskContext, inputs: WriteConfirmationInputs) {
+export async function runPlanConfirmationFlow(ctx: RepoMapAskContext, inputs: PlanConfirmationInputs) {
   const writePlanPath = clean(inputs.writePlanPath);
   const idempotencyKey = clean(inputs.idempotencyKey);
   if (!writePlanPath || !idempotencyKey) {
@@ -727,141 +706,16 @@ export async function runPlanConfirmationFlow(ctx: RepoMapAskContext, inputs: Wr
     nonChangesSummary: clean(inputs.nonChangesSummary),
   });
 
-  let artifact;
-  try {
-    artifact = registerWriteConfirmationArtifact({
-      approvalKind: "plan_confirmation",
-      writePlanPath,
-      idempotencyKey,
-      confirmationText
-    });
-  } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
-    return {
-      ok: false,
-      status: "duplicate_confirmation" as const,
-      approved: false,
-      writesPerformed: false,
-      writePlanPath,
-      idempotencyKey,
-      evidenceGaps: [messageText],
-      openQuestions: ["Consume the existing plan approval artifact with linear_apply_write_plan or regenerate and approve a new write plan."]
-    };
-  }
-
   return {
     ok: true,
     status: "approved" as const,
     approved: true,
     writesPerformed: false,
-    approvalArtifact: toApprovalArtifactResponse(artifact),
-    artifactStorage: getWriteConfirmationArtifactStorageStatus(artifact),
-    artifactBinding: {
-      writePlanPath: artifact.writePlanPath,
-      idempotencyKey: artifact.idempotencyKey,
-      confirmationId: artifact.confirmationId
-    },
-    confirmationChannel: artifact.confirmationChannel,
-    confirmationText: artifact.confirmationText,
-    writePlanPath: artifact.writePlanPath,
-    idempotencyKey: artifact.idempotencyKey,
-    confirmationId: artifact.confirmationId,
-    createdAt: artifact.createdAt,
-    expiresAt: artifact.expiresAt
-  };
-}
-
-export async function runWriteConfirmationFlow(ctx: RepoMapAskContext, inputs: WriteConfirmationInputs) {
-  const writePlanPath = clean(inputs.writePlanPath);
-  const idempotencyKey = clean(inputs.idempotencyKey);
-  if (!writePlanPath || !idempotencyKey) {
-    return {
-      ok: false,
-      status: "evidence_gap" as const,
-      approved: false,
-      writesPerformed: false,
-      evidenceGaps: ["write_confirmation requires writePlanPath and idempotencyKey from the exact dry-run write plan."],
-      openQuestions: ["Provide writePlanPath and idempotencyKey before requesting write confirmation."]
-    };
-  }
-
-  if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
-    return createNonInteractiveWriteConfirmationResult({ ...inputs, writePlanPath, idempotencyKey });
-  }
-
-  const message = buildWriteConfirmationMessage({
+    confirmedByUser: true,
+    confirmationChannel: "ask_user" as const,
+    confirmationText,
     writePlanPath,
-    idempotencyKey,
-    targetProjectSummary: clean(inputs.targetProjectSummary),
-    operationsSummary: clean(inputs.operationsSummary),
-    risksSummary: clean(inputs.risksSummary),
-    nonChangesSummary: clean(inputs.nonChangesSummary),
-  });
-  const approved = await ctx.ui.confirm(WRITE_CONFIRMATION_UI_TITLE, message);
-  if (!approved) {
-    return {
-      ok: false,
-      status: "cancelled" as const,
-      approved: false,
-      writesPerformed: false,
-      writePlanPath,
-      idempotencyKey,
-      confirmationChannel: "ask_user" as const,
-      evidenceGaps: ["Write confirmation was cancelled; real Linear write was not applied."],
-      openQuestions: ["Review the dry-run write plan and call pi_ask_user(flow=write_confirmation) again if you want to approve."]
-    };
-  }
-
-  const confirmationText = buildWriteConfirmationText({
-    writePlanPath,
-    idempotencyKey,
-    targetProjectSummary: clean(inputs.targetProjectSummary),
-    operationsSummary: clean(inputs.operationsSummary),
-    risksSummary: clean(inputs.risksSummary),
-    nonChangesSummary: clean(inputs.nonChangesSummary),
-  });
-
-  let artifact;
-  try {
-    artifact = registerWriteConfirmationArtifact({
-      approvalKind: "write_confirmation",
-      writePlanPath,
-      idempotencyKey,
-      confirmationText
-    });
-  } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
-    return {
-      ok: false,
-      status: "duplicate_confirmation" as const,
-      approved: false,
-      writesPerformed: false,
-      writePlanPath,
-      idempotencyKey,
-      evidenceGaps: [messageText],
-      openQuestions: ["Reuse the existing approval artifact or wait until the prior approval is consumed by linear_apply_write_plan."]
-    };
-  }
-
-  return {
-    ok: true,
-    status: "approved" as const,
-    approved: true,
-    writesPerformed: false,
-    approvalArtifact: toApprovalArtifactResponse(artifact),
-    artifactStorage: getWriteConfirmationArtifactStorageStatus(artifact),
-    artifactBinding: {
-      writePlanPath: artifact.writePlanPath,
-      idempotencyKey: artifact.idempotencyKey,
-      confirmationId: artifact.confirmationId
-    },
-    confirmationChannel: artifact.confirmationChannel,
-    confirmationText: artifact.confirmationText,
-    writePlanPath: artifact.writePlanPath,
-    idempotencyKey: artifact.idempotencyKey,
-    confirmationId: artifact.confirmationId,
-    createdAt: artifact.createdAt,
-    expiresAt: artifact.expiresAt
+    idempotencyKey
   };
 }
 
@@ -928,9 +782,9 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "pi_ask_user",
     label: "Ask User",
-    description: "Ask the user to choose a local project, complete repo-map fields, approve/cancel/revise a Linear write plan, or approve an exact Linear write plan. Never performs Linear mutations by itself.",
+    description: "Ask the user to choose a local project, complete repo-map fields, or approve/cancel/revise a Linear write plan. Never performs Linear mutations by itself.",
     parameters: Type.Object({
-      flow: Type.Optional(Type.String({ description: "Supports project_select, repo_map, plan_confirmation, and write_confirmation." })),
+      flow: Type.Optional(Type.String({ description: "Supports project_select, repo_map, and plan_confirmation." })),
       seed: Type.Optional(Type.Object({
         projectId: Type.Optional(Type.String()),
         githubUrl: Type.Optional(Type.String()),
@@ -951,7 +805,7 @@ export default function (pi: ExtensionAPI) {
       customLabel: Type.Optional(Type.String()),
       maxRetries: Type.Optional(Type.Number({ default: 2 }))
     }),
-    promptSnippet: "pi_ask_user: Pi UI for project selection, repo-map clarification, planning-time write-plan confirmation, or write-plan approval.",
+    promptSnippet: "pi_ask_user: Pi UI for project selection, repo-map clarification, or planning-time write-plan confirmation.",
     promptGuidelines: [
       "For single-project planning/reporting/review tasks without an explicit target, call pi_ask_user with flow=project_select before reading Linear.",
       "Project selection options must come from the local repo-map, with User input as the last option; do not list projects from Linear before the user selects one.",
@@ -959,10 +813,7 @@ export default function (pi: ExtensionAPI) {
       "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation to show the structured Chinese confirmation UI (项目概览 / 计划结构树 / 风险 / 审批绑定) with Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, and summaries.",
       "If plan_confirmation returns revision_requested, rewrite the plan from feedback, rerun quality review and dry-run, then call plan_confirmation again.",
       "If plan_confirmation returns cancelled or interactive_confirmation_unavailable, do not apply real Linear mutations.",
-      "When plan_confirmation returns approved, immediately call linear_apply_write_plan(dryRun=false) with the returned approval artifact. Do not show a second confirmation UI.",
-      "Use flow=write_confirmation only for legacy write-time approval paths that have not moved confirmation to planning time.",
-      "write_confirmation only collects approval; it does not execute Linear mutations.",
-      "If write_confirmation returns interactive_confirmation_unavailable or cancelled, do not call linear_apply_write_plan with dryRun=false unless the user explicitly allows conversation fallback.",
+      "When plan_confirmation returns approved, immediately call linear_apply_write_plan(dryRun=false) with the returned confirmation fields. Do not show a second confirmation UI.",
       "Ask one field at a time for repo_map; do not present a multi-field table.",
       "If the result is cancelled or needs_interactive_input, do not modify repo-map files.",
       "The returned repo-map draft is review-only; apply it with repo-map-drift only after separate explicit confirmation; the default target is the local overlay, not tracked config."
@@ -981,18 +832,6 @@ export default function (pi: ExtensionAPI) {
 
       if (params.flow === "plan_confirmation") {
         const result = await runPlanConfirmationFlow(ctx, {
-          writePlanPath: params.writePlanPath || "",
-          idempotencyKey: params.idempotencyKey || "",
-          targetProjectSummary: params.targetProjectSummary,
-          operationsSummary: params.operationsSummary,
-          risksSummary: params.risksSummary,
-          nonChangesSummary: params.nonChangesSummary,
-        });
-        return text(result);
-      }
-
-      if (params.flow === "write_confirmation") {
-        const result = await runWriteConfirmationFlow(ctx, {
           writePlanPath: params.writePlanPath || "",
           idempotencyKey: params.idempotencyKey || "",
           targetProjectSummary: params.targetProjectSummary,

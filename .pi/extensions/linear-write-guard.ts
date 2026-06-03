@@ -1,9 +1,38 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { validateWriteConfirmationArtifact } from "../../scripts/write-confirmation-artifact.ts";
 
 const MUTATING_LINEAR_TOOLS = new Set([
   "linear_apply_write_plan"
 ]);
+
+function clean(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed || "";
+}
+
+export function planConfirmationBindingError(params: {
+  writePlanPath?: string;
+  idempotencyKey?: string;
+  confirmationText?: string;
+}) {
+  const writePlanPath = clean(params.writePlanPath);
+  const idempotencyKey = clean(params.idempotencyKey);
+  const confirmationText = clean(params.confirmationText);
+  if (!writePlanPath || !idempotencyKey) {
+    return "plan_confirmation requires writePlanPath and idempotencyKey from the exact write plan.";
+  }
+  if (!confirmationText) {
+    return "plan_confirmation requires confirmationText returned by pi_ask_user(flow=plan_confirmation).";
+  }
+  const required = [
+    "Confirmation channel: pi_ask_user plan_confirmation",
+    `Write plan: ${writePlanPath}`,
+    `Idempotency key: ${idempotencyKey}`
+  ];
+  const missing = required.find(fragment => !confirmationText.includes(fragment));
+  return missing
+    ? "confirmationText must be returned by pi_ask_user(flow=plan_confirmation) for the same writePlanPath and idempotencyKey."
+    : null;
+}
 
 export function linearWriteGuardDecision(
   params: {
@@ -42,21 +71,12 @@ export function linearWriteGuardDecision(
     return {
       action: "block" as const,
       message:
-        "Blocked linear_apply_write_plan: real writes require one planning approval artifact from pi_ask_user(flow=plan_confirmation) before apply."
+        "Blocked linear_apply_write_plan: real writes require one plan_confirmation approval from pi_ask_user before apply."
     };
   }
 
-  const validated = validateWriteConfirmationArtifact({
-    writePlanPath: params.writePlanPath || "",
-    idempotencyKey: params.idempotencyKey,
-    confirmationId: params.confirmationId,
-    confirmationText: params.confirmationText,
-    confirmationChannel: params.confirmationChannel || "ask_user",
-    confirmedByUser: params.confirmedByUser
-  });
-  if (validated.ok === false) {
-    return { action: "block" as const, message: `Blocked linear_apply_write_plan: ${validated.message}` };
-  }
+  const bindingError = planConfirmationBindingError(params);
+  if (bindingError) return { action: "block" as const, message: `Blocked linear_apply_write_plan: ${bindingError}` };
 
   return { action: "allow" as const };
 }

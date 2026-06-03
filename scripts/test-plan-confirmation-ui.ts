@@ -7,12 +7,11 @@ import {
   buildPlanConfirmationMessage,
   formatStructuredBullets,
   loadWritePlanDocument,
+  PLAN_CONFIRMATION_UI_TITLE,
   PLAN_CONFIRMATION_UI_TITLE_ZH,
   truncateForDisplay
 } from "./plan-confirmation-ui.ts";
-import { PLAN_CONFIRMATION_UI_TITLE } from "./write-confirmation-artifact.ts";
 import { runPlanConfirmationFlow } from "../.pi/extensions/pi-ask-user.ts";
-import { resetWriteConfirmationArtifactsForTests } from "./write-confirmation-artifact.ts";
 
 function tempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "plan-confirmation-ui-"));
@@ -156,8 +155,6 @@ assert.equal(PLAN_CONFIRMATION_UI_TITLE, PLAN_CONFIRMATION_UI_TITLE_ZH);
 }
 
 {
-  process.env.LINEAR_APPROVAL_PRIVATE_KEY = "test-private-key";
-  resetWriteConfirmationArtifactsForTests();
   const root = tempDir();
   const writePlanPath = path.join(root, "approve.json");
   writeJson(writePlanPath, {
@@ -193,7 +190,9 @@ assert.equal(PLAN_CONFIRMATION_UI_TITLE, PLAN_CONFIRMATION_UI_TITLE_ZH);
   assert.match(capturedPrompt, /确认 Linear 写入计划/);
   assert.match(capturedPrompt, /【计划结构】/);
   assert.match(capturedPrompt, /idempotencyKey: snapshot-key/);
-  assert.equal(approved.approvalArtifact?.approvalKind, "plan_confirmation");
+  assert.equal(approved.confirmedByUser, true);
+  assert.equal(approved.confirmationChannel, "ask_user");
+  assert.match(approved.confirmationText, /pi_ask_user plan_confirmation/);
   fs.rmSync(root, { recursive: true, force: true });
 }
 

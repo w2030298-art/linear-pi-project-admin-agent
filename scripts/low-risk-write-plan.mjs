@@ -190,8 +190,7 @@ function buildWorkflow(writePlanPath, writePlan) {
           idempotencyKey: writePlan.idempotencyKey,
           confirmedByUser: true,
           confirmationChannel: 'ask_user',
-          confirmationText: '<from pi_ask_user approvalArtifact.confirmationText>',
-          confirmationId: '<from pi_ask_user approvalArtifact.confirmationId>',
+          confirmationText: '<from pi_ask_user confirmationText>',
           dryRun: false
         }
       }

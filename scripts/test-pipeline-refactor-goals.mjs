@@ -108,7 +108,7 @@ assert.deepEqual(
   linearWriteGuardDecision({ dryRun: false, confirmationChannel: 'ask_user', confirmedByUser: false }),
   {
     action: 'block',
-    message: 'Blocked linear_apply_write_plan: real writes require one planning approval artifact from pi_ask_user(flow=plan_confirmation) before apply.'
+    message: 'Blocked linear_apply_write_plan: real writes require one plan_confirmation approval from pi_ask_user before apply.'
   }
 );
 

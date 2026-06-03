@@ -8,7 +8,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const storeUrl = pathToFileURL(path.join(root, "services", "linear-bridge", "src", "store.ts")).href;
 const piRunnerUrl = pathToFileURL(path.join(root, "services", "linear-bridge", "src", "pi-runner.ts")).href;
-const artifactUrl = pathToFileURL(path.join(root, "scripts", "write-confirmation-artifact.ts")).href;
 const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "linear-pi-concurrency-"));
 
 function runNode(code: string, env: Record<string, string | undefined> = {}, runtimeCwd = testRoot) {
@@ -87,48 +86,6 @@ async function runMany(count: number, code: string, env: Record<string, string |
     Date.now = originalNow;
     process.chdir(originalCwd);
   }
-}
-
-{
-  const storeDir = fs.mkdtempSync(path.join(os.tmpdir(), "write-confirmation-concurrency-"));
-  const storePath = path.join(storeDir, "artifacts.json");
-  const env = { WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: storePath, LINEAR_APPROVAL_PRIVATE_KEY: "test-private-key" };
-  const registerCode = [
-    `import { registerWriteConfirmationArtifact } from ${JSON.stringify(artifactUrl)};`,
-    "try {",
-    "  registerWriteConfirmationArtifact({",
-    "    writePlanPath: 'state/write-plans/concurrent.json',",
-    "    idempotencyKey: 'concurrent-key',",
-    "    confirmationId: 'concurrent-confirmation',",
-    "    confirmationText: 'approved concurrently'",
-    "  });",
-    "  console.log('registered');",
-    "} catch (error) {",
-    "  console.log('duplicate');",
-    "}"
-  ].join("\n");
-  const registerResults = await runMany(8, registerCode, env);
-  assert.equal(registerResults.filter(result => result.status === 0 && result.stdout.includes("registered")).length, 1);
-  assert.equal(registerResults.filter(result => result.status === 0 && result.stdout.includes("duplicate")).length, 7);
-
-  const consumeCode = [
-    `import { consumeWriteConfirmationArtifact } from ${JSON.stringify(artifactUrl)};`,
-    "const result = consumeWriteConfirmationArtifact({",
-    "  writePlanPath: 'state/write-plans/concurrent.json',",
-    "  idempotencyKey: 'concurrent-key',",
-    "  confirmationId: 'concurrent-confirmation',",
-    "  confirmationText: 'approved concurrently'",
-    "});",
-    "console.log(result.ok ? 'consumed' : result.reason);"
-  ].join("\n");
-  const consumeResults = await runMany(8, consumeCode, env);
-  assert.equal(consumeResults.filter(result => result.status === 0 && result.stdout.includes("consumed")).length, 1);
-  assert.equal(consumeResults.filter(result => result.status === 0 && result.stdout.includes("already_used")).length, 7);
-
-  const persisted = JSON.parse(fs.readFileSync(storePath, "utf8"));
-  const artifact = persisted.artifacts["state/write-plans/concurrent.json::concurrent-key"];
-  assert.equal(typeof artifact.usedAt, "string");
-  fs.rmSync(storeDir, { recursive: true, force: true });
 }
 
 fs.rmSync(testRoot, { recursive: true, force: true });
