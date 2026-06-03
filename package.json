@@ -54,6 +54,7 @@
     "test:write-confirmation": "tsx scripts/test-write-confirmation-ux.ts",
     "test:plan-confirmation-ui": "tsx scripts/test-plan-confirmation-ui.ts",
     "test:plan-digest-lifecycle-wen300": "tsx scripts/test-plan-digest-lifecycle-wen300.ts",
+    "test:m6-decisions-wen312": "node scripts/test-m6-decisions-wen312.mjs",
     "test:concurrency-stores": "tsx scripts/test-concurrency-stores.ts",
     "test:pipeline-refactor-goals": "tsx scripts/test-pipeline-refactor-goals.mjs"
   },

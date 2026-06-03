@@ -38,6 +38,7 @@ const required = [
   'README.md',
   'docs/DEPLOYMENT.md',
   'docs/SCOPE_FREEZE.md',
+  'docs/ADR-002-m6-write-stack-decisions.md',
   'docs/SECURITY.md',
   'docs/OPERATIONS.md',
   'docs/CLAUDE_CODE_FACT_PACK.md'
