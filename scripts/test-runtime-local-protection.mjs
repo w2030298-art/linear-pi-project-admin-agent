@@ -26,6 +26,7 @@ const protectedIgnoredPaths = [
   'state/workspace.manifest.draft.json',
   'state/write-plans/test.json',
   'state/audit-reports/test.md',
+  'state/linear-apply-progress/test.json',
   'state/pi-queue/test.md',
   'state/pi-queue/test.out.log',
   'state/fact-packs/fact-test.json',
@@ -54,6 +55,7 @@ const trackedProtected = git([
   'state/repo-map-audit.jsonl',
   'state/write-plans',
   'state/audit-reports',
+  'state/linear-apply-progress',
   '.pi/sessions'
 ]);
 assert.equal(trackedProtected.status, 0, trackedProtected.stderr);
@@ -77,6 +79,7 @@ const installerSelfTest = spawnSync('powershell.exe', [
 assert.equal(installerSelfTest.status, 0, installerSelfTest.stderr || installerSelfTest.stdout);
 const selfTest = JSON.parse(installerSelfTest.stdout);
 assert.equal(selfTest.nulLocalExcludeConfigured, true, 'launcher should ignore accidental root nul files before runtime dirty checks');
+assert.equal(selfTest.linearApplyProgressDirtyAllowed, true, 'launcher should allow generated Linear apply progress state');
 assert.equal(selfTest.codeDirtyAllowed, false, 'launcher should still block source code changes');
 for (const source of [installer, reloadExtension]) {
   assert.doesNotMatch(source, /git\s+clean/i);
@@ -89,6 +92,7 @@ assert.match(guide, /\.env/);
 assert.match(guide, /state\/repo-map\.draft\.yaml/);
 assert.match(guide, /state\/repo-map-audit\.jsonl/);
 assert.match(guide, /state\/write-plans\//);
+assert.match(guide, /state\/linear-apply-progress\//);
 assert.match(guide, /git pull --ff-only/);
 assert.match(guide, /does not run `git clean`/i);
 

@@ -16,6 +16,7 @@ state/fact-packs/*.json
 state/fact-packs/evidence/
 state/audit.jsonl
 state/audit-reports/
+state/linear-apply-progress/
 state/pi-queue/*.md
 state/pi-queue/*.log
 state/repo-map.draft.yaml

@@ -10,7 +10,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$RuntimeLocalExcludeEntries = @('nul')
+$RuntimeLocalExcludeEntries = @('nul', 'state/linear-apply-progress/')
 
 function ConvertTo-PowerShellLiteral([string]$Value) {
   return "'" + ($Value -replace "'", "''") + "'"
@@ -30,6 +30,7 @@ function Test-AllowedRuntimeDirty([string]$StatusText) {
     'state/fact-packs/*.json',
     'state/write-plans/*',
     'state/audit-reports/*',
+    'state/linear-apply-progress/*',
     'state/*.jsonl',
     'state/repo-map.draft.yaml',
     'state/repo-map-audit.jsonl',
@@ -110,6 +111,7 @@ if ($SelfTestAllowedRuntimeDirty) {
   [pscustomobject]@{
     ok = $true
     ignoredRuntimeDirtyAllowed = (Test-AllowedRuntimeDirty " M state/portfolio-review/portfolio-snapshot-2026-05-28.json")
+    linearApplyProgressDirtyAllowed = (Test-AllowedRuntimeDirty "?? state/linear-apply-progress/")
     nulLocalExcludeConfigured = $nulLocalExcludeConfigured
     codeDirtyAllowed = (Test-AllowedRuntimeDirty " M scripts/linear-cli.mjs")
   } | ConvertTo-Json -Depth 4
@@ -137,7 +139,7 @@ $ConfigPath = __CONFIG_PATH__
 $InstallRoot = __INSTALL_ROOT__
 $LogPath = Join-Path $InstallRoot 'launch.log'
 $LocalRepoMapPath = Join-Path $InstallRoot 'repo-map.local.yaml'
-$RuntimeLocalExcludeEntries = @('nul')
+$RuntimeLocalExcludeEntries = @('nul', 'state/linear-apply-progress/')
 
 function Write-LaunchLog([string]$Message) {
   $timestamp = Get-Date -Format o
@@ -182,6 +184,7 @@ function Test-AllowedRuntimeDirty([string]$StatusText) {
     'state/fact-packs/*.json',
     'state/write-plans/*',
     'state/audit-reports/*',
+    'state/linear-apply-progress/*',
     'state/*.jsonl',
     'state/repo-map.draft.yaml',
     'state/repo-map-audit.jsonl',
