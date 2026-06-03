@@ -1,8 +1,6 @@
 /**
- * WEN-300 characterization test: planDigest lifecycle causes structural
- * confirmation conflicts (builder digest vs dry-run digest vs apply digest).
- *
- * This test documents the problem state; it does NOT assert desired fixed behavior.
+ * WEN-300/WEN-308 regression test: builder must not instruct callers to
+ * approve the pre-dry-run digest. Approval is bound to the post-dry-run digest.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -79,7 +77,7 @@ function mockCompiledOperations() {
 
   const builderDigest = built.planDigest;
   assert.match(builderDigest || "", /^sha256:/);
-  assert.equal(built.nextToolCalls?.approval?.params?.planDigest, builderDigest);
+  assert.equal(built.nextToolCalls?.approval?.params?.planDigest, "<from linear_apply_write_plan dry-run result planDigest>");
 
   writeJson(writePlanPath, built.writePlan);
 

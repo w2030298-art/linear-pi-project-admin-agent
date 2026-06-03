@@ -106,12 +106,12 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_prepare_low_risk_write",
     label: "Prepare Low-Risk Linear Write",
-    description: "Generate a standard write plan for whitelisted L1/L2 Linear writes, then return required review, dry-run, approval, and apply steps. Never performs mutations.",
+    description: "Generate a standard write plan for whitelisted L1/L2 Linear writes, then return required review, dry-run, approval, and apply steps. Never performs mutations. issue_create fields may be nested under issue or passed top-level.",
     parameters: Type.Object({
       kind: Type.String({ description: "Whitelist kind: project_update or issue_create." }),
       projectBaseline: Type.Optional(Type.Any()),
       projectUpdate: Type.Optional(Type.Any()),
-      issue: Type.Optional(Type.Any()),
+      issue: Type.Optional(Type.Any({ description: "For kind=issue_create: { title, description with acceptance criteria, teamKey or teamId, labels or labelNames, projectMilestoneId, projectMilestoneReadback }." })),
       source: Type.Optional(Type.Any()),
       targetProjectId: Type.Optional(Type.String()),
       writePlanPath: Type.Optional(Type.String()),
@@ -120,8 +120,9 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: "linear_prepare_low_risk_write: creates whitelisted single-operation write plans; still requires quality review, dry-run, pi_ask_user approval, and real apply.",
     promptGuidelines: [
       "Use only for low-risk single Project Update or single Issue create in one Project.",
+      "For kind=issue_create, pass issue.title, issue.description, issue.teamKey/teamId, issue.labels/labelNames, issue.projectMilestoneId, and issue.projectMilestoneReadback. Top-level aliases are accepted but nested issue is clearer.",
       "If the tool returns evidence_gap, stop and build or refresh a full Fact Pack instead of guessing.",
-      "After it returns write_plan_ready, run the returned quality review, dry-run, pi_ask_user approval, and real apply steps in order.",
+      "After it returns write_plan_ready, run the returned quality review, then dry-run. Use the planDigest returned by dry-run for pi_ask_user(plan_confirmation), then pass the approvalArtifact fields unchanged to real apply.",
       "Do not use this for cross-Project writes, batch writes, repo-map changes, project structure changes, or relation-heavy planning."
     ],
     async execute(_id, params, signal) {
@@ -132,7 +133,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_build_write_plan",
     label: "Build Linear Write Plan",
-    description: "Run the structured write plan builder for projectUpdate.create, issue.create, issue.update, and issueRelation.create. Generates idempotencyKey, operation keys, summaries, planDigest, and required next steps. Never performs mutations.",
+    description: "Run the structured write plan builder for operations[].type values projectUpdate.create, issue.create, issue.update, and issueRelation.create. operations[].kind is accepted as an input alias, but generated plans always use type. Never performs mutations.",
     parameters: Type.Object({
       targetProjectId: Type.Optional(Type.String()),
       targetProjectName: Type.Optional(Type.String()),
@@ -141,16 +142,16 @@ export default function (pi: ExtensionAPI) {
       workspaceManifestPath: Type.Optional(Type.String()),
       source: Type.Optional(Type.Any()),
       evidenceRefs: Type.Optional(Type.Array(Type.String())),
-      operations: Type.Array(Type.Any()),
+      operations: Type.Array(Type.Any({ description: "Each operation needs type, or kind as an input alias, plus fields. Example: { type: 'issue.create', title, description, teamKey, labelNames, milestoneName }." })),
       writePlanPath: Type.Optional(Type.String()),
       idempotencyKey: Type.Optional(Type.String())
     }),
     promptSnippet: "linear_build_write_plan: structured write plan builder that generates idempotencyKey, operation keys, summaries, planDigest, and ordered quality review, dry-run, pi_ask_user approval, and real apply steps.",
     promptGuidelines: [
-      "Use this to build standard write plans for projectUpdate.create, issue.create, issue.update, or issueRelation.create instead of hand-writing JSON.",
+      "Use this to build standard write plans for projectUpdate.create, issue.create, issue.update, or issueRelation.create instead of hand-writing JSON. Put the operation discriminator at operations[].type; operations[].kind is accepted as an input alias only.",
       "Pass a workspaceManifest or workspaceManifestPath when resolving team, label, workflow state, or Project Milestone names.",
       "If the tool returns evidence_gap, stop and refresh the missing target, team, label, state, or milestone evidence instead of guessing.",
-      "After it returns write_plan_ready, run the returned quality review, dry-run, pi_ask_user approval, and real apply steps in order.",
+      "After it returns write_plan_ready, run quality review, then dry-run. Use the planDigest returned by dry-run for pi_ask_user(plan_confirmation), then pass the approvalArtifact fields unchanged to real apply.",
       "The builder only creates a plan and planDigest for approval UI binding; it does not replace quality review, risk judgment, dry-run, readback, or audit."
     ],
     async execute(_id, params, signal) {
@@ -221,7 +222,7 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: "linear_apply_write_plan: dry-run automatically; real apply consumes one planning approval artifact only.",
     promptGuidelines: [
       "After generating a write plan, automatically run linear_plan_quality_review and linear_apply_write_plan with dryRun=true. Dry-run is validation only and is not user confirmation.",
-      "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation once to show the structured Chinese confirmation UI with Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, planDigest, and summaries.",
+      "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation once using the dry-run result planDigest to show the structured Chinese confirmation UI with Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, planDigest, and summaries.",
       "After the user chooses Yes, immediately call linear_apply_write_plan with dryRun=false and the approval artifact fields returned by pi_ask_user. Do not show a second confirmation UI and do not ask the user to type a confirmation phrase.",
       "linear_apply_write_plan never pops its own confirmation UI; it only consumes the approval artifact produced by pi_ask_user(plan_confirmation) or a legacy write_confirmation artifact.",
       "If pi_ask_user plan_confirmation is unavailable and conversation fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",

@@ -98,6 +98,19 @@ function normalizeType(type) {
   return value;
 }
 
+function operationType(operation) {
+  return normalizeType(operation.type || operation.kind);
+}
+
+function unsupportedOperationGap(operation, index) {
+  const provided = operation.type || operation.kind || '(missing)';
+  return [
+    `Unsupported operation type at operations[${index}].type: ${provided}. ` +
+    `Use operations[].type, or the kind alias, with one of: ${[...SUPPORTED_TYPES].join(', ')}. ` +
+    'Example: {"type":"issue.create","title":"...","description":"Acceptance criteria:\\n- ...","teamKey":"WEN","labelNames":["Backend"],"milestoneName":"M1"}.'
+  ];
+}
+
 function operationKey(type, index) {
   if (type === 'projectUpdate.create') return `project-update-${index + 1}`;
   if (type === 'issue.create') return `issue-create-${index + 1}`;
@@ -117,9 +130,9 @@ function baseInput(operation, project) {
 }
 
 function normalizeOperation(operation, index, project, manifestInfo) {
-  const type = normalizeType(operation.type);
+  const type = operationType(operation);
   if (!SUPPORTED_TYPES.has(type)) {
-    return { gaps: [`Unsupported operation type: ${operation.type || '(missing)'}.`] };
+    return { gaps: unsupportedOperationGap(operation, index) };
   }
 
   const input = baseInput(operation, project);
@@ -214,7 +227,7 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
           flow: 'plan_confirmation',
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
-          planDigest: writePlan.planDigest,
+          planDigest: '<from linear_apply_write_plan dry-run result planDigest>',
           targetProjectSummary: summary.targetProjectSummary,
           operationsSummary: summary.operationsSummary,
           risksSummary: '• 本计划仅由 builder 生成\n• quality review、dry-run、approval artifact、readback 与 audit 仍为必填步骤',
@@ -226,7 +239,7 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
         params: {
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
-          planDigest: writePlan.planDigest,
+          planDigest: '<from pi_ask_user approvalArtifact.planDigest>',
           confirmedByUser: true,
           confirmationChannel: 'ask_user',
           confirmationText: '<from pi_ask_user approvalArtifact.confirmationText>',

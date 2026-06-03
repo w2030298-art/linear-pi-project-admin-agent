@@ -2,6 +2,7 @@
 
 > 本文档只记录问题现状、真实体验与逻辑链条，**不提出修复方案**。
 > 相关 issue：[WEN-300](https://linear.app/wentaoxu-personal-workplace/issue/WEN-300)
+> WEN-308 更新：当前实现已把 builder workflow 中的 approval/apply `planDigest` 改为占位提示，要求 Agent 使用 `linear_apply_write_plan(dryRun=true)` 返回的 post-dry-run `planDigest` 调用 `pi_ask_user(flow=plan_confirmation)`，再把 `approvalArtifact` 字段原样传给 real apply。下文保留 WEN-300 的历史问题复盘。
 
 ## 摘要
 
@@ -16,7 +17,7 @@ Linear 写入协议承诺「用户对 exact dry-run plan 做一次最终确认�
 | 1. Builder | `write-plan-builder` 生成 write plan | `sha256:84c13d…`（pre-dry-run） |
 | 2. Quality review | 通过 | 不变 |
 | 3. Dry-run | `linear_apply_write_plan(dryRun=true)` 固化 manifest/resolutions | `sha256:3f0529…`（post-dry-run，同一文件） |
-| 4. Plan confirmation | Agent 用 builder 返回的 pre-dry-run digest 调用 `pi_ask_user(plan_confirmation)` | artifact 绑定 `84c13d…` |
+| 4. Plan confirmation（历史问题） | Agent 用 builder 返回的 pre-dry-run digest 调用 `pi_ask_user(plan_confirmation)` | artifact 绑定 `84c13d…` |
 | 5. Real apply | 安全门禁校验 artifact vs 当前 write plan | `plan_digest_mismatch`，写入被拦截 |
 | 6. 再次确认 | 用 post-dry-run digest 对同一 path/key 重试 | `duplicate_confirmation` |
 | 7. v2 write plan | 新建 `…-v2.json`，dry-run 后用户再次确认 | `sha256:695ab1…`，apply 成功 |
@@ -29,8 +30,8 @@ Linear 写入协议承诺「用户对 exact dry-run plan 做一次最终确认�
 
 - 基于 operations、project、source 等字段计算 `planDigest`。
 - 此时 write plan **不含** `manifestHash`、`manifestPath`、`resolutions` 等 dry-run 冻结字段。
-- Builder 返回的 `workflow.approval.params.planDigest` 即此 pre-dry-run digest。
-- Builder 编排提示顺序为：quality review → dry-run → **plan_confirmation（使用 builder digest）** → apply。
+- WEN-300 历史问题：Builder 返回的 `workflow.approval.params.planDigest` 即此 pre-dry-run digest。
+- WEN-308 后：Builder workflow 使用占位提示，编排顺序为 quality review → dry-run → **plan_confirmation（使用 dry-run 返回的 digest）** → apply（使用 `approvalArtifact.planDigest`）。
 
 ### Dry-run 阶段（`scripts/linear-workspace-manifest.mjs` → `freezePlanManifest`）
 
@@ -83,10 +84,10 @@ Agent 在不绕过安全门禁的前提下，只能：
 
 Agent 遵循「build plan → quality review → dry-run → plan_confirmation → apply」协议时面临结构性冲突：
 
-1. **Builder 返回值**：`planDigest` 与 `workflow.approval.params.planDigest` 均为 pre-dry-run 值；编排提示在 dry-run **之后**调用 plan_confirmation，却引用 builder digest。
-2. **Dry-run 返回值**：包含 post-dry-run `planDigest`，但 builder workflow 未将其作为唯一确认对象。
-3. **安全协议**：「不要二次确认」与「不能绕过 plan_digest_mismatch 门禁」不可同时满足——第一次确认无效，第二次确认被 duplicate 阻断。
-4. **唯一合规路径**：生成 v2 write plan（新 path 或新 idempotencyKey），再次 dry-run 与 plan_confirmation。
+1. **Builder 返回值（历史问题）**：`planDigest` 与 `workflow.approval.params.planDigest` 均为 pre-dry-run 值；编排提示在 dry-run **之后**调用 plan_confirmation，却引用 builder digest。
+2. **Dry-run 返回值（WEN-308 后的权威值）**：包含 post-dry-run `planDigest`，builder workflow 将其标为唯一确认对象。
+3. **安全协议**：真实 apply 仍然严格校验 approval artifact 与当前 write plan digest；不放宽 `plan_digest_mismatch` 门禁。
+4. **合规路径**：同一 write plan 先 dry-run，再用 dry-run digest 做一次 plan_confirmation，最后用 approvalArtifact 字段 real apply。
 
 严格遵守安全协议反而可能触发重复确认；不重复确认则无法真实写入。
 

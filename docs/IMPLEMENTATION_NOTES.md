@@ -108,17 +108,18 @@ Dry-run also freezes Linear object resolver inputs. `linear_apply_write_plan(dry
 
 Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it. If UI approval is available, do not downgrade to `conversation_fallback`; re-run `pi_ask_user(flow=plan_confirmation)` when the artifact is missing, expired, consumed, mismatched, or stored under the wrong runtime path.
 
-### Known structural issue: planDigest lifecycle (WEN-300)
+### Resolved structural issue: planDigest lifecycle (WEN-300/WEN-308)
 
-The write protocol promises one final plan confirmation per write intent, but `planDigest` authority is split across three stages:
+The write protocol promises one final plan confirmation per write intent. `planDigest` is still computed at multiple stages, but approval authority belongs to the post-dry-run digest:
 
-1. **Builder** (`write-plan-builder.mjs`) computes a pre-dry-run digest and returns it in `workflow.approval.params.planDigest`.
-2. **Dry-run** (`freezePlanManifest`) mutates the same write plan file, adds manifest/resolution fields, and recomputes `planDigest`.
-3. **Apply** consumes an approval artifact strictly bound to one digest; mismatch returns `plan_digest_mismatch`.
+1. **Builder** (`write-plan-builder.mjs`) computes a pre-dry-run digest for the generated file and returns workflow placeholders that instruct the Agent to use the dry-run digest for approval.
+2. **Dry-run** (`freezePlanManifest`) mutates the same write plan file, adds manifest/resolution fields, recomputes `planDigest`, and returns that digest in the dry-run result.
+3. **Plan confirmation** binds `pi_ask_user(flow=plan_confirmation)` to the post-dry-run digest.
+4. **Apply** consumes an approval artifact strictly bound to that digest; mismatch returns `plan_digest_mismatch`.
 
-If the Agent confirms with the builder digest after dry-run, real apply blocks with `plan_digest_mismatch`. A second confirmation for the same `writePlanPath` / `idempotencyKey` returns `duplicate_confirmation` because the first (unusable) artifact still occupies the store key—even though apply never consumed it.
+WEN-300 recorded the historical failure mode: confirming with the builder digest after dry-run caused real apply to block with `plan_digest_mismatch`, and a second confirmation for the same `writePlanPath` / `idempotencyKey` could return `duplicate_confirmation` because the first unusable artifact still occupied the store key.
 
-This is a framework state-machine conflict, not a user or Agent wording mistake. See `docs/WEN-300-plan-digest-lifecycle.md` and `scripts/test-plan-digest-lifecycle-wen300.ts` for the WEN-299 incident chain and characterization tests. WEN-300 records the problem only; it does not prescribe a fix.
+See `docs/WEN-300-plan-digest-lifecycle.md` for the WEN-299 incident chain and `scripts/test-plan-digest-lifecycle-wen300.ts` for the WEN-308 regression test that prevents builder workflow hints from approving the pre-dry-run digest.
 
 安全机制：
 

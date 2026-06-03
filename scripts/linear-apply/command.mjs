@@ -145,6 +145,7 @@ export async function applyPlanCommand(planPath, options) {
       confirmationSelfCheck: applyMode.confirmationSelfCheck,
       manifestHash: frozenPlan.manifestHash || null,
       manifestPath: frozenPlan.manifestPath || workspaceManifestInfo.manifestPath || null,
+      planDigest: frozenPlan.planDigest || null,
       resolutions: frozenPlan.resolutions || [],
       operations: compiled
     });
