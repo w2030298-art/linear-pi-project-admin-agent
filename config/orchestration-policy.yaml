@@ -11,6 +11,18 @@ planning:
   requireArchitectureSection: true
   requireRiskRegister: true
   requireRollbackForHighRiskChanges: true
+  dialogue:
+    description: "Soft gate for five-step planning dialogue before write plan (see 20-project-planning skill)"
+    requireFourGrid: true
+    minAlternatives: 2
+    maxAlternatives: 3
+    minAssumptionChallenges: 1
+    requireFactAnchoring: true
+    requireConvergenceBeforeWritePlan: true
+    outputFormat: two_section
+    sections:
+      - collaboration_dialogue
+      - converged_plan
 projectNaming:
   pattern: "repo-name｜中文描述"
   repoRequired: true
