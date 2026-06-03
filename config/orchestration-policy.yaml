@@ -19,6 +19,9 @@ planning:
     minAssumptionChallenges: 1
     requireFactAnchoring: true
     requireConvergenceBeforeWritePlan: true
+    prohibitOptionSelectionBeforeSteps3And4: true
+    requireFactAssumptionConsistencyInConvergedPlan: true
+    promptInputBinding: use_user_message_when_placeholder_unreplaced
     outputFormat: two_section
     sections:
       - collaboration_dialogue
