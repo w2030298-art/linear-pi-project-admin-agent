@@ -18,7 +18,6 @@ function tempJson(name: string, value: unknown) {
 function writePlan(
   writePlanPath: string,
   idempotencyKey = "approval-key",
-  planDigest = "sha256:approval",
   confirmationId = "approval-confirmation",
   confirmationText = "User approved exact dry-run write plan via Pi UI."
 ) {
@@ -29,7 +28,6 @@ function writePlan(
     confirmationChannel: "ask_user",
     confirmationText,
     confirmationId,
-    planDigest,
     readbackRequired: true,
     auditLogRequired: true,
     operations: [
@@ -117,7 +115,6 @@ async function applyWithAuditPath(planPath: string, options: ReturnType<typeof b
   registerWriteConfirmationArtifact({
     writePlanPath: planPath,
     idempotencyKey: "approval-key",
-    planDigest: "sha256:approval",
     confirmationId: "approval-confirmation",
     confirmationText: "User approved exact dry-run write plan via Pi UI."
   });
@@ -132,7 +129,7 @@ async function applyWithAuditPath(planPath: string, options: ReturnType<typeof b
   const audit = fs.readFileSync(auditPath, "utf8");
   assert.match(audit, /linear_apply_artifact_validation/);
   assert.match(audit, /approval-confirmation/);
-  assert.match(audit, /sha256:approval/);
+  assert.match(audit, /approval-confirmation/);
   assert.match(audit, /signatureValid/);
   assert.match(audit, /skip_completed/);
   assert.doesNotMatch(audit, /test-private-key/);
@@ -145,7 +142,6 @@ async function applyWithAuditPath(planPath: string, options: ReturnType<typeof b
   writePlan(
     planPath,
     "planning-approval-key",
-    "sha256:planning-approval",
     "planning-approval-confirmation",
     "User approved exact Linear write plan during planning via Pi UI."
   );
@@ -156,7 +152,6 @@ async function applyWithAuditPath(planPath: string, options: ReturnType<typeof b
     approvalKind: "plan_confirmation",
     writePlanPath: planPath,
     idempotencyKey: "planning-approval-key",
-    planDigest: "sha256:planning-approval",
     confirmationId: "planning-approval-confirmation",
     confirmationText: "User approved exact Linear write plan during planning via Pi UI."
   });
@@ -182,7 +177,6 @@ async function applyWithAuditPath(planPath: string, options: ReturnType<typeof b
   registerWriteConfirmationArtifact({
     writePlanPath: planPath,
     idempotencyKey: "approval-key",
-    planDigest: "sha256:approval",
     confirmationId: "approval-confirmation",
     confirmationText: "User approved exact dry-run write plan via Pi UI."
   });
@@ -215,7 +209,6 @@ async function applyWithAuditPath(planPath: string, options: ReturnType<typeof b
   registerWriteConfirmationArtifact({
     writePlanPath: planPath,
     idempotencyKey: "approval-key",
-    planDigest: "sha256:approval",
     confirmationId: "approval-confirmation",
     confirmationText: "User approved exact dry-run write plan via Pi UI."
   });

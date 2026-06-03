@@ -20,7 +20,6 @@ export interface ApprovalArtifact {
   approvalKind: ApprovalKind;
   writePlanPath: string;
   idempotencyKey: string;
-  planDigest?: string;
   confirmationId: string;
   confirmationText: string;
   createdAt: string;
@@ -31,14 +30,13 @@ export interface ApprovalArtifact {
 
 export interface ApprovalArtifactSignature {
   algorithm: "hmac-sha256";
-  signedFields: Array<"approvalKind" | "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">;
+  signedFields: Array<"approvalKind" | "writePlanPath" | "idempotencyKey" | "expiresAt" | "confirmationId">;
   value: string;
 }
 
 export interface WriteConfirmationApplyParams {
   writePlanPath: string;
   idempotencyKey?: string;
-  planDigest?: string;
   confirmationId?: string;
   confirmationText?: string;
   confirmationChannel?: string;
@@ -57,10 +55,9 @@ type ArtifactValidationFailure = {
     | "signature_missing"
     | "signature_mismatch"
     | "confirmation_mismatch"
-    | "plan_digest_mismatch"
     | "confirmation_text_mismatch";
   message: string;
-  artifact?: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey" | "planDigest" | "confirmationId" | "expiresAt" | "usedAt"> & { signatureValid?: boolean };
+  artifact?: Pick<ApprovalArtifact, "writePlanPath" | "idempotencyKey" | "confirmationId" | "expiresAt" | "usedAt"> & { signatureValid?: boolean };
 };
 
 const pendingArtifacts = new Map<string, ApprovalArtifact>();
@@ -70,7 +67,7 @@ const DEFAULT_STORE_FILE = "write-confirmation-artifacts.json";
 const SOURCE_PATH = fileURLToPath(import.meta.url);
 const LOCK_TIMEOUT_MS = 5_000;
 const STALE_LOCK_MS = 30_000;
-const SIGNED_FIELDS: ApprovalArtifactSignature["signedFields"] = ["approvalKind", "writePlanPath", "idempotencyKey", "planDigest", "expiresAt", "confirmationId"];
+const SIGNED_FIELDS: ApprovalArtifactSignature["signedFields"] = ["approvalKind", "writePlanPath", "idempotencyKey", "expiresAt", "confirmationId"];
 
 function artifactKey(writePlanPath: string, idempotencyKey: string) {
   return `${writePlanPath.trim()}::${idempotencyKey.trim()}`;
@@ -80,18 +77,17 @@ function signingKey() {
   return clean(process.env[SIGNING_KEY_ENV]);
 }
 
-function signaturePayload(artifact: Pick<ApprovalArtifact, "approvalKind" | "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">) {
+function signaturePayload(artifact: Pick<ApprovalArtifact, "approvalKind" | "writePlanPath" | "idempotencyKey" | "expiresAt" | "confirmationId">) {
   return JSON.stringify({
     approvalKind: artifact.approvalKind,
     writePlanPath: artifact.writePlanPath,
     idempotencyKey: artifact.idempotencyKey,
-    planDigest: artifact.planDigest || "",
     expiresAt: artifact.expiresAt,
     confirmationId: artifact.confirmationId
   });
 }
 
-function signArtifact(artifact: Pick<ApprovalArtifact, "approvalKind" | "writePlanPath" | "idempotencyKey" | "planDigest" | "expiresAt" | "confirmationId">): ApprovalArtifactSignature {
+function signArtifact(artifact: Pick<ApprovalArtifact, "approvalKind" | "writePlanPath" | "idempotencyKey" | "expiresAt" | "confirmationId">): ApprovalArtifactSignature {
   const key = signingKey();
   if (!key) {
     throw new Error(`${SIGNING_KEY_ENV} is required to create pi_ask_user write_confirmation approval artifacts.`);
@@ -108,7 +104,6 @@ function artifactAuditFields(artifact: ApprovalArtifact, signatureValid?: boolea
     writePlanPath: artifact.writePlanPath,
     idempotencyKey: artifact.idempotencyKey,
     approvalKind: artifact.approvalKind,
-    planDigest: artifact.planDigest,
     confirmationId: artifact.confirmationId,
     expiresAt: artifact.expiresAt,
     usedAt: artifact.usedAt,
@@ -149,7 +144,7 @@ function verifyArtifactSignature(artifact: ApprovalArtifact): ArtifactValidation
     return {
       ok: false,
       reason: "signature_mismatch",
-      message: "signature_mismatch: Approval artifact signature does not match approvalKind, writePlanPath, idempotencyKey, planDigest, expiresAt, and confirmationId.",
+      message: "signature_mismatch: Approval artifact signature does not match approvalKind, writePlanPath, idempotencyKey, expiresAt, and confirmationId.",
       artifact: artifactAuditFields(artifact, false)
     };
   }
@@ -331,7 +326,6 @@ export function buildWriteConfirmationText(input: {
   operationsSummary?: string;
   risksSummary?: string;
   nonChangesSummary?: string;
-  planDigest?: string;
 }) {
   const lines = [
     "Confirmation channel: pi_ask_user write_confirmation Approve & Write UI.",
@@ -343,7 +337,6 @@ export function buildWriteConfirmationText(input: {
   if (input.operationsSummary) lines.push(`Operations: ${input.operationsSummary}`);
   if (input.risksSummary) lines.push(`Risks: ${input.risksSummary}`);
   if (input.nonChangesSummary) lines.push(`Non-changes: ${input.nonChangesSummary}`);
-  if (input.planDigest) lines.push(`Plan digest: ${input.planDigest}`);
   return lines.join("\n");
 }
 
@@ -354,7 +347,6 @@ export function buildPlanConfirmationText(input: {
   operationsSummary?: string;
   risksSummary?: string;
   nonChangesSummary?: string;
-  planDigest?: string;
 }) {
   return renderPlanConfirmationText(input);
 }
@@ -366,7 +358,6 @@ export function buildWriteConfirmationMessage(input: {
   operationsSummary?: string;
   risksSummary?: string;
   nonChangesSummary?: string;
-  planDigest?: string;
 }) {
   const sections = [
     "Dry-run already completed. Review the exact write plan before approving real Linear mutations.",
@@ -377,7 +368,6 @@ export function buildWriteConfirmationMessage(input: {
   if (input.operationsSummary) sections.push(`Operations:\n${input.operationsSummary}`);
   if (input.risksSummary) sections.push(`Risks:\n${input.risksSummary}`);
   if (input.nonChangesSummary) sections.push(`Non-changes:\n${input.nonChangesSummary}`);
-  if (input.planDigest) sections.push(`Plan digest: ${input.planDigest}`);
   sections.push("Choose Approve & Write to run the real apply immediately, or Cancel to keep dry-run only.");
   return sections.join("\n\n");
 }
@@ -389,7 +379,6 @@ export function buildPlanConfirmationMessage(input: {
   operationsSummary?: string;
   risksSummary?: string;
   nonChangesSummary?: string;
-  planDigest?: string;
 }) {
   return renderPlanConfirmationMessage(input);
 }
@@ -401,7 +390,6 @@ export function toApprovalArtifactResponse(artifact: ApprovalArtifact) {
     approvalKind: artifact.approvalKind,
     writePlanPath: artifact.writePlanPath,
     idempotencyKey: artifact.idempotencyKey,
-    planDigest: artifact.planDigest,
     confirmationId: artifact.confirmationId,
     confirmationText: artifact.confirmationText,
     createdAt: artifact.createdAt,
@@ -417,7 +405,6 @@ export function registerWriteConfirmationArtifact(input: {
   writePlanPath: string;
   idempotencyKey: string;
   approvalKind?: ApprovalKind;
-  planDigest?: string;
   confirmationText: string;
   confirmationId?: string;
   ttlMs?: number;
@@ -445,7 +432,6 @@ export function registerWriteConfirmationArtifact(input: {
       approvalKind: input.approvalKind || "write_confirmation",
       writePlanPath,
       idempotencyKey,
-      planDigest: clean(input.planDigest),
       confirmationId: clean(input.confirmationId) || crypto.randomUUID(),
       confirmationText: input.confirmationText.trim(),
       createdAt: createdAt.toISOString(),
@@ -466,8 +452,6 @@ function validateArtifactState(
   const writePlanPath = clean(params.writePlanPath);
   const idempotencyKey = clean(params.idempotencyKey);
   const confirmationId = clean(params.confirmationId);
-  const planDigest = clean(params.planDigest);
-
   if (!writePlanPath || !idempotencyKey) {
     return {
       ok: false,
@@ -522,15 +506,6 @@ function validateArtifactState(
       ok: false,
       reason: "confirmation_mismatch",
       message: "confirmation_mismatch: confirmationId does not match the active pi_ask_user write_confirmation approval. Next step: pass the approvalArtifact returned by pi_ask_user unchanged, or re-run approval.",
-      artifact: artifactAuditFields(artifact, true)
-    };
-  }
-
-  if (artifact.planDigest && planDigest !== artifact.planDigest) {
-    return {
-      ok: false,
-      reason: "plan_digest_mismatch",
-      message: "plan_digest_mismatch: planDigest does not match the approved pi_ask_user artifact. Next step: re-run dry-run and approve the exact current write plan with pi_ask_user(flow=plan_confirmation).",
       artifact: artifactAuditFields(artifact, true)
     };
   }

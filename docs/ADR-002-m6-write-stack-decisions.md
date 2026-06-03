@@ -9,7 +9,7 @@
 
 ## 背景
 
-M6 里程碑「架构重构：规划对话化·写入栈降级·全量去重」触碰到 `docs/SCOPE_FREEZE.md` 冻结的层级 2 写入栈（`scripts/linear-apply/*`、4 个手搓 resolver、`@linear/sdk` executor、planDigest 体系、企业级 write-policy 等）。在启动 WEN-313 及后续任务前，必须先完成三项显式决策并记录为 ADR。
+M6 里程碑「架构重构：规划对话化·写入栈降级·全量去重」触碰到 `docs/SCOPE_FREEZE.md` 冻结的层级 2 写入栈（`scripts/linear-apply/*`、4 个手搓 resolver、`@linear/sdk` executor、计划哈希绑定体系、企业级 write-policy 等）。在启动 WEN-313 及后续任务前，必须先完成三项显式决策并记录为 ADR。
 
 ---
 
@@ -19,7 +19,7 @@ M6 里程碑「架构重构：规划对话化·写入栈降级·全量去重」�
 
 **解冻理由**：
 
-- M6 目标是对层级 2 写入栈做结构性降级（MCP 迁移、planDigest 退场、builder 合并、policy 收缩），与 v0.1 冻结时的「写入治理稳定验收」假设冲突。
+- M6 目标是对层级 2 写入栈做结构性降级（MCP 迁移、计划哈希体系退场、builder 合并、policy 收缩），与 v0.1 冻结时的「写入治理稳定验收」假设冲突。
 - 继续冻结会阻塞 WEN-313 ~ WEN-322 共 10 个 Issue，且与已接受的 ADR-001（Claude Code 迁移）写入治理保留策略不一致。
 - 安全边界（dry-run 默认、confirmed-only、L4/L5 deny、protectedFields）不在解冻范围内删除，仅允许重构实现方式。
 
@@ -30,7 +30,7 @@ M6 里程碑「架构重构：规划对话化·写入栈降级·全量去重」�
 | 写入执行栈 | `scripts/linear-apply/*`、4 个 resolver、MCP adapter |
 | 写入计划构建 | `write-plan-builder.mjs`、`low-risk-write-plan.mjs` 合并 |
 | 确认 UX | `pi-ask-user.ts`、plan_confirmation、legacy write_confirmation 删除 |
-| planDigest | 全量删除，以 readback diff 替代（WEN-317） |
+| 计划哈希绑定 | 全量删除，以 readback diff 替代（WEN-317） |
 | write-policy | 从企业 L0-L5 收缩为 solo 模式（WEN-316） |
 | 规划 skill | 重写为五步协作循环（WEN-313） |
 | 测试与文档 | 删除随复杂度蒸发的测试，更新至新架构现实（WEN-322） |
@@ -110,19 +110,21 @@ LINEAR_WRITE_BACKEND=sdk    # 紧急 fallback，T3 阶段 2 完成后移除
 
 ---
 
-## 决策 5：planDigest → 极简 idempotencyKey
+## 决策 5：计划哈希绑定退场 → 极简 idempotencyKey + readback diff
 
-**决定**：**planDigest 全量退场**（WEN-317），**保留极简 idempotencyKey** 仅用于审计去重与 replay skip。
+**决定**：**计划哈希绑定全量退场**（WEN-317），**保留极简 idempotencyKey** 仅用于审计去重与 replay skip；**审批 artifact 仅绑定 `writePlanPath` + `idempotencyKey`**；**apply 后以 readback diff 校验计划与实际偏差**。
 
 | 机制 | M6 前 | M6 后 |
 |---|---|---|
-| planDigest | sha256(writePlan) 绑定确认 artifact，builder/dry-run/apply 三处校验 | **删除** |
+| 计划哈希（sha256(writePlan)） | builder/dry-run/apply 三处校验，绑定确认 artifact | **删除** |
 | idempotencyKey | 写入计划 + artifact + audit 去重 | **保留**，降级为朴素字符串（无 hash 派生链） |
-| 确认完整性 | digest 比对防篡改 | apply 后 readback diff（计划 vs 实际）告警 |
+| 审批绑定 | writePlanPath + idempotencyKey + 计划哈希 | **仅** writePlanPath + idempotencyKey |
+| dry-run 冻结 | 写入 manifest/resolutions 并可能重算计划哈希 | 写入 manifest/resolutions，**不重算**计划哈希 |
+| 确认完整性 | 哈希比对防篡改 | apply 后 **readback diff**（计划 vs 实际）告警 |
 
 **理由**：单人 solo 工具不需要企业级防篡改 digest 链；readback diff 足以发现计划与实际偏差（WEN-317 详述）。idempotencyKey 仍用于 `state/audit.jsonl` 去重、`progress.mjs` replay skip 和 artifact store 键，不可删除。
 
-**过渡期（WEN-312 ~ WEN-317）**：现有 planDigest 逻辑保持运行直至 WEN-317 合并；本 ADR 提前锁定退场方向，避免 M6 中途再争论。
+**过渡期（WEN-312 ~ WEN-317）**：现有计划哈希逻辑保持运行直至 WEN-317 合并；本 ADR 提前锁定退场方向，避免 M6 中途再争论。
 
 ---
 
@@ -157,7 +159,7 @@ WEN-316 仅收缩 L0-L3 的 confirm/require 语义至 solo 模式；L4/L5 deny �
 | SCOPE_FREEZE 已解冻 | ✅ | `docs/SCOPE_FREEZE.md` M6 解冻节 |
 | 写入路径 A/B 已选定 | ✅ | 本 ADR 决策 2：路径 A |
 | LINEAR_WRITE_BACKEND 策略已确认 | ✅ | 本 ADR 决策 4 |
-| planDigest 保留极简 idempotencyKey 已确认 | ✅ | 本 ADR 决策 5 |
+| 计划哈希退场、保留 idempotencyKey + readback diff 已确认 | ✅ | 本 ADR 决策 5 |
 | L4/L5 硬 deny 与 protectedFields 保留已确认 | ✅ | 本 ADR 决策 6 + `config/write-policy.yaml` |
 
 ---
@@ -169,7 +171,7 @@ WEN-312 (本 ADR)
   ├── WEN-313 规划对话化
   ├── WEN-315 builder 合并
   ├── WEN-316 policy 降级（保留 L4/L5）
-  ├── WEN-317 planDigest 退场（保留 idempotencyKey）
+  ├── WEN-317 计划哈希退场（保留 idempotencyKey，readback diff）
   ├── WEN-318 确认归一
   ├── WEN-319 T3 阶段 1 MCP adapter + 双路径
   ├── WEN-320 T3 阶段 2 删旧栈

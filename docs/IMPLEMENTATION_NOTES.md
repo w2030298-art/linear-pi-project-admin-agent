@@ -10,7 +10,7 @@
 
 - `project_select`: first step for single-Project planning/reporting/review when the user did not specify a target. Options are loaded only from the merged local three-source repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`): every entry with a local project directory is listed by repoKey/project ID, followed by `User input`. Local overlay entries override tracked config entries with the same repoKey. Linear is not queried until after this selection.
 - `repo_map`: stepwise repo-map repair/draft flow.
-- `plan_confirmation`: planning-time `Yes` / `No` / `调整意见` UI for an exact Linear write plan. The UI renders a structured Chinese review surface (项目概览 / 计划结构树 / 风险 / 非变更 / 证据 / 审批绑定) from the write plan file plus summaries. `Yes` creates a signed approval artifact bound to `writePlanPath`, `idempotencyKey`, and `planDigest`; `No` cancels without mutation; `调整意见` returns feedback so the Agent can rewrite the plan and ask again.
+- `plan_confirmation`: planning-time `Yes` / `No` / `调整意见` UI for an exact Linear write plan. The UI renders a structured Chinese review surface (项目概览 / 计划结构树 / 风险 / 非变更 / 证据 / 审批绑定) from the write plan file plus summaries. `Yes` creates a signed approval artifact bound to `writePlanPath` and `idempotencyKey` only; `No` cancels without mutation; `调整意见` returns feedback so the Agent can rewrite the plan and ask again.
 - `write_confirmation`: legacy one-time approve/cancel UI for an exact dry-run Linear write plan. It only collects approval and never executes Linear mutations.
 
 For `repo_map`:
@@ -56,7 +56,7 @@ Dry-run compilation and real apply use separate protocol gates:
 - `project_update`: one `projectUpdate.create`.
 - `issue_create`: one `issue.create` with existing Project Milestone readback.
 
-The wrapper accepts current session facts or a compact Project baseline, then generates a normal write plan with `idempotencyKey`, `planDigest`, `readbackRequired=true`, `auditLogRequired=true`, `dryRun=true`, `confirmedByUser=false`, and a dry-run summary. It also returns the exact next tool calls for quality review, dry-run, `pi_ask_user(plan_confirmation)`, and real apply. These are orchestration hints, not permissions; the existing reviewer, dry-run, approval artifact, readback, and audit gates remain mandatory.
+The wrapper accepts current session facts or a compact Project baseline, then generates a normal write plan with `idempotencyKey`, `readbackRequired=true`, `auditLogRequired=true`, `dryRun=true`, `confirmedByUser=false`, and a dry-run summary. It also returns the exact next tool calls for quality review, dry-run, `pi_ask_user(plan_confirmation)`, and real apply. These are orchestration hints, not permissions; the existing reviewer, dry-run, approval artifact, readback, and audit gates remain mandatory.
 
 When required evidence is missing, the wrapper returns `status=evidence_gap` with open questions. It does not infer target Project, milestone, team, labels, or acceptance criteria. Requests outside the whitelist must use the full Fact Pack and planning path.
 
@@ -92,34 +92,34 @@ When required evidence is missing, the wrapper returns `status=evidence_gap` wit
 Responsibilities are split across four layers:
 
 1. **Dry-run** — Agent automatically runs `linear_plan_quality_review` and `linear_apply_write_plan(dryRun=true)`. No user confirmation.
-2. **`pi_ask_user(flow=plan_confirmation)`** — Shows `Yes` / `No` / `调整意见` and returns an `ApprovalArtifact` bound to `writePlanPath`, `idempotencyKey`, and `planDigest` only on `Yes`. `No` cancels; `调整意见` returns feedback for plan rewrite. Does not execute Linear mutations.
+2. **`pi_ask_user(flow=plan_confirmation)`** — Shows `Yes` / `No` / `调整意见` and returns an `ApprovalArtifact` bound to `writePlanPath` and `idempotencyKey` only on `Yes`. `No` cancels; `调整意见` returns feedback for plan rewrite. Does not execute Linear mutations.
 3. **`linear_apply_write_plan(dryRun=false)`** — Consumes the planning artifact once, then runs real apply with readback/audit. Never pops a second confirmation UI.
 4. **`linear-write-guard`** — Allows dry-run; blocks real apply when the artifact is missing, expired, reused, or mismatched.
 
-`ApprovalArtifact` fields: `approved`, `confirmationChannel`, `approvalKind`, `writePlanPath`, `idempotencyKey`, `planDigest`, `confirmationText`, `confirmationId`, `createdAt`, `expiresAt`, optional `usedAt`.
+`ApprovalArtifact` fields: `approved`, `confirmationChannel`, `approvalKind`, `writePlanPath`, `idempotencyKey`, `confirmationText`, `confirmationId`, `createdAt`, `expiresAt`, optional `usedAt`.
 
 Default artifact TTL is 30 minutes. Artifacts are stored in a shared persistent store, not only an in-memory module Map. The default store is `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, `~/.linear-project-admin-pi/write-confirmation-artifacts.json` otherwise, and can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH` for tests or host-managed session storage. This store is the boundary that lets `pi_ask_user` approval survive separate tool calls, extension reloads, different module graphs, and source/runtime checkout path differences.
 
-`pi_ask_user(plan_confirmation)` returns both the approval artifact and diagnostic metadata: `artifactStorage` describes the local store path/read/write/persisted state, and `artifactBinding` echoes the exact `writePlanPath`, `idempotencyKey`, `planDigest`, and `confirmationId` that real apply must pass back unchanged.
+`pi_ask_user(plan_confirmation)` returns both the approval artifact and diagnostic metadata: `artifactStorage` describes the local store path/read/write/persisted state, and `artifactBinding` echoes the exact `writePlanPath`, `idempotencyKey`, and `confirmationId` that real apply must pass back unchanged.
 
-Validation distinguishes missing or stale artifacts, unreadable stores, expired artifacts, reused artifacts, `confirmationId` mismatch, `planDigest` mismatch or omission, and `confirmationText` mismatch. Blocked apply messages include the machine-readable reason and the next step. Successful real apply marks the artifact with `usedAt` and persists that consumed state before the Linear mutation path records audit/readback output. The CLI receives `confirmationChannel`, `confirmationText`, and `confirmationId`, and artifact validation audit records include `approvalKind`, so `state/audit.jsonl` distinguishes planning approval from write-time apply consume.
+Validation distinguishes missing or stale artifacts, unreadable stores, expired artifacts, reused artifacts, `confirmationId` mismatch, `writePlanPath` or `idempotencyKey` mismatch or omission, and `confirmationText` mismatch. Blocked apply messages include the machine-readable reason and the next step. Successful real apply marks the artifact with `usedAt` and persists that consumed state before the Linear mutation path records audit/readback output. The CLI receives `confirmationChannel`, `confirmationText`, and `confirmationId`, and artifact validation audit records include `approvalKind`, so `state/audit.jsonl` distinguishes planning approval from write-time apply consume.
 
-Dry-run also freezes Linear object resolver inputs. `linear_apply_write_plan(dryRun=true)` persists the current workspace manifest snapshot, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, object `resolutions`, and a recomputed `planDigest` into the write plan, and records `linear_apply_manifest_compile` in audit. Real apply recomputes the current manifest and resolution snapshot before consuming the approval artifact; `manifestHash` mismatch, resolution drift, or incomplete manifests block mutation and record `linear_apply_manifest_validation` with `resolutionDiff`.
+Dry-run also freezes Linear object resolver inputs. `linear_apply_write_plan(dryRun=true)` persists the current workspace manifest snapshot, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan without recomputing any plan hash, and records `linear_apply_manifest_compile` in audit. Real apply recomputes the current manifest and resolution snapshot before consuming the approval artifact; `manifestHash` mismatch, resolution drift, or incomplete manifests block mutation and record `linear_apply_manifest_validation` with `resolutionDiff`. After mutations, apply compares planned vs actual state via readback diff and surfaces drift in audit output.
 
 Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it. If UI approval is available, do not downgrade to `conversation_fallback`; re-run `pi_ask_user(flow=plan_confirmation)` when the artifact is missing, expired, consumed, mismatched, or stored under the wrong runtime path.
 
-### Resolved structural issue: planDigest lifecycle (WEN-300/WEN-308)
+### Resolved structural issue: write confirmation binding (WEN-300/WEN-308/WEN-317)
 
-The write protocol promises one final plan confirmation per write intent. `planDigest` is still computed at multiple stages, but approval authority belongs to the post-dry-run digest:
+The write protocol promises one final plan confirmation per write intent. Approval authority is **`writePlanPath` + `idempotencyKey` only** — no plan hash chain participates in artifact binding.
 
-1. **Builder** (`write-plan-builder.mjs`) computes a pre-dry-run digest for the generated file and returns workflow placeholders that instruct the Agent to use the dry-run digest for approval.
-2. **Dry-run** (`freezePlanManifest`) mutates the same write plan file, adds manifest/resolution fields, recomputes `planDigest`, and returns that digest in the dry-run result.
-3. **Plan confirmation** binds `pi_ask_user(flow=plan_confirmation)` to the post-dry-run digest.
-4. **Apply** consumes an approval artifact strictly bound to that digest; mismatch returns `plan_digest_mismatch`.
+1. **Builder** (`write-plan-builder.mjs`) generates the write plan file and returns workflow placeholders that instruct the Agent to dry-run, confirm, then apply.
+2. **Dry-run** (`freezePlanManifest`) mutates the same write plan file, adds manifest/resolution fields, and persists the workspace manifest snapshot **without recomputing any plan hash**.
+3. **Plan confirmation** binds `pi_ask_user(flow=plan_confirmation)` to the exact `writePlanPath` and `idempotencyKey` shown after dry-run.
+4. **Apply** consumes the approval artifact once, validates manifest/resolution drift against the frozen dry-run snapshot, executes mutations, then compares planned vs actual state via **readback diff** in audit output.
 
-WEN-300 recorded the historical failure mode: confirming with the builder digest after dry-run caused real apply to block with `plan_digest_mismatch`, and a second confirmation for the same `writePlanPath` / `idempotencyKey` could return `duplicate_confirmation` because the first unusable artifact still occupied the store key.
+WEN-300 recorded the historical failure mode where multi-stage digest binding caused `plan_digest_mismatch` and `duplicate_confirmation` for the same `writePlanPath` / `idempotencyKey`. WEN-317 removes the digest chain entirely; integrity after mutation is enforced by readback diff, not pre-apply hash comparison.
 
-See `docs/WEN-300-plan-digest-lifecycle.md` for the WEN-299 incident chain and `scripts/test-plan-digest-lifecycle-wen300.ts` for the WEN-308 regression test that prevents builder workflow hints from approving the pre-dry-run digest.
+See `docs/WEN-300-plan-digest-lifecycle.md` for the WEN-299 incident chain (historical) and `scripts/test-plan-digest-lifecycle-wen300.ts` for regression coverage of the single-confirmation flow.
 
 安全机制：
 

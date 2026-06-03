@@ -78,7 +78,6 @@ assert.equal(PLAN_CONFIRMATION_UI_TITLE, PLAN_CONFIRMATION_UI_TITLE_ZH);
     targetProjectSummary: "Linear Admin Runtime",
     risksSummary: "• 不改变写入安全边界",
     nonChangesSummary: "• repo-map 不变",
-    planDigest: "sha256:single",
     cwd: root
   });
   assert.match(message, /【项目概览】/);
@@ -87,7 +86,6 @@ assert.equal(PLAN_CONFIRMATION_UI_TITLE, PLAN_CONFIRMATION_UI_TITLE_ZH);
   assert.match(message, /【审批绑定 · 核对用】/);
   assert.match(message, /writePlanPath: .+single-issue\.json/);
   assert.match(message, /idempotencyKey: wen-299-single/);
-  assert.match(message, /planDigest: sha256:single/);
   assert.match(message, /Yes（认可）/);
   assert.match(message, /fact-7f1e56a7fd91\.json/);
   fs.rmSync(root, { recursive: true, force: true });
@@ -186,7 +184,6 @@ assert.equal(PLAN_CONFIRMATION_UI_TITLE, PLAN_CONFIRMATION_UI_TITLE_ZH);
       idempotencyKey: "snapshot-key",
       targetProjectSummary: "Demo Project",
       operationsSummary: "- issue.update: WEN-299",
-      planDigest: "sha256:snapshot",
       risksSummary: "• 无删除操作",
       nonChangesSummary: "• 无 repo-map 变更"
     }
@@ -195,7 +192,7 @@ assert.equal(PLAN_CONFIRMATION_UI_TITLE, PLAN_CONFIRMATION_UI_TITLE_ZH);
   assert.equal(approved.ok, true);
   assert.match(capturedPrompt, /确认 Linear 写入计划/);
   assert.match(capturedPrompt, /【计划结构】/);
-  assert.match(capturedPrompt, /planDigest: sha256:snapshot/);
+  assert.match(capturedPrompt, /idempotencyKey: snapshot-key/);
   assert.equal(approved.approvalArtifact?.approvalKind, "plan_confirmation");
   fs.rmSync(root, { recursive: true, force: true });
 }

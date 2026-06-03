@@ -49,13 +49,10 @@ function assertReviewPass(writePlan, message) {
   });
   assert.equal(result.ok, true);
   assert.match(result.idempotencyKey, /^write-plan-project-1-/);
-  assert.match(result.planDigest, /^sha256:/);
-  assert.equal(result.writePlan.planDigest, result.planDigest);
   assert.equal(result.writePlan.operations[0].key, 'project-update-1');
   assert.equal(result.summary.operationCount, 1);
   assert.equal(result.nextToolCalls.approval.params.flow, 'plan_confirmation');
-  assert.equal(result.nextToolCalls.approval.params.planDigest, '<from linear_apply_write_plan dry-run result planDigest>');
-  assert.equal(result.nextToolCalls.apply.params.planDigest, '<from pi_ask_user approvalArtifact.planDigest>');
+  assert.equal(result.nextToolCalls.apply.params.dryRun, false);
   assertReviewPass(result.writePlan, 'project update builder output must pass review');
 }
 
@@ -257,7 +254,7 @@ function assertReviewPass(writePlan, message) {
   assert.equal(output.ok, true);
   assert.equal(fs.existsSync(outPath), true);
   const persisted = JSON.parse(fs.readFileSync(outPath, 'utf8'));
-  assert.equal(persisted.planDigest, output.planDigest);
+  assert.equal(persisted.idempotencyKey, output.idempotencyKey);
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
@@ -265,7 +262,7 @@ function assertReviewPass(writePlan, message) {
   const adminTools = fs.readFileSync('.pi/extensions/linear-admin-tools.ts', 'utf8');
   assert.match(adminTools, /linear_build_write_plan/);
   assert.match(adminTools, /structured write plan builder/i);
-  assert.match(adminTools, /planDigest/);
+  assert.match(adminTools, /readback diff/i);
 }
 
 console.log('write plan builder tests passed');

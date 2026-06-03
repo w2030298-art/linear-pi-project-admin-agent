@@ -25,7 +25,6 @@ export function progressPathFor(env, idempotencyKey) {
 export function planInputHash(plan) {
   return stableHash({
     idempotencyKey: plan.idempotencyKey || null,
-    planDigest: plan.planDigest || null,
     operations: plan.operations || []
   });
 }
@@ -44,7 +43,7 @@ export function loadProgress(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-export function initProgress(existing, { idempotencyKey, planHash, planDigest, writePlanPath }) {
+export function initProgress(existing, { idempotencyKey, planHash, writePlanPath }) {
   if (existing) {
     if (existing.planHash !== planHash) {
       throw new Error('plan/input hash changed; run a new dry-run and approval before applying this write plan.');
@@ -55,7 +54,6 @@ export function initProgress(existing, { idempotencyKey, planHash, planDigest, w
     version: 1,
     idempotencyKey,
     planHash,
-    planDigest: planDigest || null,
     writePlanPath,
     status: 'in_progress',
     createdAt: now(),
