@@ -2,16 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import {
-  getWriteConfirmationArtifactStorePath,
-  validateWriteConfirmationArtifact
-} from "../../scripts/write-confirmation-artifact.ts";
+import { planConfirmationBindingError } from "./linear-write-guard.ts";
 
 function text(content: unknown) {
   return { content: [{ type: "text" as const, text: typeof content === "string" ? content : JSON.stringify(content, null, 2) }], details: content };
 }
 
-export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string, unknown>, params: any) {
+export async function preparePlanConfirmation(_pi: ExtensionAPI | Record<string, unknown>, params: any) {
   if (params.dryRun !== false) return { ...params, confirmedByUser: false };
 
   if (params.confirmationChannel === "conversation_fallback") {
@@ -38,32 +35,24 @@ export async function prepareWriteConfirmation(_pi: ExtensionAPI | Record<string
 
   if (params.confirmedByUser !== true) {
     throw new Error(
-      "linear_apply_write_plan cancelled: real writes require one planning approval artifact from pi_ask_user(flow=plan_confirmation) before apply."
+      "linear_apply_write_plan cancelled: real writes require one plan_confirmation approval from pi_ask_user before apply."
     );
   }
 
-  const validated = validateWriteConfirmationArtifact({
+  const bindingError = planConfirmationBindingError({
     writePlanPath: params.writePlanPath,
     idempotencyKey: params.idempotencyKey,
-    confirmationId: params.confirmationId,
-    confirmationText: params.confirmationText,
-    confirmationChannel: params.confirmationChannel || "ask_user",
-    confirmedByUser: params.confirmedByUser
+    confirmationText: params.confirmationText
   });
-  if (validated.ok === false) {
-    throw new Error(validated.message);
-  }
+  if (bindingError) throw new Error(bindingError);
 
   return {
     ...params,
     confirmedByUser: true,
     confirmationChannel: "ask_user",
     confirmationFallbackReason: null,
-    confirmationText: validated.artifact.confirmationText,
-    confirmationId: validated.artifact.confirmationId,
-    idempotencyKey: validated.artifact.idempotencyKey,
-    approvalArtifact: validated.artifact,
-    approvalArtifactPath: getWriteConfirmationArtifactStorePath()
+    confirmationText: params.confirmationText.trim(),
+    idempotencyKey: params.idempotencyKey
   };
 }
 
@@ -120,7 +109,7 @@ export default function (pi: ExtensionAPI) {
       "Use only for low-risk single Project Update or single Issue create in one Project.",
       "For kind=issue_create, pass issue.title, issue.description, issue.teamKey/teamId, issue.labels/labelNames, issue.projectMilestoneId, and issue.projectMilestoneReadback. Top-level aliases are accepted but nested issue is clearer.",
       "If the tool returns evidence_gap, stop and build or refresh a full Fact Pack instead of guessing.",
-      "After it returns write_plan_ready, run the returned quality review, then dry-run, then pi_ask_user(plan_confirmation), then pass the approvalArtifact fields unchanged to real apply.",
+      "After it returns write_plan_ready, run the returned quality review, then dry-run, then pi_ask_user(plan_confirmation), then pass the returned confirmation fields unchanged to real apply.",
       "Do not use this for cross-Project writes, batch writes, repo-map changes, project structure changes, or relation-heavy planning."
     ],
     async execute(_id, params, signal) {
@@ -149,7 +138,7 @@ export default function (pi: ExtensionAPI) {
       "Use this to build standard write plans for projectUpdate.create, issue.create, issue.update, or issueRelation.create instead of hand-writing JSON. Put the operation discriminator at operations[].type; operations[].kind is accepted as an input alias only.",
       "Pass a workspaceManifest or workspaceManifestPath when resolving team, label, workflow state, or Project Milestone names.",
       "If the tool returns evidence_gap, stop and refresh the missing target, team, label, state, or milestone evidence instead of guessing.",
-      "After it returns write_plan_ready, run quality review, then dry-run, then pi_ask_user(plan_confirmation), then pass the approvalArtifact fields unchanged to real apply.",
+      "After it returns write_plan_ready, run quality review, then dry-run, then pi_ask_user(plan_confirmation), then pass the returned confirmation fields unchanged to real apply.",
       "The builder only creates a write plan for approval UI binding; it does not replace quality review, risk judgment, dry-run, readback diff, or audit."
     ],
     async execute(_id, params, signal) {
@@ -205,7 +194,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_apply_write_plan",
     label: "Apply Linear Write Plan",
-    description: "Compile a dry-run write plan automatically, or apply a real write plan after one planning approval artifact. Uses idempotency and readback.",
+    description: "Compile a dry-run write plan automatically, or apply a real write plan after one plan_confirmation approval. Uses idempotency and readback.",
     parameters: Type.Object({
       writePlanPath: Type.String(),
       confirmedByUser: Type.Boolean(),
@@ -216,25 +205,24 @@ export default function (pi: ExtensionAPI) {
       allowConversationFallback: Type.Optional(Type.Boolean({ default: false })),
       dryRun: Type.Optional(Type.Boolean({ default: true }))
     }),
-    promptSnippet: "linear_apply_write_plan: dry-run automatically; real apply consumes one planning approval artifact only.",
+    promptSnippet: "linear_apply_write_plan: dry-run automatically; real apply accepts one plan_confirmation result only.",
     promptGuidelines: [
       "After generating a write plan, automatically run linear_plan_quality_review and linear_apply_write_plan with dryRun=true. Dry-run is validation only and is not user confirmation.",
       "After generating the write plan, quality review, and dry-run, call pi_ask_user with flow=plan_confirmation once to show the structured Chinese confirmation UI with Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, and summaries.",
-      "After the user chooses Yes, immediately call linear_apply_write_plan with dryRun=false and the approval artifact fields returned by pi_ask_user. Do not show a second confirmation UI and do not ask the user to type a confirmation phrase.",
-      "linear_apply_write_plan never pops its own confirmation UI; it only consumes the approval artifact produced by pi_ask_user(plan_confirmation) or a legacy write_confirmation artifact.",
+      "After the user chooses Yes, immediately call linear_apply_write_plan with dryRun=false and the confirmation fields returned by pi_ask_user. Do not show a second confirmation UI and do not ask the user to type a confirmation phrase.",
+      "linear_apply_write_plan never pops its own confirmation UI; it only accepts the confirmation result produced by pi_ask_user(plan_confirmation).",
       "If pi_ask_user plan_confirmation is unavailable and conversation fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",
       "Conversation fallback is allowed only when Pi UI is unavailable and the user explicitly allows it via allowConversationFallback=true with confirmationChannel=conversation_fallback.",
-      "Never call linear_apply_write_plan with confirmedByUser=true unless the approval artifact or explicit fallback approval is present."
+      "Never call linear_apply_write_plan with confirmedByUser=true unless the plan_confirmation result or explicit fallback approval is present."
     ],
     async execute(_id, params, signal) {
-      const prepared = await prepareWriteConfirmation(pi, params);
+      const prepared = await preparePlanConfirmation(pi, params);
       const args = ["apply", prepared.writePlanPath, prepared.confirmedByUser ? "--confirmed" : "--not-confirmed"];
       if (prepared.dryRun === false || prepared.confirmationChannel) {
         args.push("--confirmation-channel", prepared.confirmationChannel || "ask_user");
       }
       if (prepared.confirmationText) args.push("--confirmation-text", prepared.confirmationText);
       if (prepared.confirmationId) args.push("--confirmation-id", prepared.confirmationId);
-      if (prepared.approvalArtifactPath) args.push("--approval-artifact-path", prepared.approvalArtifactPath);
       if (prepared.dryRun !== false) args.push("--dry-run");
       return callLinear(signal, args);
     }

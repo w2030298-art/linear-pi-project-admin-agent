@@ -221,7 +221,7 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
           idempotencyKey: writePlan.idempotencyKey,
           targetProjectSummary: summary.targetProjectSummary,
           operationsSummary: summary.operationsSummary,
-          risksSummary: '• 本计划仅由 builder 生成\n• quality review、dry-run、approval artifact、readback 与 audit 仍为必填步骤',
+          risksSummary: '• 本计划仅由 builder 生成\n• quality review、dry-run、plan confirmation、readback 与 audit 仍为必填步骤',
           nonChangesSummary: '• builder 本身不执行 Linear mutation\n• repo-map / workspace manifest 除 resolver 冻结字段外不做额外变更'
         }
       },
@@ -232,8 +232,7 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
           idempotencyKey: writePlan.idempotencyKey,
           confirmedByUser: true,
           confirmationChannel: 'ask_user',
-          confirmationText: '<from pi_ask_user approvalArtifact.confirmationText>',
-          confirmationId: '<from pi_ask_user approvalArtifact.confirmationId>',
+          confirmationText: '<from pi_ask_user confirmationText>',
           dryRun: false
         }
       }

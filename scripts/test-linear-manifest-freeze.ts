@@ -5,10 +5,6 @@ import path from "node:path";
 import { collectConnectionNodes, manifestHash } from "./linear-workspace-manifest.mjs";
 import { applyPlanCommand } from "./linear-apply/command.mjs";
 import { reviewWritePlan } from "./plan-reviewer.mjs";
-import {
-  registerWriteConfirmationArtifact,
-  resetWriteConfirmationArtifactsForTests
-} from "./write-confirmation-artifact.ts";
 
 function tempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "linear-manifest-freeze-"));
@@ -142,7 +138,6 @@ function manifest(labelId: string, extra: Record<string, unknown> = {}) {
 {
   const dir = tempDir();
   const planPath = path.join(dir, "plan.json");
-  const storePath = path.join(dir, "artifacts.json");
   const auditPath = path.join(dir, "audit.jsonl");
   const progressPath = path.join(dir, "progress.json");
   const approvedManifest = manifest("label-before");
@@ -171,15 +166,6 @@ function manifest(labelId: string, extra: Record<string, unknown> = {}) {
       }
     ]
   });
-  process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH = storePath;
-  process.env.LINEAR_APPROVAL_PRIVATE_KEY = "test-private-key";
-  resetWriteConfirmationArtifactsForTests();
-  registerWriteConfirmationArtifact({
-    writePlanPath: planPath,
-    idempotencyKey: "manifest-drift",
-    confirmationId: "manifest-drift-approval",
-    confirmationText: "User approved exact dry-run write plan via Pi UI."
-  });
   let mutations = 0;
   const client = {
     client: {
@@ -193,15 +179,13 @@ function manifest(labelId: string, extra: Record<string, unknown> = {}) {
   const env = {
         LINEAR_WRITE_MODE: "confirmed-only",
         ALLOW_LINEAR_WRITES: "true",
-        LINEAR_APPROVAL_PRIVATE_KEY: "test-private-key",
-        WRITE_CONFIRMATION_ARTIFACT_STORE_PATH: storePath,
         AUDIT_LOG_PATH: auditPath,
         LINEAR_APPLY_PROGRESS_PATH: progressPath
       };
   await assert.rejects(
     () => withEnv(env, () => applyPlanCommand(planPath, {
         env,
-        argv: ["node", "scripts/linear-cli.mjs", "apply", planPath, "--confirmed", "--confirmation-channel", "ask_user", "--approval-artifact-path", storePath],
+        argv: ["node", "scripts/linear-cli.mjs", "apply", planPath, "--confirmed", "--confirmation-channel", "ask_user"],
         cwd: process.cwd(),
         client: () => client,
         cachedWorkspaceObjectManifest: async () => ({ manifest: manifest("label-after"), manifestPath: path.join(dir, "current-manifest.json") })

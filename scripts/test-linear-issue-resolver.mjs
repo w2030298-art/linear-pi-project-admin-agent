@@ -8,8 +8,8 @@ import {
 const wen270 = {
   id: '27000000-0000-4000-8000-000000000270',
   identifier: 'WEN-270',
-  title: 'Write confirmation fallback',
-  url: 'https://linear.app/workspace/issue/WEN-270/write-confirmation-fallback'
+  title: 'Plan confirmation fallback',
+  url: 'https://linear.app/workspace/issue/WEN-270/plan-confirmation-fallback'
 };
 const wen254 = {
   id: '25400000-0000-4000-8000-000000000254',
