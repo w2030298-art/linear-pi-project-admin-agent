@@ -6,6 +6,7 @@ import { resolveLinearProjectId } from './linear-project-resolver.mjs';
 import { listProjectStatuses } from './linear-project-status-resolver.mjs';
 import { appendAuditWarning, errorMessage } from './linear-apply/audit.mjs';
 import { applyPlanCommand } from './linear-apply/command.mjs';
+import { connectLinearMcp, mcpSmoke, resolveWriteBackend } from './linear-apply/mcp-adapter.mjs';
 import { collectConnectionNodes, manifestCompleteness, manifestHash } from './linear-workspace-manifest.mjs';
 
 const apiKey = process.env.LINEAR_API_KEY;
@@ -17,9 +18,19 @@ function client() {
 }
 
 async function smoke() {
+  const backend = resolveWriteBackend(process.env);
+  if (backend === 'mcp') {
+    const session = await connectLinearMcp(process.env);
+    try {
+      json(await mcpSmoke(session));
+    } finally {
+      await session.close();
+    }
+    return;
+  }
   const linear = client();
   const viewer = await linear.viewer;
-  json({ ok: true, sourceType: 'linear_live', collectedAt: now(), viewer: { id: viewer.id, name: viewer.name, email: viewer.email } });
+  json({ ok: true, sourceType: 'linear_live', writeBackend: backend, collectedAt: now(), viewer: { id: viewer.id, name: viewer.name, email: viewer.email } });
 }
 
 async function workspace() {

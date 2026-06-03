@@ -17,6 +17,13 @@
           "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
           "GITHUB_TOOLSETS": "context,repos,issues,pull_requests,actions"
         }
+      },
+      "linear": {
+        "url": "https://mcp.linear.app/mcp",
+        "transport": "streamable-http",
+        "env": {
+          "LINEAR_API_KEY": "${LINEAR_API_KEY}"
+        }
       }
     }
   }

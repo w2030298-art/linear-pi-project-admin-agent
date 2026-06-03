@@ -7,6 +7,7 @@ const requiredModules = [
   'scripts/linear-apply/schema.mjs',
   'scripts/linear-apply/normalize.mjs',
   'scripts/linear-apply/executor.mjs',
+  'scripts/linear-apply/mcp-adapter.mjs',
   'scripts/linear-apply/audit.mjs',
   'scripts/linear-apply/command.mjs'
 ];
