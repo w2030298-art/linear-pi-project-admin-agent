@@ -18,14 +18,13 @@ function writeJson(file: string, value: unknown) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-function registerApproval(planPath: string, idempotencyKey: string, planDigest: string, storePath: string) {
+function registerApproval(planPath: string, idempotencyKey: string, storePath: string) {
   process.env.WRITE_CONFIRMATION_ARTIFACT_STORE_PATH = storePath;
   process.env.LINEAR_APPROVAL_PRIVATE_KEY = "test-private-key";
   resetWriteConfirmationArtifactsForTests();
   registerWriteConfirmationArtifact({
     writePlanPath: planPath,
     idempotencyKey,
-    planDigest,
     confirmationId: `${idempotencyKey}-approval`,
     confirmationText: "User approved exact dry-run write plan via Pi UI."
   });
@@ -92,11 +91,9 @@ function issueReadback(id: string, state: Record<string, any>) {
   const auditPath = path.join(dir, "audit.jsonl");
   const progressPath = path.join(dir, "progress.json");
   const idempotencyKey = "create-readback-failure";
-  const planDigest = "sha256:create-readback-failure";
   writeJson(planPath, {
     dryRun: false,
     idempotencyKey,
-    planDigest,
     confirmedByUser: true,
     confirmationChannel: "ask_user",
     confirmationText: "User approved exact dry-run write plan via Pi UI.",
@@ -107,7 +104,7 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "parent", type: "issue.create", input: { teamId: "team-id", title: "Parent" } }
     ]
   });
-  registerApproval(planPath, idempotencyKey, planDigest, storePath);
+  registerApproval(planPath, idempotencyKey, storePath);
   const requests: Request[] = [];
   const client = {
     client: {
@@ -138,11 +135,9 @@ function issueReadback(id: string, state: Record<string, any>) {
   const auditPath = path.join(dir, "audit.jsonl");
   const progressPath = path.join(dir, "progress.json");
   const idempotencyKey = "update-replay";
-  const planDigest = "sha256:update-replay";
   writeJson(planPath, {
     dryRun: false,
     idempotencyKey,
-    planDigest,
     confirmedByUser: true,
     confirmationChannel: "ask_user",
     confirmationText: "User approved exact dry-run write plan via Pi UI.",
@@ -153,7 +148,7 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "rename", type: "issue.update", input: { issueId: "issue-1", title: "After" } }
     ]
   });
-  registerApproval(planPath, idempotencyKey, planDigest, storePath);
+  registerApproval(planPath, idempotencyKey, storePath);
   const state: Record<string, any> = { "issue-1": { id: "issue-1", title: "Before", updatedAt: "t0" } };
   let updateMutations = 0;
   const client = {
@@ -188,11 +183,9 @@ function issueReadback(id: string, state: Record<string, any>) {
   const auditPath = path.join(dir, "audit.jsonl");
   const progressPath = path.join(dir, "progress.json");
   const idempotencyKey = "partial-retry";
-  const planDigest = "sha256:partial-retry";
   writeJson(planPath, {
     dryRun: false,
     idempotencyKey,
-    planDigest,
     confirmedByUser: true,
     confirmationChannel: "ask_user",
     confirmationText: "User approved exact dry-run write plan via Pi UI.",
@@ -204,7 +197,7 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "two", type: "issue.create", input: { teamId: "team-id", title: "Two" } }
     ]
   });
-  registerApproval(planPath, idempotencyKey, planDigest, storePath);
+  registerApproval(planPath, idempotencyKey, storePath);
   const state: Record<string, any> = {};
   let createMutations = 0;
   let failSecondCreate = true;
@@ -235,7 +228,6 @@ function issueReadback(id: string, state: Record<string, any>) {
   writeJson(changedPlanPath, {
     dryRun: false,
     idempotencyKey,
-    planDigest: "sha256:changed",
     confirmedByUser: true,
     confirmationChannel: "ask_user",
     confirmationText: "User approved exact dry-run write plan via Pi UI.",

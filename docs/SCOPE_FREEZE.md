@@ -11,11 +11,11 @@ GitHub 仓库：https://github.com/w2030298-art/linear-pi-project-admin-agent
 | 状态 | **已解冻**（M6 写入栈重构） |
 | 解冻 Issue | WEN-312 |
 | 决策记录 | `docs/ADR-002-m6-write-stack-decisions.md` |
-| 解冻理由 | M6 层级 2 写入栈降级（MCP 迁移、planDigest 退场、builder 合并、policy 收缩）触碰 v0.1 冻结的写入治理范围；继续冻结会阻塞 WEN-313 ~ WEN-322 |
+| 解冻理由 | M6 层级 2 写入栈降级（MCP 迁移、计划哈希体系退场、builder 合并、policy 收缩）触碰 v0.1 冻结的写入治理范围；继续冻结会阻塞 WEN-313 ~ WEN-322 |
 
 ### 解冻后新范围
 
-- 允许重构 `scripts/linear-apply/*`、4 个 resolver、write plan builder、plan_confirmation UX、planDigest 体系、write-policy solo 收缩。
+- 允许重构 `scripts/linear-apply/*`、4 个 resolver、write plan builder、plan_confirmation UX、计划哈希体系退场（readback diff 替代）、write-policy solo 收缩。
 - 允许新增 Linear MCP adapter 与 `LINEAR_WRITE_BACKEND` 双路径切换（WEN-319/320）。
 - 允许删除 legacy write_confirmation、冗余测试与 god-file 拆分。
 

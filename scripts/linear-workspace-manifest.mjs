@@ -121,9 +121,6 @@ export function freezePlanManifest(planPath, plan, manifest, manifestPath, compi
     manifestCompleteness: snapshot.completeness || { complete: !manifestIsIncomplete(snapshot), truncated: manifestIsIncomplete(snapshot) },
     resolutions
   };
-  const digestPlan = { ...nextPlan };
-  delete digestPlan.planDigest;
-  nextPlan.planDigest = `sha256:${hash(digestPlan)}`;
   writeJson(planPath, nextPlan);
   return nextPlan;
 }

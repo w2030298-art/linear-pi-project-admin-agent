@@ -135,7 +135,6 @@ function manifest(labelId: string, extra: Record<string, unknown> = {}) {
   const updatedPlan = JSON.parse(fs.readFileSync(planPath, "utf8"));
   assert.equal(updatedPlan.manifestHash, manifestHash(frozenManifest));
   assert.equal(updatedPlan.manifestPath, manifestPath);
-  assert.match(updatedPlan.planDigest, /^sha256:/);
   assert.equal(updatedPlan.resolutions[0].id, "label-before");
   assert.equal(fs.existsSync(manifestPath), true, "dry-run should persist the approved manifest snapshot");
 }

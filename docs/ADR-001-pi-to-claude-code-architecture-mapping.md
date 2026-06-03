@@ -188,7 +188,7 @@ hook 脚本通过环境变量 `CLAUDE_TOOL_NAME` 和 `CLAUDE_TOOL_INPUT` 获取�
 **安全边界保留**:
 - 默认 dry-run 语义不变。
 - `ALLOW_LINEAR_WRITES=false` 时阻止所有真实写入。
-- 审批 artifact 绑定（writePlanPath、idempotencyKey、planDigest）逻辑保留。
+- 审批 artifact 绑定（writePlanPath、idempotencyKey）逻辑保留；apply 后以 readback diff 校验计划与实际偏差。
 - Permission rules 中 Linear 写入工具默认设为 `deny`，只有 hook 显式放行后才执行。
 
 **不直接复制**: Pi 的 `ctx.ui.confirm()` 弹窗机制。Claude Code 的 hooks 不提供 UI 弹窗，改用 exit code 控制 + permission prompt + 审批 artifact 文件实现等价门禁。

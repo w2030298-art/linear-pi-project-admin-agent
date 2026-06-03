@@ -21,16 +21,8 @@ function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
 
-function stableJson(value) {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function sha256(value) {
-  return crypto.createHash('sha256').update(stableJson(value)).digest('hex');
+function stableSuffix(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 12);
 }
 
 function projectFromInput(input) {
@@ -227,7 +219,6 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
           flow: 'plan_confirmation',
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
-          planDigest: '<from linear_apply_write_plan dry-run result planDigest>',
           targetProjectSummary: summary.targetProjectSummary,
           operationsSummary: summary.operationsSummary,
           risksSummary: '• 本计划仅由 builder 生成\n• quality review、dry-run、approval artifact、readback 与 audit 仍为必填步骤',
@@ -239,7 +230,6 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
         params: {
           writePlanPath,
           idempotencyKey: writePlan.idempotencyKey,
-          planDigest: '<from pi_ask_user approvalArtifact.planDigest>',
           confirmedByUser: true,
           confirmationChannel: 'ask_user',
           confirmationText: '<from pi_ask_user approvalArtifact.confirmationText>',
@@ -285,7 +275,7 @@ export function buildWritePlan(input, options = {}) {
       factPackPath: clean(source.factPackPath)
     }
   };
-  const idempotencyKey = clean(input.idempotencyKey) || `write-plan-${project.id}-${sha256(planSeed).slice(0, 12)}`;
+  const idempotencyKey = clean(input.idempotencyKey) || `write-plan-${project.id}-${stableSuffix(planSeed)}`;
   const writePlan = /** @type {any} */ ({
     idempotencyKey,
     dryRun: true,
@@ -312,11 +302,6 @@ export function buildWritePlan(input, options = {}) {
   });
   if (manifestInfo.manifest) collectMilestoneReadback(writePlan, manifestInfo.manifest);
 
-  const digestPlan = { ...writePlan };
-  delete digestPlan.planDigest;
-  const planDigest = `sha256:${sha256(digestPlan)}`;
-  writePlan.planDigest = planDigest;
-
   const writePlanPath = options.writePlanPath || input.writePlanPath || path.join('state', 'write-plans', `${idempotencyKey}.json`);
   const operationsSummary = operations.map((operation, index) => {
     const title = clean(operation.input?.title) || clean(operation.key) || `${operation.type}-${index + 1}`;
@@ -325,7 +310,6 @@ export function buildWritePlan(input, options = {}) {
   const summary = {
     writePlanPath,
     idempotencyKey,
-    planDigest,
     operationCount: operations.length,
     operationTypes: operations.map(operation => operation.type),
     targetProjectId: project.id,
@@ -339,7 +323,6 @@ export function buildWritePlan(input, options = {}) {
     writesPerformed: false,
     writePlanPath,
     idempotencyKey,
-    planDigest,
     summary,
     resolutions,
     writePlan,

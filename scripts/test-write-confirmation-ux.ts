@@ -34,7 +34,6 @@ resetWriteConfirmationArtifactsForTests();
         "registerWriteConfirmationArtifact({",
         "  writePlanPath: 'state/write-plans/cross-process.json',",
         "  idempotencyKey: 'cross-process-key',",
-        "  planDigest: 'sha256:cross-process',",
         "  confirmationId: 'cross-process-confirmation',",
         "  confirmationText: 'cross process approval'",
         "});"
@@ -55,7 +54,6 @@ resetWriteConfirmationArtifactsForTests();
       dryRun: false,
       writePlanPath: 'state/write-plans/cross-process.json',
       idempotencyKey: 'cross-process-key',
-      planDigest: 'sha256:cross-process',
       confirmationId: 'cross-process-confirmation',
       confirmedByUser: true,
       confirmationChannel: 'ask_user',
@@ -69,7 +67,6 @@ resetWriteConfirmationArtifactsForTests();
     dryRun: false,
     writePlanPath: 'state/write-plans/cross-process.json',
     idempotencyKey: 'cross-process-key',
-    planDigest: 'sha256:cross-process',
     confirmationId: 'cross-process-confirmation',
     confirmedByUser: true,
     confirmationChannel: 'ask_user',
@@ -80,7 +77,6 @@ resetWriteConfirmationArtifactsForTests();
   const consumed = consumeWriteConfirmationArtifact({
     writePlanPath: 'state/write-plans/cross-process.json',
     idempotencyKey: 'cross-process-key',
-    planDigest: 'sha256:cross-process',
     confirmationId: 'cross-process-confirmation',
     confirmationText: 'cross process approval'
   });
@@ -90,7 +86,6 @@ resetWriteConfirmationArtifactsForTests();
     dryRun: false,
     writePlanPath: 'state/write-plans/cross-process.json',
     idempotencyKey: 'cross-process-key',
-    planDigest: 'sha256:cross-process',
     confirmationId: 'cross-process-confirmation',
     confirmedByUser: true,
     confirmationChannel: 'ask_user',
@@ -141,7 +136,6 @@ resetWriteConfirmationArtifactsForTests();
       operationsSummary: '1 issue.create',
       risksSummary: 'No deletions',
       nonChangesSummary: 'Repo map unchanged',
-      planDigest: 'sha256:abc'
     }
   );
   assert.equal(confirmCalls, 1);
@@ -150,7 +144,6 @@ resetWriteConfirmationArtifactsForTests();
   assert.equal(approved.approved, true);
   assert.equal(approved.approvalArtifact?.confirmationChannel, 'ask_user');
   assert.equal(approved.approvalArtifact?.approvalKind, 'write_confirmation');
-  assert.equal(approved.approvalArtifact?.planDigest, 'sha256:abc');
   assert.equal(approved.approvalArtifact?.storage?.persisted, true);
   assert.match(approved.approvalArtifact?.storage?.path || '', /write-confirmation-artifacts/i);
   assert.match(approved.approvalArtifact?.source?.sourcePath || '', /write-confirmation-artifact\.ts$/);
@@ -160,7 +153,6 @@ resetWriteConfirmationArtifactsForTests();
   assert.deepEqual(approved.artifactBinding, {
     writePlanPath: 'state/write-plans/test.json',
     idempotencyKey: 'plan-key-1',
-    planDigest: 'sha256:abc',
     confirmationId: approved.confirmationId
   });
   assert.match(approved.confirmationText, /User approved exact dry-run write plan via Pi UI/i);
@@ -174,7 +166,6 @@ resetWriteConfirmationArtifactsForTests();
       dryRun: false,
       writePlanPath: 'state/write-plans/test.json',
       idempotencyKey: 'plan-key-1',
-      planDigest: 'sha256:abc',
       confirmedByUser: true,
       confirmationChannel: 'ask_user',
       confirmationText: approved.confirmationText,
@@ -208,19 +199,16 @@ resetWriteConfirmationArtifactsForTests();
       operationsSummary: '1 issue.update',
       risksSummary: 'No destructive mutation',
       nonChangesSummary: 'No repo-map change',
-      planDigest: 'sha256:plan-confirm'
     }
   );
   assert.equal(approved.ok, true);
   assert.equal(approved.status, 'approved');
   assert.equal(approved.approved, true);
   assert.equal(approved.approvalArtifact?.approvalKind, 'plan_confirmation');
-  assert.equal(approved.approvalArtifact?.planDigest, 'sha256:plan-confirm');
   assert.match(approved.confirmationText, /User approved exact Linear write plan during planning via Pi UI/i);
   assert.deepEqual(approved.artifactBinding, {
     writePlanPath: 'state/write-plans/plan-confirm.json',
     idempotencyKey: 'plan-confirm-key',
-    planDigest: 'sha256:plan-confirm',
     confirmationId: approved.confirmationId
   });
   assert.ok(selected.includes('Yes'));
@@ -231,7 +219,6 @@ resetWriteConfirmationArtifactsForTests();
     dryRun: false,
     writePlanPath: 'state/write-plans/plan-confirm.json',
     idempotencyKey: 'plan-confirm-key',
-    planDigest: 'sha256:plan-confirm',
     confirmationId: approved.confirmationId,
     confirmedByUser: true,
     confirmationChannel: 'ask_user',
@@ -306,7 +293,6 @@ resetWriteConfirmationArtifactsForTests();
     {
       writePlanPath: 'state/write-plans/plan-revision-b.json',
       idempotencyKey: 'plan-revision-key-b',
-      planDigest: 'sha256:revision-b'
     }
   );
   assert.equal(approvedAfterRevision.ok, true);
@@ -434,18 +420,16 @@ resetWriteConfirmationArtifactsForTests();
   registerWriteConfirmationArtifact({
     writePlanPath: 'state/write-plans/mismatch.json',
     idempotencyKey: 'mismatch-key',
-    planDigest: 'digest-a',
-    confirmationText: 'approved digest-a'
+    confirmationText: 'approved text-a'
   });
 
   const mismatch = consumeWriteConfirmationArtifact({
     writePlanPath: 'state/write-plans/mismatch.json',
     idempotencyKey: 'mismatch-key',
-    planDigest: 'digest-b',
-    confirmationText: 'approved digest-a'
+    confirmationText: 'approved text-b'
   });
   assert.equal(mismatch.ok, false);
-  assert.equal(mismatch.reason, 'plan_digest_mismatch');
+  assert.equal(mismatch.reason, 'confirmation_text_mismatch');
 }
 
 {

@@ -20,6 +20,7 @@ import {
 import { isCreate, normalizeType, parseWritePlan, SUPPORTED_WRITE_MODES, typeToKind } from './schema.mjs';
 import { consumeWriteConfirmationArtifact } from '../write-confirmation-artifact.ts';
 import { freezePlanManifest, validateApplyManifest } from '../linear-workspace-manifest.mjs';
+import { verifyApplyReadback } from './readback-diff.mjs';
 
 function argValue(argv, name, fallback = '') {
   const index = argv.indexOf(name);
@@ -59,7 +60,6 @@ function approvalAuditRecord(result, source) {
       approvalKind: result.artifact.approvalKind || null,
       writePlanPath: result.artifact.writePlanPath,
       idempotencyKey: result.artifact.idempotencyKey,
-      planDigest: result.artifact.planDigest || null,
       confirmationId: result.artifact.confirmationId,
       expiresAt: result.artifact.expiresAt,
       signatureValid: true
@@ -73,7 +73,6 @@ function approvalAuditRecord(result, source) {
     writePlanPath: result.artifact?.writePlanPath || null,
     idempotencyKey: result.artifact?.idempotencyKey || null,
     approvalKind: result.artifact?.approvalKind || null,
-    planDigest: result.artifact?.planDigest || null,
     confirmationId: result.artifact?.confirmationId || null,
     expiresAt: result.artifact?.expiresAt || null,
     signatureValid: result.artifact?.signatureValid === true
@@ -132,7 +131,6 @@ export async function applyPlanCommand(planPath, options) {
       writePlanPath: planPath,
       idempotencyKey: effectivePlan.idempotencyKey || null,
       manifestHash: frozenPlan.manifestHash || null,
-      planDigest: frozenPlan.planDigest || null,
       manifestPath: frozenPlan.manifestPath || workspaceManifestInfo.manifestPath || null,
       resolutionCount: frozenPlan.resolutions?.length || 0
     });
@@ -145,7 +143,6 @@ export async function applyPlanCommand(planPath, options) {
       confirmationSelfCheck: applyMode.confirmationSelfCheck,
       manifestHash: frozenPlan.manifestHash || null,
       manifestPath: frozenPlan.manifestPath || workspaceManifestInfo.manifestPath || null,
-      planDigest: frozenPlan.planDigest || null,
       resolutions: frozenPlan.resolutions || [],
       operations: compiled
     });
@@ -173,7 +170,6 @@ export async function applyPlanCommand(planPath, options) {
     consumedApproval = withApprovalSigningKey(env, () => withApprovalStorePath(approvalArtifactPath, () => consumeWriteConfirmationArtifact({
       writePlanPath: planPath,
       idempotencyKey: effectivePlan.idempotencyKey,
-      planDigest: optionalString(effectivePlan.planDigest),
       confirmationId: optionalString(effectivePlan.confirmationId)
     })));
     const auditRecord = approvalAuditRecord(consumedApproval, approvalArtifactPath ? 'approval_artifact_path' : 'default_store');
@@ -188,7 +184,6 @@ export async function applyPlanCommand(planPath, options) {
       source: 'checkpoint_resume',
       writePlanPath: planPath,
       idempotencyKey: effectivePlan.idempotencyKey,
-      planDigest: effectivePlan.planDigest || null,
       progressPath,
       signatureValid: true,
       replayAction: 'reuse_checkpoint'
@@ -200,7 +195,6 @@ export async function applyPlanCommand(planPath, options) {
   const progress = initProgress(existingProgress, {
     idempotencyKey: effectivePlan.idempotencyKey,
     planHash: currentPlanHash,
-    planDigest: effectivePlan.planDigest,
     writePlanPath: planPath
   });
   saveProgress(progressPath, progress);
@@ -308,8 +302,22 @@ export async function applyPlanCommand(planPath, options) {
       saveProgress(progressPath, progress);
       appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, replayAction: result.replayAction, result });
     }
-    appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: true, resultCount: results.length, confirmation });
-    json({ ok: true, dryRun: false, mode, idempotencyKey: effectivePlan.idempotencyKey, reason: applyMode.reason, confirmationSelfCheck: applyMode.confirmationSelfCheck, confirmation, results });
+    const readbackDiff = await verifyApplyReadback(effectivePlan, results, {
+      linear,
+      writePlanPath: planPath
+    });
+    appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: true, resultCount: results.length, confirmation, readbackDiffOk: readbackDiff.ok });
+    json({
+      ok: true,
+      dryRun: false,
+      mode,
+      idempotencyKey: effectivePlan.idempotencyKey,
+      reason: applyMode.reason,
+      confirmationSelfCheck: applyMode.confirmationSelfCheck,
+      confirmation,
+      readbackDiff,
+      results
+    });
   } catch (err) {
     appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: false, error: errorMessage(err), partialResults: results, confirmation });
     throw err;

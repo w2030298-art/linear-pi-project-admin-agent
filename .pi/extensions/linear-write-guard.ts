@@ -9,7 +9,6 @@ export function linearWriteGuardDecision(
   params: {
     writePlanPath?: string;
     idempotencyKey?: string;
-    planDigest?: string;
     confirmationId?: string;
     confirmationText?: string;
     confirmedByUser?: boolean;
@@ -50,7 +49,6 @@ export function linearWriteGuardDecision(
   const validated = validateWriteConfirmationArtifact({
     writePlanPath: params.writePlanPath || "",
     idempotencyKey: params.idempotencyKey,
-    planDigest: params.planDigest,
     confirmationId: params.confirmationId,
     confirmationText: params.confirmationText,
     confirmationChannel: params.confirmationChannel || "ask_user",
