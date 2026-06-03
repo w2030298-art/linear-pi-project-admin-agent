@@ -51,7 +51,7 @@ Dry-run compilation and real apply use separate protocol gates:
 
 ### Low-risk write wrapper
 
-`scripts/low-risk-write-plan.mjs` and the Pi tool `linear_prepare_low_risk_write` provide a narrow wrapper for L1/L2 writes. The whitelist is intentionally small:
+`scripts/write-plan-builder.mjs` (low-risk `kind` adapter) and the Pi tool `linear_prepare_low_risk_write` provide a narrow wrapper for L1/L2 writes. The whitelist is intentionally small:
 
 - `project_update`: one `projectUpdate.create`.
 - `issue_create`: one `issue.create` with existing Project Milestone readback.

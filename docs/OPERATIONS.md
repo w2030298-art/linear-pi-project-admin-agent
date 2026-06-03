@@ -110,7 +110,7 @@ Single planning confirmation flow:
 
 ## Low-Risk Linear Write Wrapper
 
-Use `linear_prepare_low_risk_write` or `node scripts/low-risk-write-plan.mjs --input <input.json>` only for L1/L2 single-Project writes that fit the whitelist:
+Use `linear_prepare_low_risk_write` or `node scripts/write-plan-builder.mjs --input <input.json>` with `kind=project_update|issue_create` only for L1/L2 single-Project writes that fit the whitelist:
 
 - `project_update`: one `projectUpdate.create` for an already identified Project.
 - `issue_create`: one `issue.create` under an already identified Project and verified existing Project Milestone.
@@ -123,7 +123,7 @@ Fallback to full Fact Pack / full planning when any of these are missing or out 
 - For `issue_create`: title, description/acceptance criteria, team key or ID, labels or label names, target Project Milestone ID, and matching milestone readback.
 - Any request involving cross-Project writes, multiple operations, repo-map changes, project/milestone structure changes, relation-heavy planning, ambiguous target Project, or uncertain evidence.
 
-Run `npm run test:low-risk-write-plan` after changing this wrapper.
+Run `npm run test:write-plan-builder` after changing this wrapper.
 
 ## Fact Pack Repo-Map Mismatch
 
