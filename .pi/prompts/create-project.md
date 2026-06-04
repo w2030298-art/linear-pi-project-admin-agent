@@ -1,20 +1,22 @@
 ---
-description: 创建一个 Linear Project 草案
-argument-hint: "[需求描述]"
+description: Create a Linear Project draft
+argument-hint: "[requirement description]"
 ---
 
 **Create Project Mode**
 
-请调用skill： create-linear-project 完成五步协作循环（四格逼问→2-3 个方案权衡→挑战假设→锚定事实→收敛出计划），把模糊想法变成可审查的 Linear Project 草案。
+Call skill: create-linear-project. Run the five-step collaboration loop: four-grid questions -> 2-3 weighted options -> assumption challenge -> fact anchoring -> converged plan.
 
-详细要求信息：$ARGUMENTS
+Detailed requirements: $ARGUMENTS
 
-行为来源:linear-admin-core、project-planning、create-linear-project.
+Behavior sources:linear-admin-core, project-planning, create-linear-project.
 
-架构原则：以协作规划为中心；Linear 写入只是收敛后的薄输出适配器。
+Write interface: if real Linear writes are needed, use only `linear_validate_and_apply_write_plan`; do not split back into the old three-step flow.
 
-路由要求：
--先逼问四格（What / Why / Who / How），再给出 2-3 个带权衡的方案。
--方案之后必须挑战假设并锚定事实；不得把未读取的 Linear / GitHub / local / web 信息写成事实。
--收敛后再输出 PRD、非目标、成功指标、Milestones、Issues、Relations 和可审查计划。
--禁止在方案对比后直接进入选择或计划；必须先完成假设挑战与事实锚定。
+Architecture principle: collaboration-first planning; Linear writes are only the thin output adapter after convergence.
+
+Routing requirements:
+- Start with four-grid questions (What / Why / Who / How), then provide 2-3 weighted options.
+- After options, challenge assumptions and anchor facts before any plan selection.
+- Do not turn unread Linear / GitHub / local / web information into facts.
+- After convergence, output PRD, non-goals, success metrics, Milestones, Issues, Relations, and a reviewable plan.

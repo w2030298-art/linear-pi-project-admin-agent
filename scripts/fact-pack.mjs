@@ -67,7 +67,7 @@ function runtimeRepoDiagnostics(repoMapping) {
   const driftAdvice = [];
 
   if (localPathRelation === 'different_path') {
-    driftAdvice.push('repo-map localPath differs from runtime cwd; verify whether this is a legitimate runtime wrapper checkout or an unintended repo-map drift.');
+    driftAdvice.push('repo-map localPath differs from runtime cwd; verify whether this is a legitimate managed runtime clone or an unintended repo-map drift.');
   }
   if (firstLocalRoot && repoMapLocalPath && !samePath(firstLocalRoot, repoMapLocalPath)) {
     driftAdvice.push('repo-map localPath overrides LOCAL_REPO_ROOTS for this repoKey; local facts must be collected from repo-map localPath.');

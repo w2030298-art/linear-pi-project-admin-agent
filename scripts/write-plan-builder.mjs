@@ -282,6 +282,18 @@ function buildFinalValidationSummary(writePlanPath, writePlan) {
 }
 
 function buildLowRiskWorkflowExtras(writePlanPath, writePlan) {
+  const validateAndApply = {
+    name: 'linear_validate_and_apply_write_plan',
+    params: {
+      writePlanPath,
+      idempotencyKey: writePlan.idempotencyKey,
+      targetProjectSummary: writePlan.targetProject?.name || writePlan.targetProjectId,
+      operationsSummary: writePlan.operations.map(operation => operation.type).join(', '),
+      risksSummary: 'L1/L2 low-risk single-operation write; confirmed-only, readback, and audit remain required.',
+      nonChangesSummary: 'No cross-Project batch writes, no repo-map writes, no confirmed-only bypass.',
+      dryRun: false
+    }
+  };
   return {
     finalValidationSummary: {
       ...buildFinalValidationSummary(writePlanPath, writePlan),
@@ -296,40 +308,24 @@ function buildLowRiskWorkflowExtras(writePlanPath, writePlan) {
       fallbackToFullFactPackWhenEvidenceGap: true
     },
     nextToolCalls: {
-      finalValidation: {
-        name: 'linear_validate_write_plan',
-        params: {
-          writePlanPath
-        }
-      },
-      approval: {
-        name: 'pi_ask_user',
-        params: {
-          flow: 'plan_confirmation',
-          writePlanPath,
-          idempotencyKey: writePlan.idempotencyKey,
-          targetProjectSummary: writePlan.targetProject?.name || writePlan.targetProjectId,
-          operationsSummary: writePlan.operations.map(operation => operation.type).join(', '),
-          risksSummary: 'L1/L2 low-risk single-operation write; confirmed-only, readback, and audit remain required.',
-          nonChangesSummary: 'No cross-Project batch writes, no repo-map writes, no confirmed-only bypass.'
-        }
-      },
-      apply: {
-        name: 'linear_apply_write_plan',
-        params: {
-          writePlanPath,
-          idempotencyKey: writePlan.idempotencyKey,
-          confirmedByUser: true,
-          confirmationChannel: 'ask_user',
-          confirmationText: '<from pi_ask_user confirmationText>',
-          dryRun: false
-        }
-      }
+      validateAndApply
     }
   };
 }
 
 function buildWorkflow(writePlanPath, writePlan, summary) {
+  const validateAndApply = {
+    name: 'linear_validate_and_apply_write_plan',
+    params: {
+      writePlanPath,
+      idempotencyKey: writePlan.idempotencyKey,
+      targetProjectSummary: summary.targetProjectSummary,
+      operationsSummary: summary.operationsSummary,
+      risksSummary: 'Final validation must pass before approval; readback diff and audit remain required after apply.',
+      nonChangesSummary: 'The builder does not perform Linear mutations; the validate+apply tool mutates only after user approval.',
+      dryRun: false
+    }
+  };
   return {
     finalValidationSummary: buildFinalValidationSummary(writePlanPath, writePlan),
     workflow: {
@@ -341,35 +337,7 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
       fallbackToFullFactPackWhenEvidenceGap: true
     },
     nextToolCalls: {
-      finalValidation: {
-        name: 'linear_validate_write_plan',
-        params: {
-          writePlanPath
-        }
-      },
-      approval: {
-        name: 'pi_ask_user',
-        params: {
-          flow: 'plan_confirmation',
-          writePlanPath,
-          idempotencyKey: writePlan.idempotencyKey,
-          targetProjectSummary: summary.targetProjectSummary,
-          operationsSummary: summary.operationsSummary,
-          risksSummary: 'Final validation must pass before approval; readback diff and audit remain required after apply.',
-          nonChangesSummary: 'The builder and final validation do not perform Linear mutations.'
-        }
-      },
-      apply: {
-        name: 'linear_apply_write_plan',
-        params: {
-          writePlanPath,
-          idempotencyKey: writePlan.idempotencyKey,
-          confirmedByUser: true,
-          confirmationChannel: 'ask_user',
-          confirmationText: '<from pi_ask_user confirmationText>',
-          dryRun: false
-        }
-      }
+      validateAndApply
     }
   };
 }

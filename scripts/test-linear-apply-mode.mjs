@@ -18,7 +18,7 @@ import {
   assert.equal(decision.dryRun, true);
   assert.equal(decision.reason.confirmationChannel.channel, 'unavailable');
   assert.equal(decision.confirmationSelfCheck.canApproveAfterValidation, false);
-  assert.match(decision.confirmationSelfCheck.nextAction, /pi_ask_user\(flow=plan_confirmation\)/i);
+  assert.match(decision.confirmationSelfCheck.nextAction, /linear_validate_and_apply_write_plan/i);
 }
 
 {

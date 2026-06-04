@@ -1,20 +1,22 @@
 ---
-description: 生成 Linear Issue 派发 brief
-argument-hint: "<Issue 或 Project>"
+description: Generate a Linear Issue dispatch brief
+argument-hint: "<Issue or Project>"
 ---
 
 **Issue Dispatch Mode**
 
-请调用skill： issue-orchestration 基于一个 Linear Issue 或 Project/Milestone 计划生成可执行、可验收、事实锚定的派发 brief。
+Call skill: issue-orchestration. Generate an executable, acceptance-ready, fact-anchored dispatch brief for one Linear Issue or Project/Milestone plan.
 
-详细要求信息：$ARGUMENTS
+Detailed requirements: $ARGUMENTS
 
-行为来源:linear-admin-core、issue-orchestration.
+Behavior sources:linear-admin-core, issue-orchestration.
 
-架构原则：以协作规划为中心；Linear 写入只是收敛后的薄输出适配器。
+Write interface: if real Linear writes are needed, use only `linear_validate_and_apply_write_plan`; do not split back into the old three-step flow.
 
-路由要求：
--读取 Issue / Project baseline 与 evidenceRef。
--只输出实现 brief、验收标准、事实来源、假设或待确认项、约束、依赖和建议验证命令。
--Issue 必须独立可执行、可验收，并保持 Project / Milestone / relation 边界清晰。
--不内嵌外部 agent 长模板。
+Architecture principle: collaboration-first planning; Linear writes are only the thin output adapter after convergence.
+
+Routing requirements:
+- Read Issue / Project baseline and evidenceRef.
+- Output only implementation brief, acceptance criteria, fact sources, assumptions or pending confirmations, constraints, dependencies, and suggested verification commands.
+- Issue work must be independently executable and acceptance-ready, with clear Project / Milestone / relation boundaries.
+- Do not embed a long external agent template.

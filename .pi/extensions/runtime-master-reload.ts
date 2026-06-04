@@ -126,7 +126,7 @@ export function reloadMasterPreflight(input: RuntimePreflightInput): RuntimePref
   if (branch !== STABLE_BRANCH) {
     return {
       ok: false,
-      reason: `Current branch is ${branch || "(unknown)"}, not ${STABLE_BRANCH}; /reload-master only runs in the stable runtime checkout.`
+      reason: `Current branch is ${branch || "(unknown)"}, not ${STABLE_BRANCH}; /reload-master only runs in the stable managed runtime clone.`
     };
   }
 

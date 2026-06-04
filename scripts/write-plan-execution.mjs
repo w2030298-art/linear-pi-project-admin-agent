@@ -58,7 +58,7 @@ export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
       label: 'current conversation explicit approval fallback',
       canApplyAfterExplicitApproval: true,
       fallbackReason: piAskUserAvailable
-        ? 'Generic ask_user is unavailable; use pi_ask_user(flow=plan_confirmation) for Linear plan confirmation.'
+        ? 'Generic ask_user is unavailable; normal agent flow should use linear_validate_and_apply_write_plan for Linear plan confirmation and apply.'
         : 'Generic ask_user is unavailable in this host.',
       userPrompt:
         'Generic ask_user is unavailable; tell the user that one explicit approval in the current conversation will be used as the confirmation source.'
@@ -134,12 +134,12 @@ function buildConfirmationSelfCheck({ channel, hostCapabilities, dryRun }) {
     piAskUserPlanConfirmationAvailable: piAskUserAvailable,
     conversationFallbackAllowed: canUseConversationFallback,
     nextAction: canUseDirectAskUser
-      ? 'After final validation, call pi_ask_user(flow=plan_confirmation) and pass the returned confirmation fields to real apply.'
+      ? 'Normal agent flow should call linear_validate_and_apply_write_plan. This compatibility apply path only accepts an already approved plan_confirmation.'
       : piAskUserAvailable
-        ? 'After final validation, call pi_ask_user(flow=plan_confirmation); validation is not user confirmation.'
+        ? 'Normal agent flow should call linear_validate_and_apply_write_plan; it runs final validation, asks plan_confirmation, and applies only after approval.'
         : canUseConversationFallback
           ? 'Pi UI approval is unavailable; ask for explicit permission before using conversation_fallback.'
-          : 'Real apply is blocked until pi_ask_user(flow=plan_confirmation) is available or the user explicitly allows conversation_fallback.'
+          : 'Real apply is blocked until plan_confirmation UI is available through linear_validate_and_apply_write_plan or the user explicitly allows conversation_fallback.'
   };
 }
 

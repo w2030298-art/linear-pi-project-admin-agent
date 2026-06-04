@@ -242,10 +242,10 @@ hook 脚本通过环境变量 `CLAUDE_TOOL_NAME` 和 `CLAUDE_TOOL_INPUT` 获取�
 
 ### 10. Runtime Launcher → Shell 脚本 + claude CLI
 
-**Pi 实现**: `launch-linear-pi-runtime.ps1` 维护独立 runtime checkout，sync master，安装依赖，启动 WezTerm + `pi` 命令。
+**Pi 实现**: `launch-linear-pi-runtime.ps1` 维护独立 managed runtime clone，sync master，安装依赖，启动 WezTerm + `pi` 命令。
 
 **Claude Code 承载**:
-- Launcher 脚本结构**保留**（checkout sync、依赖安装、WezTerm 启动）。
+- Launcher 脚本结构**保留**（runtime clone sync、依赖安装、WezTerm 启动）。
 - 将 `pi` 命令替换为 `claude` CLI 命令。
 - 启动参数映射：`claude --model <model> --allowedTools <tools> --permission-mode <mode>`。
 - `/reload-master` 等价：shell 脚本执行 git sync + 依赖安装，然后重启 claude session。
@@ -319,7 +319,7 @@ hook 脚本通过环境变量 `CLAUDE_TOOL_NAME` 和 `CLAUDE_TOOL_INPUT` 获取�
 | 安全要求 | Pi 实现 | Claude Code 实现 | 等价性 |
 |---|---|---|---|
 | 默认 dry-run | env + write guard extension | env + `PreToolUse` hook | 等价 |
-| 用户确认后写入 | `pi_ask_user(plan_confirmation)` → artifact | 对话确认 → artifact → `PreToolUse` hook 校验 | 等价 |
+| 用户确认后写入 | `linear_validate_and_apply_write_plan` 内部调用 `pi_ask_user(plan_confirmation)` 后批准即写入 | 对话确认 → artifact → `PreToolUse` hook 校验 | Pi 侧已合并为单接口 |
 | 幂等写入 | idempotencyKey + readback | idempotencyKey + readback（逻辑保留） | 等价 |
 | 审计日志 | extension 内 audit + `state/audit.jsonl` | `PostToolUse` hook + `state/audit.jsonl` | 等价 |
 | Token 不进 Linear/git | SYSTEM.md 约束 + 代码检查 | CLAUDE.md 约束 + hooks + `.claudeignore` | 等价 |

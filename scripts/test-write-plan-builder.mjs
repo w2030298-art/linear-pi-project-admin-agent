@@ -51,9 +51,12 @@ function assertReviewPass(writePlan, message) {
   assert.match(result.idempotencyKey, /^write-plan-project-1-/);
   assert.equal(result.writePlan.operations[0].key, 'project-update-1');
   assert.equal(result.summary.operationCount, 1);
-  assert.equal(result.nextToolCalls.finalValidation.name, 'linear_validate_write_plan');
-  assert.equal(result.nextToolCalls.approval.params.flow, 'plan_confirmation');
-  assert.equal(result.nextToolCalls.apply.params.dryRun, false);
+  assert.equal(result.nextToolCalls.validateAndApply.name, 'linear_validate_and_apply_write_plan');
+  assert.equal(result.nextToolCalls.validateAndApply.params.writePlanPath, result.writePlanPath);
+  assert.equal(result.nextToolCalls.validateAndApply.params.dryRun, false);
+  assert.equal(result.nextToolCalls.finalValidation, undefined);
+  assert.equal(result.nextToolCalls.approval, undefined);
+  assert.equal(result.nextToolCalls.apply, undefined);
   assert.equal(result.nextToolCalls.qualityReview, undefined);
   assert.equal(result.nextToolCalls.dryRun, undefined);
   assertReviewPass(result.writePlan, 'project update builder output must pass review');
@@ -265,10 +268,10 @@ function assertReviewPass(writePlan, message) {
   const adminTools = fs.readFileSync('.pi/extensions/linear-admin-tools.ts', 'utf8');
   assert.match(adminTools, /linear_build_write_plan/);
   assert.match(adminTools, /structured write plan builder/i);
-  assert.match(adminTools, /linear_validate_write_plan/);
+  assert.match(adminTools, /linear_validate_and_apply_write_plan/);
   assert.match(adminTools, /readback diff/i);
   assert.match(adminTools, /linear_prepare_low_risk_write/);
-  assert.match(adminTools, /final validation, pi_ask_user approval, and real apply/);
+  assert.match(adminTools, /final validation[\s\S]*plan_confirmation[\s\S]*apply/);
   assert.match(adminTools, /Never performs mutations/);
 }
 
@@ -302,10 +305,12 @@ const lowRiskProjectBaseline = {
   assert.equal(result.writePlan.operations[0].input.projectId, 'project-1');
   assert.match(result.writePlan.idempotencyKey, /^low-risk-project-update-project-1-/);
   assert.equal(result.finalValidationSummary.operationCount, 1);
-  assert.equal(result.nextToolCalls.finalValidation.name, 'linear_validate_write_plan');
-  assert.equal(result.nextToolCalls.finalValidation.params.writePlanPath, result.writePlanPath);
-  assert.equal(result.nextToolCalls.approval.params.flow, 'plan_confirmation');
-  assert.equal(result.nextToolCalls.apply.params.dryRun, false);
+  assert.equal(result.nextToolCalls.validateAndApply.name, 'linear_validate_and_apply_write_plan');
+  assert.equal(result.nextToolCalls.validateAndApply.params.writePlanPath, result.writePlanPath);
+  assert.equal(result.nextToolCalls.validateAndApply.params.dryRun, false);
+  assert.equal(result.nextToolCalls.finalValidation, undefined);
+  assert.equal(result.nextToolCalls.approval, undefined);
+  assert.equal(result.nextToolCalls.apply, undefined);
   assertReviewPass(result.writePlan, 'low-risk project update must pass review');
 }
 

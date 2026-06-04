@@ -23,4 +23,4 @@ WEN-304 rebuilds Fact Pack collection as a Claude Code native workflow without c
 
 For an explicit `repoKey`, repo-map must provide GitHub owner/repo/defaultBranch, Linear locator, `localPath`, docs, and evidenceWeight. If GitHub or `localPath` is missing, the Fact Pack records an evidence gap and does not fall back to runtime `cwd`, `LOCAL_REPO_ROOTS`, or `GITHUB_DEFAULT_*`.
 
-This preserves the safety boundary from the Pi runtime: wrapper/runtime checkouts can differ from implementation checkouts, but local and GitHub evidence must come from the selected repo-map entry only.
+This preserves the safety boundary from the Pi runtime: wrapper/runtime clones can differ from implementation repos, but local and GitHub evidence must come from the selected repo-map entry only.

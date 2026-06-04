@@ -94,9 +94,12 @@ function manifest(labelId: string, manifestPath: string) {
   assert.equal(validation.status, "pass");
   assert.equal(validation.finalValidation.operationCount, 1);
   assert.deepEqual(validation.nextToolCalls.map((call: any) => call.name), [
-    "pi_ask_user",
-    "linear_apply_write_plan"
+    "linear_validate_and_apply_write_plan"
   ]);
+  assert.equal(validation.nextToolCalls[0].params.dryRun, false);
+  assert.equal(validation.confirmationRequest.flow, "plan_confirmation");
+  assert.equal(validation.confirmationRequest.writePlanPath, planPath);
+  assert.equal(validation.confirmationRequest.idempotencyKey, "final-validation-reuse");
 
   const updatedPlan = JSON.parse(fs.readFileSync(planPath, "utf8"));
   assert.equal(updatedPlan.finalValidation.status, "pass");

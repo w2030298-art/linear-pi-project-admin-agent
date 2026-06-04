@@ -1,20 +1,22 @@
 ---
-description: 审查一个 Linear Project 的推进状态
+description: Review one Linear Project progress state
 argument-hint: "[Project]"
 ---
 
 **Portfolio Review Mode**
 
-请调用skill： linear-portfolio-review 先锚定事实并列出审查发现，再给出最小推进建议；一次最多处理一个 Project。
+Call skill: linear-portfolio-review. Anchor facts, list review findings, and give the smallest useful next action; handle at most one Project.
 
-详细要求信息：$ARGUMENTS
+Detailed requirements: $ARGUMENTS
 
-行为来源:linear-admin-core、linear-portfolio-review、evidence-based-reporting.
+Behavior sources:linear-admin-core, linear-portfolio-review, evidence-based-reporting.
 
-架构原则：以协作规划为中心；Linear 写入只是收敛后的薄输出适配器。
+Write interface: if real Linear writes are needed, use only `linear_validate_and_apply_write_plan`; do not split back into the old three-step flow.
 
-路由要求：
--未指定 Project 时，先列出 compact Project 候选摘要。
--一次只审查一个 Project，不做 workspace-wide 全量审查。
--输出事实、假设、待确认项、证据缺口、风险和最小推进建议。
--只在事实锚定后给出 Ready 候选或建议保持不动的理由。
+Architecture principle: collaboration-first planning; Linear writes are only the thin output adapter after convergence.
+
+Routing requirements:
+- If no Project is specified, list compact Project candidates first.
+- Review one Project only; keep other Projects as candidate context.
+- Separate facts, assumptions, pending confirmations, evidence gaps, risks, and minimum next action.
+- Only after fact anchoring, provide Ready candidates or reasons to keep status unchanged.
