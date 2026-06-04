@@ -1,16 +1,16 @@
-# /fact-pack
+---
+description: 构建 compact Fact Pack
+argument-hint: "[任务或对象]"
+---
 
-用户输入：
-{{input}}
+**Fact Pack Mode**
 
-> **输入绑定**：若 `{{input}}` 仍为字面占位符，以 slash 同行文本或当前 user message 为准。
+请调用skill： fact-ingestion 采集 Linear / GitHub / local / web 证据，输出 compact Fact Pack、evidenceRef、事实、假设、冲突、证据缺口和 planningImplications。
 
-目标：为后续规划对话锚定事实——采集 Linear / GitHub / local / web 证据，输出 compact 摘要与 evidenceRef，供四格逼问与假设挑战引用；Fact Pack 本身不是 write plan。
+详细要求信息：$ARGUMENTS
 
-必须调用事实来源：
-- Linear live data。
-- GitHub MCP/API。
-- 本地 repo/docs。
-- 必要时 web search。
+行为来源:linear-admin-core、fact-ingestion.
 
-输出 JSON + 中文摘要：**事实**、**假设**、**冲突**、**证据缺口**、**planningImplications**（标注哪些结论可直接用于规划、哪些须待确认）。
+路由要求：
+-Fact Pack 用于后续协作对话与锚定事实。
+-原始证据落盘，只向上下文提供 compact 摘要。

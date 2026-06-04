@@ -1,14 +1,16 @@
-# /workspace-sync
+---
+description: 同步 Linear workspace manifest
+argument-hint: "[范围]"
+---
 
-用户输入：
-{{input}}
+**Workspace Sync Mode**
 
-> **输入绑定**：若 `{{input}}` 仍为字面占位符，以 slash 同行文本或当前 user message 为准。
+请调用skill： workspace-sync 比对 workspace manifest 与 Linear 实况，锚定事实差异，再给出 manifest 或 repo-map 的收敛更新草案。
 
-目标：先比对 workspace manifest 与 Linear 实况并锚定差异事实，收敛后再给出 manifest 更新草案；同步不是项目规划，但须区分事实与需用户确认的映射。
+详细要求信息：$ARGUMENTS
 
-读取 Linear teams、members、labels、workflow states、projects，与 config/workspace.manifest.json 比较。
+行为来源:workspace-sync、governance.
 
-输出（两段式）：
-- **协作对话段**：新增、删除、重命名、语义不明项；需用户确认的映射；证据引用。
-- **收敛计划段**：自动吸收项、更新后的 manifest 草案
+路由要求：
+-区分已证实事实、需用户确认的映射和证据缺口。
+-语义不明的 workspace 变化必须先停在待确认项。

@@ -1,17 +1,16 @@
-# /project-report
+---
+description: 生成 Linear Project 状态报告
+argument-hint: "<Project>"
+---
 
-用户输入：
-{{input}}
+**Report Mode**
 
-> **输入绑定**：若 `{{input}}` 仍为字面占位符，以 slash 同行文本或当前 user message 为准。
+请调用skill： linear-project-report 完成基于 Linear Project 当前状态与 evidenceRef 生成项目状态报告，区分事实、假设、风险、阻塞和下阶段计划。
 
-目标：先锚定事实与证据来源，再生成项目状态报告；报告与 Project Update 草案属于收敛输出，不得跳过事实/readback 边界。
+详细要求信息：$ARGUMENTS
 
-必须读取：
-- Linear Project、Issues、Milestones、Project Updates、Comments。
-- 关联 GitHub PR、commits、Actions。
-- 本地 repo/docs 的最新变更。
+行为来源:linear-admin-core、linear-project-report、evidence-based-reporting.
 
-输出（两段式）：
-- **协作对话段**：事实锚定、证据缺口、待确认项。
-- **收敛计划段**：进展、风险、阻塞、决策、下一步、Project Update 草案、事实依据列表（事实/假设分类与事实锚定一致，不得重复归类）
+路由要求：
+-先锚定事实，再生成报告。
+-Project Update草案只能作为收敛输出。
