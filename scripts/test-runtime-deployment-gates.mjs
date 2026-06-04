@@ -14,6 +14,9 @@ assert.match(acceptanceScript, /test:runtime-reload-master/);
 assert.match(acceptanceScript, /test:runtime-local-protection/);
 assert.match(acceptanceScript, /test:runtime-instruction-boundary/);
 assert.match(acceptanceScript, /test:wezterm-launch/);
+assert.match(acceptanceScript, /quarantineRuntimeChanges/);
+assert.match(acceptanceScript, /linear-pi-runtime-code-drift-before-acceptance/);
+assert.doesNotMatch(acceptanceScript, /Runtime root has non-ignored local changes/);
 
 const workflow = fs.readFileSync('.github/workflows/runtime-ci.yml', 'utf8');
 assert.match(workflow, /npm ci/);

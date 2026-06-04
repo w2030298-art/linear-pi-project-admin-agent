@@ -62,7 +62,7 @@ Feature branch changes do not automatically sync to `master`; they become visibl
 
 ## In-Session Refresh
 
-`/reload` reloads already-present local Pi files. `/reload-master` is the explicit runtime refresh command for an open WezTerm session: it requires a clean `master` checkout, runs `git fetch origin master`, runs `git pull --ff-only origin master`, refreshes stale npm dependencies, then reloads Pi.
+`/reload` reloads already-present local Pi files. `/reload-master` is the explicit runtime refresh command for an open WezTerm session: it requires the managed runtime to be on `master`, stashes generated state or accidental code/config drift, runs `git fetch origin master`, runs `git pull --ff-only origin master`, refreshes stale npm dependencies, then reloads Pi.
 
 Machine-local runtime files such as `.env`, `.env.*`, `.pi/sessions/`, state logs, repo-map drafts, write plans, and audit reports are ignored. The runtime launcher and `/reload-master` do not run `git clean`, `git reset --hard`, or recursive deletion of the runtime root.
 
@@ -74,7 +74,7 @@ Machine-local runtime files such as `.env`, `.env.*`, `.pi/sessions/`, state log
 | Runtime launcher documented | `docs/WEZTERM_PI_LAUNCH.md` references `launch-linear-pi-runtime.ps1` and runtime root | Pass |
 | Shortcut key config explicit | Launcher passes `--config-file ...\wezterm-linear-pi.lua` | Pass |
 | Stable branch explicit | Launcher uses `master` and `git pull --ff-only` | Pass |
-| In-session master refresh explicit | `/reload-master` refuses non-master or dirty checkout, then pulls `origin/master`, refreshes stale npm dependencies, and reloads | Pass |
+| In-session master refresh explicit | `/reload-master` refuses non-master runtime sessions, stashes runtime drift, then pulls `origin/master`, refreshes stale npm dependencies, and reloads | Pass |
 | Local runtime files protected | `.env`, local sessions, state logs, repo-map drafts, write plans, and audit reports are ignored; sync does not clean runtime files | Pass |
 | Development repo separated | Shortcut no longer uses development repo as direct Pi cwd | Pass |
 | rollback documented | Manual `cd` + `pi` and Windows Terminal fallback are documented | Pass |

@@ -2,12 +2,12 @@ import type { ExtensionAPI, ExecResult } from "@earendil-works/pi-coding-agent";
 import fs from "node:fs";
 import path from "node:path";
 
-type RuntimeGitAction = "inside" | "branch" | "status" | "stash-generated-state" | "fetch" | "pull";
+type RuntimeGitAction = "inside" | "branch" | "status" | "stash-generated-state" | "stash-runtime-dirty-state" | "fetch" | "pull";
+type RuntimeDirtyAction = "none" | "stash-generated-state" | "stash-runtime-dirty-state";
 
 type RuntimePreflightInput = {
   insideWorkTree: boolean;
   branch: string;
-  dirtyStatus: string;
 };
 
 type RuntimePreflightResult =
@@ -32,6 +32,8 @@ const GIT_TIMEOUT_MS = 120000;
 const NPM_TIMEOUT_MS = 300000;
 const STABLE_BRANCH = "master";
 const DEPENDENCY_STAMP = ".linear-pi-runtime-deps.stamp";
+const GENERATED_STATE_STASH_MESSAGE = "linear-pi-runtime-generated-state-before-reload";
+const CODE_DRIFT_STASH_MESSAGE = "linear-pi-runtime-code-drift-before-reload";
 export const RUNTIME_LOCAL_EXCLUDE_ENTRIES = [
   "nul",
   "state/linear-apply-progress/"
@@ -54,7 +56,10 @@ export function runtimeGitArgs(cwd: string, action: RuntimeGitAction): string[] 
   if (action === "branch") return ["-C", cwd, "branch", "--show-current"];
   if (action === "status") return ["-C", cwd, "status", "--porcelain"];
   if (action === "stash-generated-state") {
-    return ["-C", cwd, "stash", "push", "--include-untracked", "-m", "linear-pi-runtime-generated-state-before-reload"];
+    return ["-C", cwd, "stash", "push", "--include-untracked", "-m", GENERATED_STATE_STASH_MESSAGE];
+  }
+  if (action === "stash-runtime-dirty-state") {
+    return ["-C", cwd, "stash", "push", "--include-untracked", "-m", CODE_DRIFT_STASH_MESSAGE];
   }
   if (action === "fetch") return ["-C", cwd, "fetch", "origin", STABLE_BRANCH];
   return ["-C", cwd, "pull", "--ff-only", "origin", STABLE_BRANCH];
@@ -106,9 +111,13 @@ export function isAllowedRuntimeDirtyStatus(dirtyStatus: string): boolean {
   });
 }
 
+export function runtimeDirtyAction(dirtyStatus: string): RuntimeDirtyAction {
+  if (!dirtyStatus.trim()) return "none";
+  return isAllowedRuntimeDirtyStatus(dirtyStatus) ? "stash-generated-state" : "stash-runtime-dirty-state";
+}
+
 export function reloadMasterPreflight(input: RuntimePreflightInput): RuntimePreflightResult {
   const branch = input.branch.trim();
-  const dirtyStatus = input.dirtyStatus;
 
   if (!input.insideWorkTree) {
     return { ok: false, reason: "Current directory is not a git worktree." };
@@ -118,13 +127,6 @@ export function reloadMasterPreflight(input: RuntimePreflightInput): RuntimePref
     return {
       ok: false,
       reason: `Current branch is ${branch || "(unknown)"}, not ${STABLE_BRANCH}; /reload-master only runs in the stable runtime checkout.`
-    };
-  }
-
-  if (dirtyStatus.trim() && !isAllowedRuntimeDirtyStatus(dirtyStatus)) {
-    return {
-      ok: false,
-      reason: "Runtime checkout is dirty; commit, stash, or discard local changes before pulling origin/master."
     };
   }
 
@@ -206,16 +208,20 @@ export default function runtimeMasterReload(pi: ExtensionAPI) {
       const branch = insideWorkTree ? await gitOutput(pi, ctx.cwd, "branch") : "";
       if (insideWorkTree) ensureRuntimeLocalExclude(ctx.cwd);
       const dirtyStatus = insideWorkTree ? await gitOutput(pi, ctx.cwd, "status") : "";
-      const preflight = reloadMasterPreflight({ insideWorkTree, branch, dirtyStatus });
+      const preflight = reloadMasterPreflight({ insideWorkTree, branch });
 
       if (preflight.ok === false) {
         if (ctx.hasUI) ctx.ui.notify(preflight.reason, "error");
         throw new Error(`/reload-master blocked: ${preflight.reason}`);
       }
 
-      if (dirtyStatus.trim()) {
-        if (ctx.hasUI) ctx.ui.notify("Stashing generated runtime state before pulling origin/master...", "info");
-        await gitOutput(pi, ctx.cwd, "stash-generated-state");
+      const dirtyAction = runtimeDirtyAction(dirtyStatus);
+      if (dirtyAction !== "none") {
+        const message = dirtyAction === "stash-generated-state"
+          ? "Stashing generated runtime state before pulling origin/master..."
+          : "Stashing runtime code/config changes before pulling origin/master; review git stash list if needed.";
+        if (ctx.hasUI) ctx.ui.notify(message, "info");
+        await gitOutput(pi, ctx.cwd, dirtyAction);
       }
       if (ctx.hasUI) ctx.ui.notify("Pulling latest origin/master before reload...", "info");
       await gitOutput(pi, ctx.cwd, "fetch");
