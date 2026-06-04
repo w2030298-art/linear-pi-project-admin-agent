@@ -5,14 +5,12 @@ WEN-320 removed the hand-rolled `@linear/sdk` executor and four resolver modules
 ## Architecture
 
 ```text
-linear_validate_write_plan
+linear_validate_and_apply_write_plan
   -> deterministic write-plan review
   -> compileOperations + MCP argument check
   -> freeze manifest/resolutions into the write plan
-
-linear_apply_write_plan(dryRun=false)
-  -> write-plan-execution (confirmed-only gate)
-  -> linear-apply/command.mjs
+  -> pi_ask_user(flow=plan_confirmation)
+  -> on approval only: linear-apply/command.mjs
        reuse final-validation manifest snapshot when present
        connectLinearMcp()
        mutateMcp()  -> save_issue | save_status_update | ...
@@ -54,11 +52,12 @@ Unsupported operation types fail at compile or MCP mapping time; there is no SDK
 
 Solo write flow (see `config/write-policy.yaml` v2):
 
-1. One `linear_validate_write_plan` pass (no user confirmation, no mutation)
-2. One `pi_ask_user(flow=plan_confirmation)` approval artifact for the exact final-validated plan
-3. Real apply via MCP using the frozen validation snapshot, per-operation readback, checkpoint resume, and final readback diff
+1. One `linear_validate_and_apply_write_plan` call after the write plan is ready.
+2. The tool runs final validation and freezes the manifest/resolution snapshot.
+3. The tool shows one `pi_ask_user(flow=plan_confirmation)` approval UI for the exact final-validated plan.
+4. On approval only, the same tool applies via MCP using the frozen validation snapshot, per-operation readback, checkpoint resume, and final readback diff.
 
-Legacy `write_confirmation` and conversation text fallback are removed from the supported UX path (WEN-318). Real apply requires an interactive planning approval artifact unless tests inject `--confirmation-channel ask_user` on the CLI.
+`linear_validate_write_plan` and `linear_apply_write_plan` remain compatibility/diagnostic surfaces. Normal agent writes should not manually chain them. Legacy `write_confirmation` and conversation text fallback are removed from the supported UX path (WEN-318). Real apply requires an interactive planning approval artifact unless tests inject `--confirmation-channel ask_user` on the CLI.
 
 ## Smoke and regression tests
 

@@ -16,9 +16,7 @@ Turn a rough idea into one Linear Project plan. Keep the model context small: us
 3. Separate facts, assumptions, recommendations, decisions, and open questions.
 4. Draft PRD scope, non-goals, success metrics, architecture, milestones, issues, and dependencies.
 5. Generate the write plan with idempotency, readback, and audit requirements.
-6. Run `linear_validate_write_plan` once for final validation.
-7. Request one final approval for the exact final-validated plan before real Linear writes.
-8. Apply, read back, and report audit evidence.
+6. Call `linear_validate_and_apply_write_plan` once. It runs final validation, asks for one `plan_confirmation`, applies immediately only after approval, then performs readback and audit.
 
 ## Output Requirements
 

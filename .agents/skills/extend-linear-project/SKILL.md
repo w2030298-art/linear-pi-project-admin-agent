@@ -18,8 +18,7 @@ Extend exactly one Linear Project at a time. Do not load or plan the whole works
 5. Classify the new requirement as in-scope enhancement, MVP change, architecture change, suggested split, or later backlog.
 6. Produce an impact analysis for product scope, architecture, data/API boundaries, issues, dependencies, risks, and docs.
 7. Prefer updating or adding Issues under existing Milestones when appropriate; do not create placeholder Milestones just to satisfy a reviewer.
-8. Generate a write plan, run `linear_validate_write_plan` once, and ask for one final approval before real writes.
-9. Apply, read back, and summarize changed Linear URLs.
+8. Generate a write plan, then call `linear_validate_and_apply_write_plan` once. It runs final validation, asks for one `plan_confirmation`, applies immediately only after approval, then reads back and summarizes changed Linear URLs.
 
 ## Output Requirements
 

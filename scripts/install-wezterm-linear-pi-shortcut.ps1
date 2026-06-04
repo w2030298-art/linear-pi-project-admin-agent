@@ -246,10 +246,10 @@ function Update-RuntimeLocalExclude([string]$GitRoot) {
 
 function Save-RuntimeDirtyState([string]$DirtyStatus) {
   if (Test-AllowedRuntimeDirty $DirtyStatus) {
-    Write-LaunchLog "Runtime checkout has allowed local state changes; stashing generated state before update."
+    Write-LaunchLog "Runtime clone has allowed local state changes; stashing generated state before update."
     $message = $GeneratedStateStashMessage
   } else {
-    Write-LaunchLog "Runtime checkout has code/config changes; stashing them before update. Review with: git -C `"$RuntimeRoot`" stash list"
+    Write-LaunchLog "Runtime clone has code/config changes; stashing them before update. Review with: git -C `"$RuntimeRoot`" stash list"
     $message = $CodeDriftStashMessage
   }
   $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'stash', 'push', '--include-untracked', '-m', $message)
@@ -281,11 +281,11 @@ function Invoke-CheckedCommand([string]$Command, [string[]]$Arguments, [string]$
   return $output
 }
 
-function Ensure-RuntimeCheckout {
+function Ensure-RuntimeClone {
   $runtimeGit = Join-Path $RuntimeRoot '.git'
   if (-not (Test-Path -LiteralPath $runtimeGit)) {
     if ((Test-Path -LiteralPath $RuntimeRoot) -and (Get-ChildItem -LiteralPath $RuntimeRoot -Force | Select-Object -First 1)) {
-      throw "Runtime root exists but is not an empty git checkout: $RuntimeRoot"
+      throw "Runtime root exists but is not an empty directory or managed runtime clone: $RuntimeRoot"
     }
     $runtimeParent = Split-Path -Parent $RuntimeRoot
     New-Item -ItemType Directory -Path $runtimeParent -Force | Out-Null
@@ -299,7 +299,7 @@ function Ensure-RuntimeCheckout {
       Save-RuntimeDirtyState $dirty
     }
     $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'fetch', 'origin', $StableBranch)
-    $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'checkout', $StableBranch)
+    $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'switch', $StableBranch)
     # git pull --ff-only keeps runtime on the stable branch without creating merge commits.
     $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'pull', '--ff-only', 'origin', $StableBranch)
   }
@@ -346,7 +346,7 @@ function Invoke-RuntimeValidation {
 try {
   New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
   Write-LaunchLog "Preparing Linear Project Admin Pi runtime on branch $StableBranch at $RuntimeRoot"
-  Ensure-RuntimeCheckout
+  Ensure-RuntimeClone
   Ensure-NodeDependencies
   Invoke-RuntimeValidation
 

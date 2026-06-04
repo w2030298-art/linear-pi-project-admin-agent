@@ -18,7 +18,7 @@ This audit covers the large pipeline refactor for Linear Project Admin Runtime:
 2. `/portfolio-review` and the old snapshot script encouraged scanning all active Projects and generating broad state files.
 3. Cycle removal was implemented as a disabled-capability declaration, so prompts, skills, tests, and write-plan messages still carried cycle noise.
 4. `linearWriteGuardDecision()` allowed a real write when `confirmationChannel=ask_user` but the final user-confirmed state had not been produced yet.
-5. The installed WezTerm launcher refused to start when the runtime checkout had only generated local state changes, reproducing the flash-close path:
+5. The installed WezTerm launcher refused to start when the managed runtime clone had only generated local state changes, reproducing the flash-close path:
    `M state/portfolio-review/portfolio-snapshot-2026-05-28.json`.
 
 ## Changes Made

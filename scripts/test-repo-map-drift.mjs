@@ -104,6 +104,18 @@ assert.equal(read(repoMapPath), originalRepoMap);
 assert.match(unconfirmed.diff, /old-owner/);
 assert.equal(fs.existsSync(localRepoMapPath), false);
 
+const unconfirmedTracked = applyRepoMapDraft({
+  cwd: tempRoot,
+  draftPath: drift.draftPath,
+  repoMapPath,
+  localRepoMapPath,
+  confirmed: false,
+  writeTracked: true
+});
+const trackedRollbackAdvice = unconfirmedTracked.rollbackAdvice.join('\n');
+assert.match(trackedRollbackAdvice, /git restore --/);
+assert.doesNotMatch(trackedRollbackAdvice, /git checkout/);
+
 const auditLogPath = path.join(stateDir, 'repo-map-audit.jsonl');
 const applied = applyRepoMapDraft({
   cwd: tempRoot,

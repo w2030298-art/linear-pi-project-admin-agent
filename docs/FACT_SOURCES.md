@@ -29,7 +29,7 @@
 
 - Write plan reviewer gates milestone evidence by operation type. Issue state changes and Project Update creation do not require unrelated milestone readback.
 - Issue creation and issue milestone changes still require a Project Milestone target or verified milestone readback.
-- Use `linear_validate_write_plan` for the normal write flow; pass `--workspace-manifest <path>` to `scripts/plan-reviewer.mjs` only for standalone local reviewer diagnostics.
+- Use `linear_validate_and_apply_write_plan` for the normal write flow; pass `--workspace-manifest <path>` to `scripts/plan-reviewer.mjs` only for standalone local reviewer diagnostics.
 - Labels with the same Linear parent group are treated as mutually exclusive unless the manifest explicitly sets that group to `exactlyOne: false` or `mutuallyExclusive: false`.
 
 Fact Pack 的目标是保持项目理解充分，同时避免把大块原始数据塞进模型上下文。

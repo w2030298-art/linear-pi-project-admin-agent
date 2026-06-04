@@ -32,31 +32,30 @@ function finishFailure(planPath, findings, extra = {}) {
   };
 }
 
-function finalValidationNextToolCalls(planPath, plan, operations) {
+function finalValidationConfirmationRequest(planPath, plan, operations) {
   const operationsSummary = operations
     .map(operation => `- ${operation.type}: ${operation.input?.title || operation.input?.body || operation.key}`)
     .join('\n');
+  return {
+    flow: 'plan_confirmation',
+    writePlanPath: planPath,
+    idempotencyKey: plan.idempotencyKey,
+    targetProjectSummary: plan.targetProject?.name || plan.targetProjectId || plan.projectId || '',
+    operationsSummary,
+    risksSummary: 'Final validation passed; real apply still requires one approval, readback diff, and audit.',
+    nonChangesSummary: 'No mutation was performed during final validation.'
+  };
+}
+
+function finalValidationNextToolCalls(planPath, plan, operations) {
+  const confirmationRequest = finalValidationConfirmationRequest(planPath, plan, operations);
   return [
     {
-      name: 'pi_ask_user',
+      name: 'linear_validate_and_apply_write_plan',
       params: {
-        flow: 'plan_confirmation',
+        ...confirmationRequest,
         writePlanPath: planPath,
         idempotencyKey: plan.idempotencyKey,
-        targetProjectSummary: plan.targetProject?.name || plan.targetProjectId || plan.projectId || '',
-        operationsSummary,
-        risksSummary: 'Final validation passed; real apply still requires one approval, readback diff, and audit.',
-        nonChangesSummary: 'No mutation was performed during final validation.'
-      }
-    },
-    {
-      name: 'linear_apply_write_plan',
-      params: {
-        writePlanPath: planPath,
-        idempotencyKey: plan.idempotencyKey,
-        confirmedByUser: true,
-        confirmationChannel: 'ask_user',
-        confirmationText: '<from pi_ask_user confirmationText>',
         dryRun: false
       }
     }
@@ -70,8 +69,8 @@ function confirmationSelfCheck(env, cwd) {
     phase: 'final_validation',
     piAskUserPlanConfirmationAvailable: piAskUserAvailable,
     nextAction: piAskUserAvailable
-      ? 'Call pi_ask_user(flow=plan_confirmation), then pass the returned confirmation fields unchanged to linear_apply_write_plan(dryRun=false).'
-      : 'Real apply is blocked until pi_ask_user(flow=plan_confirmation) is available or the user explicitly allows conversation_fallback.'
+      ? 'Call linear_validate_and_apply_write_plan once; it will rerun final validation, show pi_ask_user(flow=plan_confirmation), and apply immediately if approved.'
+      : 'Real apply is blocked until plan_confirmation UI is available through linear_validate_and_apply_write_plan or the user explicitly allows conversation_fallback.'
   };
 }
 
@@ -132,13 +131,13 @@ export function hasPassingFinalValidation(plan) {
 export function loadFinalValidationWorkspaceManifest(plan) {
   if (!hasPassingFinalValidation(plan)) return null;
   const manifestPath = plan.manifestPath || plan.finalValidation.manifestPath;
-  if (!manifestPath) throw new Error('finalValidation is present but manifestPath is missing; rerun linear_validate_write_plan.');
+  if (!manifestPath) throw new Error('finalValidation is present but manifestPath is missing; rerun linear_validate_and_apply_write_plan or diagnostic validate-write-plan.');
   if (!fs.existsSync(manifestPath)) throw new Error(`final validation manifest snapshot is missing: ${manifestPath}`);
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const expectedHash = plan.manifestHash || plan.finalValidation.manifestHash;
   const actualHash = manifestHash(manifest);
   if (expectedHash && expectedHash !== actualHash) {
-    throw new Error(`final validation manifest snapshot hash mismatch: approved ${expectedHash}, snapshot ${actualHash}. Rerun linear_validate_write_plan.`);
+    throw new Error(`final validation manifest snapshot hash mismatch: approved ${expectedHash}, snapshot ${actualHash}. Rerun linear_validate_and_apply_write_plan or diagnostic validate-write-plan.`);
   }
   return { manifest, manifestPath };
 }
@@ -244,6 +243,7 @@ export async function validateWritePlanCommand(planPath, options = {}) {
     manifestPath: frozenPlan.manifestPath || null,
     resolutions: frozenPlan.resolutions || [],
     operations,
+    confirmationRequest: finalValidationConfirmationRequest(planPath, effectivePlan, operations),
     confirmationSelfCheck: confirmationSelfCheck(env, cwd),
     nextToolCalls: finalValidationNextToolCalls(planPath, effectivePlan, operations),
     findings

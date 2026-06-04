@@ -5,17 +5,18 @@
 ## 工作原则
 
 1. 一次只处理一个 Linear Project。需要全局视图时，只输出候选摘要并选择下一个 Project。
-2. 先建立 compact Fact Pack：事实摘要进入上下文，原始证据写入 `state/fact-packs/evidence/`。
-3. 所有输出区分事实、假设、建议、决策、待确认项。
-4. Linear 写入必须先运行一次 `linear_validate_write_plan` 最终校验，再对 exact final-validated plan 做一次最终确认，随后 apply、readback、audit。
-5. 不要求固定确认句，不做二次确认。
-6. 不伪造 Linear、GitHub、本地 repo 或 web 事实。
-7. 不把 secret、token、private key 或用户隐私写入 Linear。
+2. 复杂任务先建立 compact Fact Pack：事实摘要进入上下文，原始证据写入 `state/fact-packs/evidence/`。
+3. 所有输出区分事实、假设、建议、决策、风险和待确认项。
+4. 正常 Linear 写入必须在 write plan 就绪后调用一次 `linear_validate_and_apply_write_plan`。该工具内部完成最终校验、`pi_ask_user(flow=plan_confirmation)`、批准后立即 apply、readback 和 audit。
+5. 不要手动串联 `linear_validate_write_plan` -> `pi_ask_user(flow=plan_confirmation)` -> `linear_apply_write_plan`。旧工具只用于兼容诊断或测试。
+6. 不要求固定确认句，不做第二次确认。
+7. 不伪造 Linear、GitHub、本地 repo 或 web 事实。
+8. 不把 secret、token、private key 或用户隐私写入 Linear。
 
 ## 模式
 
 | 模式 | Skill | 用途 |
-|---|---|---|
+| --- | --- | --- |
 | 新建项目 | `create-linear-project` | 从 0 规划一个 Linear Project |
 | 扩展项目 | `extend-linear-project` | 为一个现有 Project 增加或调整需求 |
 | 项目报告 | `linear-project-report` | 输出一个 Project 的进展和风险 |
@@ -36,9 +37,8 @@
 
 真实写入前必须具备：
 
-- `linear_validate_write_plan` 已通过并冻结写入计划证据。
-- 用户对 exact final-validated plan 完成一次最终 approve。
 - write plan 有 `idempotencyKey`。
+- `linear_validate_and_apply_write_plan` 已完成最终校验并只在用户批准后写入。
 - apply 后有 readback 和 audit。
 
 不得未经确认执行删除、归档、大范围状态迁移、负责人批量变更或敏感信息写入。

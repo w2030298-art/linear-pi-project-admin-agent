@@ -271,7 +271,7 @@ function rollbackAdvice(repoMapPath, writeTracked = false) {
   }
   return [
     `Review the repo-map change with: git diff -- ${repoMapPath}`,
-    `Before commit, revert with: git checkout -- ${repoMapPath}`,
+    `Before commit, revert with: git restore -- ${repoMapPath}`,
     'After commit, revert with: git revert <commit>'
   ];
 }

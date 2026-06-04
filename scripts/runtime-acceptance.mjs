@@ -107,7 +107,7 @@ function quarantineRuntimeChanges(runtimeRoot) {
   const status = read('git', ['status', '--porcelain'], runtimeRoot);
   if (!status) return false;
 
-  console.log(`runtime checkout has local changes; stashing before acceptance sync:\n${status}`);
+  console.log(`runtime clone has local changes; stashing before acceptance sync:\n${status}`);
   run('git', ['stash', 'push', '--include-untracked', '-m', CODE_DRIFT_STASH_MESSAGE], runtimeRoot);
 
   const remaining = runtimeStatus(runtimeRoot);

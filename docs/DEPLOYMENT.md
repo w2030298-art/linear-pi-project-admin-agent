@@ -164,7 +164,7 @@ node scripts/web-search.mjs --query "Linear GraphQL API official docs" --officia
 
 ## 7. 启动 Pi 交互模式
 
-Windows runtime normal startup uses the installed WezTerm shortcut, not direct `pi` from the development checkout:
+Windows runtime normal startup uses the installed WezTerm shortcut, not direct `pi` from the development repo:
 
 ```text
 Linear Project Admin Pi (WezTerm) (2)

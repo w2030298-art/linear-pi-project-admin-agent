@@ -36,7 +36,7 @@ IconLocation:
 C:\Users\admin\AppData\Local\LinearProjectAdminPi\linear-project-admin-pi.ico,0
 ```
 
-Do not document direct `pi` execution from the development checkout as the normal Windows runtime startup path. Direct `pi` is only a development/debug fallback.
+Do not document direct `pi` execution from the development repo as the normal Windows runtime startup path. Direct `pi` is only a development/debug fallback.
 
 ## Installed Runtime Files
 
@@ -87,14 +87,14 @@ The generic repo defaults should derive the runtime root from the current user:
 
 The shortcut starts PowerShell hidden and runs the installed launcher. The launcher then:
 
-1. Ensures the runtime checkout exists at `%USERPROFILE%\linear-pi-project-admin-agent-runtime`.
+1. Ensures the managed runtime clone exists at `%USERPROFILE%\linear-pi-project-admin-agent-runtime`.
 2. Stashes generated runtime state if present.
 3. Stashes accidental non-ignored code/config changes with `linear-pi-runtime-code-drift-before-launch` if present.
 4. Runs `git fetch origin master`.
-5. Switches the managed runtime checkout to `master`.
+5. Switches the managed runtime clone to `master` with `git switch master`.
 6. Runs `git pull --ff-only origin master`.
 7. Installs npm dependencies only when needed.
-8. Runs `npm run validate` in the runtime checkout.
+8. Runs `npm run validate` in the managed runtime clone.
 9. Starts WezTerm:
 
 ```powershell
@@ -108,18 +108,18 @@ LINEAR_PI_RUNTIME_ROOT=%USERPROFILE%\linear-pi-project-admin-agent-runtime
 REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml
 ```
 
-After Pi is already open, use `/reload-master` to refresh the same runtime checkout from `origin/master`; use `/reload` only for already-present local Pi files.
+After Pi is already open, use `/reload-master` to refresh the same managed runtime clone from `origin/master`; use `/reload` only for already-present local Pi files.
 
 ## Previous Startup Blocker Seen Locally
 
-The local `launch.log` showed the old launcher refusing to start because the runtime checkout had a code/config change:
+The local `launch.log` showed the old launcher refusing to start because the managed runtime clone had a code/config change:
 
 ```text
 M scripts/linear-apply/normalize.mjs
-ERROR: Runtime checkout has code/config changes; refusing to overwrite runtime state: C:\Users\admin\linear-pi-project-admin-agent-runtime
+ERROR: Runtime clone has code/config changes; refusing to overwrite runtime state: C:\Users\admin\linear-pi-project-admin-agent-runtime
 ```
 
-The runtime checkout diff showed only:
+The managed runtime clone diff showed only:
 
 ```diff
  const ISSUE_UPDATE_FIELDS = [
@@ -127,7 +127,7 @@ The runtime checkout diff showed only:
    'title', 'description', 'descriptionData', ...
 ```
 
-This is outside the development checkout and is not an allowed runtime-local state file. The updated launcher no longer blocks startup for this case. It saves the runtime drift with `git stash push --include-untracked -m linear-pi-runtime-code-drift-before-launch`, then continues the normal `master` sync. Recover or inspect preserved runtime edits with `git -C "$env:USERPROFILE\linear-pi-project-admin-agent-runtime" stash list`.
+This is outside the development repo and is not an allowed runtime-local state file. The updated launcher no longer blocks startup for this case. It saves the runtime drift with `git stash push --include-untracked -m linear-pi-runtime-code-drift-before-launch`, then continues the normal `master` sync. Recover or inspect preserved runtime edits with `git -C "$env:USERPROFILE\linear-pi-project-admin-agent-runtime" stash list`.
 
 ## Useful Inspection Commands
 
@@ -148,7 +148,7 @@ Read launch failures:
 Get-Content "$env:LOCALAPPDATA\LinearProjectAdminPi\launch.log" -Tail 120
 ```
 
-Check runtime checkout cleanliness:
+Check managed runtime clone cleanliness:
 
 ```powershell
 git -C "$env:USERPROFILE\linear-pi-project-admin-agent-runtime" status -sb

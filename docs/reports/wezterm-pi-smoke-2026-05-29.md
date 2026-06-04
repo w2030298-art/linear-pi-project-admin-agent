@@ -10,7 +10,7 @@ The `Linear Project Admin Pi (WezTerm)` shortcut now starts an external runtime 
 OS: Microsoft Windows
 WezTerm version: 20240203-110809-5046fc22
 WezTerm GUI: C:\Program Files\WezTerm\wezterm-gui.exe
-Development repo: <your development checkout>
+Development repo: <your development repo>
 Runtime root: %USERPROFILE%\linear-pi-project-admin-agent-runtime
 Stable branch: master
 ```
@@ -52,7 +52,7 @@ Security check: shortcut target and arguments contain no token, secret, API key,
 
 ## Runtime Sync
 
-The launcher keeps the runtime checkout on `master` and updates with:
+The launcher keeps the managed runtime clone on `master` and updates with:
 
 ```text
 git pull --ff-only origin master
@@ -95,12 +95,12 @@ Manual verification should be repeated after installing the new shortcut wrapper
 Manual fallback:
 
 ```powershell
-cd <your development checkout>
+cd <your development repo>
 pi
 ```
 
 Windows Terminal fallback:
 
 ```powershell
-wt -d <your development checkout> powershell.exe -NoLogo -NoExit -Command "pi"
+wt -d <your development repo> powershell.exe -NoLogo -NoExit -Command "pi"
 ```

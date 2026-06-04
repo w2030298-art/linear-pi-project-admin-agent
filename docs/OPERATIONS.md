@@ -69,19 +69,19 @@ npm test
 
 ## Linear Write Blocked
 
-- 检查 `ALLOW_LINEAR_WRITES`。
-- 检查用户是否通过一次 `ask_user` 明确 approve；不要要求固定确认句后再二次确认。
-- 检查 writePlan 是否包含 idempotencyKey。
-- 调用 `linear_apply_write_plan` 时确认 `confirmedByUser=true`，`confirmationText` 记录本次最终 approve。
+- Check `ALLOW_LINEAR_WRITES`.
+- Check that the write plan contains `idempotencyKey`.
+- For normal writes, retry through `linear_validate_and_apply_write_plan`; it will perform final validation, show `plan_confirmation`, and apply only after approval.
+- Do not ask for a fixed confirmation phrase or trigger a second confirmation.
 
 ## Linear Final Validation / Apply Protocol
 
-- `linear_validate_write_plan` is allowed without user approval and never mutates Linear.
-- Final validation runs deterministic write-plan review, compiles MCP arguments, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan, persists the exact workspace manifest snapshot beside the plan, and does **not** recompute any plan hash.
-- Real apply reuses the frozen final-validation manifest snapshot when present instead of running a second live manifest validation pass. Legacy dry-run plans without `finalValidation` still use the old live manifest drift check.
+- Normal writes use `linear_validate_and_apply_write_plan` once after the write plan is ready.
+- The tool runs deterministic write-plan review, compiles MCP arguments, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan, persists the exact workspace manifest snapshot beside the plan, and does **not** recompute any plan hash.
+- After approval, apply reuses the frozen final-validation manifest snapshot instead of running a second live manifest validation pass. Legacy dry-run plans without `finalValidation` still use the old live manifest drift check.
 - Workspace manifest reads must use cursor pagination and record `completeness` / `truncated`; incomplete manifests are not valid for real apply.
-- Real writes still require `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and `confirmedByUser=true`.
-- In interactive Pi runs, `pi_ask_user(flow=plan_confirmation)` is the single final approve/cancel channel before real Linear writes.
+- Real writes still require `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and approval from `plan_confirmation`.
+- In interactive Pi runs, `linear_validate_and_apply_write_plan` invokes `pi_ask_user(flow=plan_confirmation)` internally as the single final approve/cancel channel before real Linear writes.
 - If `ctx.hasUI` is false, real writes are blocked with `interactive confirmation unavailable; real write not applied` unless the user explicitly allows current-conversation text fallback and the call passes `allowConversationFallback=true`.
 
 ## Project Freeze / Unfreeze Templates
@@ -97,15 +97,15 @@ npm test
 
 Single planning confirmation flow:
 
-1. Automatically run `linear_validate_write_plan` once after generating a write plan. Final validation is not user confirmation.
-2. Show one planning UI: `pi_ask_user(flow=plan_confirmation)` with structured Chinese sections and `Yes` / `No` / `调整意见` for the exact `writePlanPath`, `idempotencyKey`, and operation summaries.
-3. On `Yes`, immediately call `linear_apply_write_plan(dryRun=false, ...)` with the returned approval artifact (`writePlanPath`, `idempotencyKey`, `confirmationId`, `confirmationText`). On `No`, stop without mutation. On adjustment, rewrite the plan, rerun final validation, and ask again. Apply does not pop a second UI; post-mutation integrity is checked via readback diff in audit output.
-4. `linear-write-guard` only blocks real apply when the artifact is missing, expired, reused, or mismatched.
+1. After generating a write plan, call `linear_validate_and_apply_write_plan` once.
+2. The tool runs final validation, then shows one planning UI: `pi_ask_user(flow=plan_confirmation)` with structured Chinese sections and `Yes` / `No` / `调整意见` for the exact `writePlanPath`, `idempotencyKey`, and operation summaries.
+3. On `Yes`, the same tool immediately applies the write plan. On `No`, it stops without mutation. On adjustment, rewrite the plan and call `linear_validate_and_apply_write_plan` again.
+4. `linear-write-guard` remains a compatibility apply guard when legacy apply is called directly.
 
-- Final validation output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. If it says `piAskUserPlanConfirmationAvailable=true`, continue by calling `pi_ask_user(flow=plan_confirmation)`.
-- Approval output includes `artifactStorage` and `artifactBinding`. Pass the returned `confirmationId`, `confirmationText`, `writePlanPath`, and `idempotencyKey` back to real apply unchanged.
-- If `pi_ask_user plan_confirmation` returns `interactive_confirmation_unavailable`, `cancelled`, or `revision_requested`, real apply stays blocked unless the user explicitly allows conversation fallback.
-- Approval artifacts are persisted outside the repo by default at `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, or can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH`. This makes the artifact visible across Pi tool calls, extension reloads, and runtime/source checkout path differences.
+- Final validation output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. Normal writes continue by calling `linear_validate_and_apply_write_plan`, not by manually chaining legacy tools.
+- Approval output includes `writePlanPath`, `idempotencyKey`, and `confirmationText`; the single tool passes those fields to apply internally.
+- If `plan_confirmation` returns `interactive_confirmation_unavailable`, `cancelled`, or `revision_requested`, real apply stays blocked unless the user explicitly allows conversation fallback.
+- Approval artifacts are persisted outside the repo by default at `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, or can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH`. This makes the artifact visible across Pi tool calls, extension reloads, and runtime/source clone path differences.
 - Each artifact is bound to `writePlanPath`, `idempotencyKey`, `confirmationId`, exact `confirmationText`, and `approvalKind`. Real apply consumes it once, then uses the frozen final-validation snapshot and surfaces planned-vs-actual readback diff in audit; reused, expired, mismatched, missing, or unreadable artifacts are blocked with a diagnostic error that names the reason, store path when relevant, and next step.
 - Do not downgrade an available `pi_ask_user` approval to `conversation_fallback`. Use fallback only when UI approval is unavailable or cancelled, the user explicitly allows fallback, and the apply call records `confirmationChannel=conversation_fallback`, `allowConversationFallback=true`, and the explicit approval text. Fallback audit text must be one clean record; do not paste a previous formatted fallback record back into `confirmationText`.
 - Run `npm run test:plan-confirmation-ui`, `npm run test:write-plan-final-validation`, and `npm run test:linear-manifest-freeze` after changing this flow.
@@ -117,7 +117,7 @@ Use `linear_prepare_low_risk_write` or `node scripts/write-plan-builder.mjs --in
 - `project_update`: one `projectUpdate.create` for an already identified Project.
 - `issue_create`: one `issue.create` under an already identified Project and verified existing Project Milestone.
 
-1. Automatically run `linear_validate_write_plan` once after generating a write plan. Final validation is not user confirmation.
+1. Automatically call `linear_validate_and_apply_write_plan` once after generating a write plan. The tool handles final validation, `plan_confirmation`, approved apply, readback, and audit.
 
 Fallback to full Fact Pack / full planning when any of these are missing or out of scope:
 
@@ -132,7 +132,7 @@ Run `npm run test:write-plan-builder` after changing this wrapper.
 - For single-Project tasks without an explicit target, call `pi_ask_user` with `flow=project_select` first. The options must come from the merged repo-map (`config/repo-map.yaml`/`REPO_MAP_PATH` plus `REPO_MAP_LOCAL_PATH`) and include `User input` last; do not query Linear for the candidate list before the user chooses.
 - `fact_pack_build --repo <repoKey>` must resolve GitHub and local facts from the merged repo-map first. Local overlay entries override tracked config entries with the same repoKey.
 - Fact Pack output includes `runtime`: current `cwd`, package root, extension source path, runtime git remote, repo-map localPath, repo-map git remote, `LOCAL_REPO_ROOTS`, effective local evidence root, path relation fields, and drift advice.
-- `repo-map localPath != runtime cwd` can be legitimate when Pi is launched from a runtime wrapper checkout and repo-map points at the implementation repo. This is acceptable only when GitHub repo, Linear Project, package identity, and intended source path are clear in `runtime.repoMap`.
+- `repo-map localPath != runtime cwd` can be legitimate when Pi is launched from a managed runtime clone and repo-map points at the implementation repo. This is acceptable only when GitHub repo, Linear Project, package identity, and intended source path are clear in `runtime.repoMap`.
 - Repo-map localPath is the source of truth for local evidence for a selected `repoKey`; `LOCAL_REPO_ROOTS` is diagnostic/fallback context only and must not override a complete repo-map entry.
 - If `runtime.repoMap.driftAdvice` reports different git remotes or an unexpected localPath, stop before planning/writing and repair the local repo-map overlay or choose the correct project. Do not silently collect facts from the runtime wrapper just because it is the current `cwd`.
 - If a repoKey is missing or incomplete, record an evidence gap instead of falling back to another repo.
@@ -152,7 +152,7 @@ Run `npm run test:write-plan-builder` after changing this wrapper.
 - The check command may write `state/repo-map.draft.yaml`, but it must not modify `config/repo-map.yaml` or the local overlay.
 - If output contains `piAskUser.flow=repo_map`, call `pi_ask_user` with that seed and keep missing fields as evidence gaps until the user answers.
 - Apply only after explicit confirmation: `npm run repo-map:drift -- apply --draft state/repo-map.draft.yaml --confirmed --confirmation-text "<approval>"`.
-- Confirmed apply writes the local overlay by default. In the installed runtime, the launcher sets `REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml`, so machine-local mappings do not dirty the runtime checkout. Use `--write-tracked` only when intentionally preparing a repo-map config change for PR review.
+- Confirmed apply writes the local overlay by default. In the installed runtime, the launcher sets `REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml`, so machine-local mappings do not dirty the managed runtime clone. Use `--write-tracked` only when intentionally preparing a repo-map config change for PR review.
 - Run `npm run test:repo-map-drift`, `npm run test:repo-map`, and a Fact Pack smoke after changing this flow.
 
 ## WezTerm Pi Launch

@@ -1,20 +1,22 @@
 ---
-description: 生成 Linear Project 状态报告
+description: Generate a Linear Project status report
 argument-hint: "<Project>"
 ---
 
 **Report Mode**
 
-请调用skill： linear-project-report 完成基于 Linear Project 当前状态与 evidenceRef 生成项目状态报告，区分事实、假设、风险、阻塞和下阶段计划。
+Call skill: linear-project-report. Generate a Project status report from current Linear Project state and evidenceRef, separating facts, assumptions, risks, blockers, and next-stage plan.
 
-详细要求信息：$ARGUMENTS
+Detailed requirements: $ARGUMENTS
 
-行为来源:linear-admin-core、linear-project-report、evidence-based-reporting.
+Behavior sources:linear-admin-core, linear-project-report, evidence-based-reporting.
 
-架构原则：以协作规划为中心；Linear 写入只是收敛后的薄输出适配器。
+Write interface: if real Linear writes are needed, use only `linear_validate_and_apply_write_plan`; do not split back into the old three-step flow.
 
-路由要求：
--先锚定事实，再生成报告。
--报告必须区分事实、假设、证据缺口、风险、阻塞、决策和下阶段计划。
--引用 Linear Project、Milestones、Issues、Project Updates、GitHub / local evidenceRef。
--Project Update 草案只能作为收敛输出。
+Architecture principle: collaboration-first planning; Linear writes are only the thin output adapter after convergence.
+
+Routing requirements:
+- Anchor facts before generating the report.
+- Separate facts, assumptions, evidence gaps, risks, blockers, decisions, and next-stage plan.
+- Reference Linear Project, Milestones, Issues, Project Updates, GitHub / local evidenceRef.
+- Project Update draft can only be a convergence output.

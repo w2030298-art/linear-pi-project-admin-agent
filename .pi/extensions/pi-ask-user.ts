@@ -64,7 +64,7 @@ export function createNonInteractivePlanConfirmationResult(inputs: PlanConfirmat
     idempotencyKey: clean(inputs.idempotencyKey),
     evidenceGaps: ["Pi UI is not available; pi_ask_user plan_confirmation cannot show Yes / No / 调整意见."],
     openQuestions: [
-      "Real Linear write is blocked until pi_ask_user(flow=plan_confirmation) approves the exact write plan."
+      "Real Linear write is blocked until linear_validate_and_apply_write_plan can show plan_confirmation for the exact write plan."
     ]
   };
 }
@@ -120,7 +120,7 @@ export async function runPlanConfirmationFlow(ctx: RepoMapAskContext, inputs: Pl
       idempotencyKey,
       confirmationChannel: "ask_user" as const,
       evidenceGaps: ["Plan confirmation was cancelled; real Linear write was not applied."],
-      openQuestions: ["Generate a new write plan and call pi_ask_user(flow=plan_confirmation) again before real apply."]
+      openQuestions: ["Generate a new write plan and call linear_validate_and_apply_write_plan again before real apply."]
     };
   }
 
@@ -148,7 +148,7 @@ export async function runPlanConfirmationFlow(ctx: RepoMapAskContext, inputs: Pl
       idempotencyKey,
       evidenceGaps: [],
       openQuestions: [`User requested plan adjustment: ${feedback}`],
-      nextActions: ["Rewrite the write plan from the adjustment feedback, run final validation again, then call pi_ask_user(flow=plan_confirmation) again."]
+      nextActions: ["Rewrite the write plan from the adjustment feedback, then call linear_validate_and_apply_write_plan again."]
     };
   }
 
@@ -228,10 +228,10 @@ export default function (pi: ExtensionAPI) {
       "For single-project planning/reporting/review tasks without an explicit target, call pi_ask_user with flow=project_select before reading Linear.",
       "Project selection options must come from the local repo-map, with User input as the last option; do not list projects from Linear before the user selects one.",
       "Use pi_ask_user for repo-map gaps when GitHub, Linear Project, and local repo facts do not line up.",
-      "After final validation passes, call pi_ask_user with flow=plan_confirmation to show the structured Chinese confirmation UI (项目概览 / 计划结构树 / 风险 / 审批绑定) with Yes / No / 调整意见 for the exact writePlanPath, idempotencyKey, and summaries.",
-      "If plan_confirmation returns revision_requested, rewrite the plan from feedback, rerun final validation, then call plan_confirmation again.",
+      "For normal writes, do not call plan_confirmation directly; call linear_validate_and_apply_write_plan after a write plan is ready. It invokes this flow internally after final validation passes.",
+      "If plan_confirmation returns revision_requested, rewrite the plan from feedback, then call linear_validate_and_apply_write_plan again.",
       "If plan_confirmation returns cancelled or interactive_confirmation_unavailable, do not apply real Linear mutations.",
-      "When plan_confirmation returns approved, immediately call linear_apply_write_plan(dryRun=false) with the returned confirmation fields. Do not show a second confirmation UI.",
+      "When plan_confirmation returns approved inside linear_validate_and_apply_write_plan, that same tool immediately applies the write plan. Do not show a second confirmation UI.",
       "Ask one field at a time for repo_map; do not present a multi-field table.",
       "If the result is cancelled or needs_interactive_input, do not modify repo-map files.",
       "The returned repo-map draft is review-only; apply it with repo-map-drift only after separate explicit confirmation; the default target is the local overlay, not tracked config."

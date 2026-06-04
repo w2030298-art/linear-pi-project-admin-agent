@@ -1,20 +1,22 @@
 ---
-description: 构建 compact Fact Pack
-argument-hint: "[任务或对象]"
+description: Build a task Fact Pack
+argument-hint: "<task or Project>"
 ---
 
 **Fact Pack Mode**
 
-请调用skill： fact-ingestion 采集 Linear / GitHub / local / web 证据，输出 compact Fact Pack、evidenceRef、事实、假设、冲突、证据缺口和 planningImplications。
+Call skill: fact-ingestion. Build a compact Fact Pack for the current task, anchoring facts before listing assumptions, evidence gaps, and planning implications.
 
-详细要求信息：$ARGUMENTS
+Detailed requirements: $ARGUMENTS
 
-行为来源:linear-admin-core、fact-ingestion.
+Behavior sources:linear-admin-core, fact-ingestion, fact-pack.
 
-架构原则：以协作规划为中心；Linear 写入只是收敛后的薄输出适配器。
+Write interface: if real Linear writes are needed, use only `linear_validate_and_apply_write_plan`; do not split back into the old three-step flow.
 
-路由要求：
--Fact Pack 用于后续协作对话与锚定事实。
--原始证据落盘，只向上下文提供 compact 摘要。
--输出必须区分事实、假设、冲突、证据缺口和 planningImplications。
--不得让 web search 覆盖 Linear / GitHub / local 已证实事实。
+Architecture principle: collaboration-first planning; Linear writes are only the thin output adapter after convergence.
+
+Routing requirements:
+- Prefer Linear, GitHub, local repo, local docs, and necessary web evidence.
+- Separate facts, assumptions, pending confirmations, evidence gaps, and evidenceRef.
+- Output a compact digest; do not paste long raw evidence into context.
+- If target Project or repo-map is unclear, report evidence_gap first.

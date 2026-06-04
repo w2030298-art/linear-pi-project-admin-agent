@@ -1,20 +1,22 @@
 ---
-description: 同步 Linear workspace manifest
-argument-hint: "[范围]"
+description: Sync Linear workspace and repo-map
+argument-hint: "[sync scope]"
 ---
 
 **Workspace Sync Mode**
 
-请调用skill： workspace-sync 比对 workspace manifest 与 Linear 实况，锚定事实差异，再给出 manifest 或 repo-map 的收敛更新草案。
+Call skill: workspace-sync. Anchor Linear workspace, repo-map, and local config facts, then output sync plan, diffs, and drift needing confirmation.
 
-详细要求信息：$ARGUMENTS
+Detailed requirements: $ARGUMENTS
 
-行为来源:workspace-sync、governance.
+Behavior sources:linear-admin-core, workspace-sync, fact-ingestion.
 
-架构原则：以协作规划为中心；Linear 写入只是收敛后的薄输出适配器。
+Write interface: if real Linear writes are needed, use only `linear_validate_and_apply_write_plan`; do not split back into the old three-step flow.
 
-路由要求：
--区分已证实事实、需用户确认的映射和证据缺口。
--语义不明的 workspace 变化必须先停在待确认项。
--同步范围包括 teams、members、labels、workflow states、projects 和 repo-map。
--自动吸收安全变化；label group、capacity、workflow 语义和 repo-map 映射必须等待确认。
+Architecture principle: collaboration-first planning; Linear writes are only the thin output adapter after convergence.
+
+Routing requirements:
+- Read teams, members, labels, workflow states, projects, repo-map, and workspace manifest.
+- Separate facts, assumptions, pending confirmations, evidence gaps, and evidenceRef.
+- Drift only generates a reviewable draft; do not modify tracked config before confirmation.
+- Sync output must state non-changes, risks, and rollback.

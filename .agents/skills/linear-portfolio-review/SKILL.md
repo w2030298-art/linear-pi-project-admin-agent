@@ -15,8 +15,7 @@ Avoid workspace-wide context overload. This skill may list Project candidates, b
 2. Build a compact Fact Pack for the selected Project.
 3. Review the selected Project's status update freshness, milestone progress, issue readiness, blockers, labels, ownership, and repo alignment.
 4. Recommend the smallest useful next action: status update draft, move one ready candidate, add missing label, clarify dependency, or no-op.
-5. If writing is needed, generate one write plan for this Project only and run `linear_validate_write_plan` once.
-6. Ask for one final approval, apply, read back, and audit.
+5. If writing is needed, generate one write plan for this Project only and call `linear_validate_and_apply_write_plan` once. It runs final validation, asks for one `plan_confirmation`, applies immediately only after approval, then reads back and audits.
 
 ## Output Requirements
 
