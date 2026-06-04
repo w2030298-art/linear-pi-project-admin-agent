@@ -7,6 +7,7 @@ const requiredModules = [
   'scripts/linear-apply/schema.mjs',
   'scripts/linear-apply/normalize.mjs',
   'scripts/linear-apply/mcp-adapter.mjs',
+  'scripts/linear-apply/readback-diff.mjs',
   'scripts/linear-apply/audit.mjs',
   'scripts/linear-apply/command.mjs',
   'scripts/linear-mcp-match.mjs'
@@ -17,6 +18,12 @@ for (const modulePath of requiredModules) {
   if (modulePath.endsWith('linear-mcp-match.mjs')) continue;
   assert.match(fs.readFileSync(modulePath, 'utf8'), /@ts-check/, `${modulePath} should opt into TypeScript checkJs`);
 }
+
+const commandSource = fs.readFileSync('scripts/linear-apply/command.mjs', 'utf8');
+assert.doesNotMatch(commandSource, /executor\.mjs/);
+assert.match(commandSource, /mutateMcp/);
+assert.match(commandSource, /readbackMcp/);
+assert.equal(fs.existsSync('scripts/linear-apply/executor.mjs'), false);
 
 const cli = fs.readFileSync('scripts/linear-cli.mjs', 'utf8');
 assert.ok(cli.length < 20_000, 'linear-cli.mjs should no longer own the full apply pipeline');

@@ -16,8 +16,8 @@ GitHub 仓库：https://github.com/w2030298-art/linear-pi-project-admin-agent
 ### 解冻后新范围
 
 - 允许重构 `scripts/linear-apply/*`、4 个 resolver、write plan builder、plan_confirmation UX、计划哈希体系退场（readback diff 替代）、write-policy solo 收缩。
-- 允许新增 Linear MCP adapter 与 `LINEAR_WRITE_BACKEND` 双路径切换（WEN-319/320）。
-- 允许删除 legacy write_confirmation、冗余测试与 god-file 拆分。
+- 允许新增 Linear MCP adapter，`LINEAR_WRITE_BACKEND` 仅支持 `mcp`（WEN-319/320）；见 `docs/WRITE_BACKEND_MCP.md`。
+- 允许删除 legacy write_confirmation、冗余 resolver 测试与 god-file 拆分；测试收敛见 WEN-322。
 
 ### 解冻后仍冻结
 

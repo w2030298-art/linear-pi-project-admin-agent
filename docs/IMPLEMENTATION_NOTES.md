@@ -108,18 +108,16 @@ Dry-run also freezes Linear object resolver inputs. `linear_apply_write_plan(dry
 
 Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it. If UI approval is available, do not downgrade to `conversation_fallback`; re-run `pi_ask_user(flow=plan_confirmation)` when the artifact is missing, expired, consumed, mismatched, or stored under the wrong runtime path.
 
-### Resolved structural issue: write confirmation binding (WEN-300/WEN-308/WEN-317)
+### Resolved structural issue: write confirmation binding (WEN-308/WEN-317)
 
-The write protocol promises one final plan confirmation per write intent. Approval authority is **`writePlanPath` + `idempotencyKey` only** — no plan hash chain participates in artifact binding.
+The write protocol promises one final plan confirmation per write intent. Approval authority is **`writePlanPath` + `idempotencyKey` only** — no pre-apply plan hash chain participates in artifact binding.
 
 1. **Builder** (`write-plan-builder.mjs`) generates the write plan file and returns workflow placeholders that instruct the Agent to dry-run, confirm, then apply.
 2. **Dry-run** (`freezePlanManifest`) mutates the same write plan file, adds manifest/resolution fields, and persists the workspace manifest snapshot **without recomputing any plan hash**.
 3. **Plan confirmation** binds `pi_ask_user(flow=plan_confirmation)` to the exact `writePlanPath` and `idempotencyKey` shown after dry-run.
-4. **Apply** consumes the approval artifact once, validates manifest/resolution drift against the frozen dry-run snapshot, executes mutations, then compares planned vs actual state via **readback diff** in audit output.
+4. **Apply** consumes the approval artifact once, validates manifest/resolution drift against the frozen dry-run snapshot, executes mutations via Linear MCP, then compares planned vs actual state via **readback diff** in audit output.
 
-WEN-300 recorded the historical failure mode where multi-stage digest binding caused `plan_digest_mismatch` and `duplicate_confirmation` for the same `writePlanPath` / `idempotencyKey`. WEN-317 removes the digest chain entirely; integrity after mutation is enforced by readback diff, not pre-apply hash comparison.
-
-See `docs/WEN-300-plan-digest-lifecycle.md` for the WEN-299 incident chain (historical) and `scripts/test-plan-digest-lifecycle-wen300.ts` for regression coverage of the single-confirmation flow.
+WEN-317 removes the historical digest chain entirely; integrity after mutation is enforced by readback diff and manifest/resolution drift checks, not pre-apply hash comparison. Regression coverage lives in `scripts/test-readback-diff.mjs`, `scripts/test-linear-apply-reliability.ts`, and `scripts/test-write-backend-wen319.mjs`.
 
 安全机制：
 

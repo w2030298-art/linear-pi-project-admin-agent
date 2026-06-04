@@ -12,9 +12,11 @@ npm run test:repo-map-drift
 npm run test:pi-ask-user
 npm run test:wezterm-launch
 npm run test:linear-apply-mode
-npm run test:project-resolver
+npm run test:linear-apply-reliability
+npm run test:readback-diff
+npm run test:write-backend-wen320
+npm run test:plan-confirmation-ui
 npm run test:retrieval-ux
-npm run test:write-confirmation
 npm run test:pipeline-refactor-goals
 npm run linear:workspace
 npm run fact:pack -- --task "project review" --linear "<project-id-or-key>"
@@ -106,7 +108,7 @@ Single planning confirmation flow:
 - Approval artifacts are persisted outside the repo by default at `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, or can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH`. This makes the artifact visible across Pi tool calls, extension reloads, and runtime/source checkout path differences.
 - Each artifact is bound to `writePlanPath`, `idempotencyKey`, `confirmationId`, exact `confirmationText`, and `approvalKind`. Real apply consumes it once, then validates manifest/resolution drift and surfaces planned-vs-actual readback diff in audit; reused, expired, mismatched, missing, or unreadable artifacts are blocked with a diagnostic error that names the reason, store path when relevant, and next step.
 - Do not downgrade an available `pi_ask_user` approval to `conversation_fallback`. Use fallback only when UI approval is unavailable or cancelled, the user explicitly allows fallback, and the apply call records `confirmationChannel=conversation_fallback`, `allowConversationFallback=true`, and the explicit approval text. Fallback audit text must be one clean record; do not paste a previous formatted fallback record back into `confirmationText`.
-- Run `npm run test:write-confirmation` and `npm run test:linear-manifest-freeze` after changing this flow.
+- Run `npm run test:plan-confirmation-ui` and `npm run test:linear-manifest-freeze` after changing this flow.
 
 ## Low-Risk Linear Write Wrapper
 
@@ -115,7 +117,7 @@ Use `linear_prepare_low_risk_write` or `node scripts/write-plan-builder.mjs --in
 - `project_update`: one `projectUpdate.create` for an already identified Project.
 - `issue_create`: one `issue.create` under an already identified Project and verified existing Project Milestone.
 
-The wrapper only generates a standard write plan, idempotency key, plan digest, dry-run summary, and ordered next tool calls. It never performs Linear mutations and it never bypasses `confirmed-only`. After `write_plan_ready`, run the returned steps in order: `linear_plan_quality_review`, `linear_apply_write_plan(dryRun=true)`, `pi_ask_user(flow=plan_confirmation)`, then `linear_apply_write_plan(dryRun=false)` with the approval artifact.
+The wrapper only generates a standard write plan, idempotency key, dry-run summary, and ordered next tool calls. It never performs Linear mutations and it never bypasses `confirmed-only`. After `write_plan_ready`, run the returned steps in order: `linear_plan_quality_review`, `linear_apply_write_plan(dryRun=true)`, `pi_ask_user(flow=plan_confirmation)`, then `linear_apply_write_plan(dryRun=false)` with the approval artifact.
 
 Fallback to full Fact Pack / full planning when any of these are missing or out of scope:
 
@@ -142,7 +144,7 @@ Run `npm run test:write-plan-builder` after changing this wrapper.
 - The resolver first attempts direct Project lookup, then falls back to workspace matching by normalized Project URL, URL slug, ID, exact name, or normalized name.
 - Normalized name matching only folds case, whitespace, and fullwidth/ASCII separator differences such as `｜` vs `|`; it does not perform fuzzy or contains matching.
 - If no unique match exists, return a compact `project_selection_gap`; do not silently fall back to another repo-map project.
-- Run `npm run test:project-resolver` and a live smoke such as `node scripts/linear-cli.mjs project "<linear-project-overview-url>"` after changing this behavior.
+- Run `npm run linear:workspace` and a live smoke such as `node scripts/linear-cli.mjs project "<linear-project-overview-url>"` after changing this behavior.
 
 ## Repo-Map Drift Governance
 
