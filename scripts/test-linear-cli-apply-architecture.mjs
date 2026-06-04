@@ -6,14 +6,15 @@ import { spawnSync } from 'node:child_process';
 const requiredModules = [
   'scripts/linear-apply/schema.mjs',
   'scripts/linear-apply/normalize.mjs',
-  'scripts/linear-apply/executor.mjs',
   'scripts/linear-apply/mcp-adapter.mjs',
   'scripts/linear-apply/audit.mjs',
-  'scripts/linear-apply/command.mjs'
+  'scripts/linear-apply/command.mjs',
+  'scripts/linear-mcp-match.mjs'
 ];
 
 for (const modulePath of requiredModules) {
   assert.equal(fs.existsSync(modulePath), true, `${modulePath} should exist`);
+  if (modulePath.endsWith('linear-mcp-match.mjs')) continue;
   assert.match(fs.readFileSync(modulePath, 'utf8'), /@ts-check/, `${modulePath} should opt into TypeScript checkJs`);
 }
 

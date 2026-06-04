@@ -1,11 +1,22 @@
 // @ts-check
 import crypto from 'node:crypto';
 import { hash } from '../utils.mjs';
-import { resolveOperationInput } from '../linear-object-resolver.mjs';
-import { resolveIssueRelationIdentifiers } from '../linear-issue-resolver.mjs';
-import { resolveProjectStatus, resolveProjectStatusById } from '../linear-project-status-resolver.mjs';
+import {
+  resolveIssueRelationIdentifiers,
+  resolveOperationInput,
+  resolveProjectStatus,
+  resolveProjectStatusById
+} from '../linear-mcp-match.mjs';
 import { normalizeProjectDescriptionFields } from '../project-field-normalizer.mjs';
 import { isCreate, normalizeType, typeToKind } from './schema.mjs';
+
+export function targetIdForUpdate(op, refs) {
+  const type = normalizeType(op.type);
+  const input = applyGenericRefs({ ...(op.input || {}) }, refs);
+  if (type === 'project.update') return resolveRef(refs, input.projectId || input.id || input.projectRef || op.targetId, 'project update id');
+  if (type === 'issue.update') return resolveRef(refs, input.issueId || input.id || input.issueRef || op.targetId, 'issue update id');
+  throw new Error(`No target id resolver for ${type}`);
+}
 
 const PROJECT_CREATE_FIELDS = [
   'id', 'name', 'icon', 'color', 'statusId', 'description', 'content', 'teamIds',
@@ -140,39 +151,15 @@ export function applyGenericRefs(input, refs) {
   return out;
 }
 
-async function getTeamId(linear, teamKeyOrId) {
+function teamIdFromManifest(manifest, teamKeyOrId) {
   if (teamKeyOrId && /^[0-9a-f-]{36}$/i.test(String(teamKeyOrId))) return String(teamKeyOrId);
   const key = teamKeyOrId || process.env.LINEAR_DEFAULT_TEAM_KEY;
   const envId = process.env.LINEAR_DEFAULT_TEAM_ID;
   if (!teamKeyOrId && envId) return envId;
-  const teams = await linear.teams();
-  const team = teams.nodes.find(t => t.key === key || t.name === key || t.id === key);
+  const teams = Array.isArray(manifest?.teams) ? manifest.teams : [];
+  const team = teams.find(item => item.key === key || item.name === key || item.id === key);
   if (!team) throw new Error(`Linear team not found for key/id: ${key || '(empty)'}`);
   return team.id;
-}
-
-async function labelIds(linear, input) {
-  const explicit = [...(Array.isArray(input.labelIds) ? input.labelIds : [])];
-  const names = [
-    ...(Array.isArray(input.labels) ? input.labels : []),
-    ...(Array.isArray(input.labelNames) ? input.labelNames : [])
-  ].filter(Boolean);
-  if (!names.length) return explicit;
-  const labels = await linear.issueLabels();
-  const byName = new Map(labels.nodes.map(l => [l.name, l.id]));
-  const missing = names.filter(name => !byName.has(name));
-  if (missing.length) throw new Error(`Linear label(s) not found: ${missing.join(', ')}`);
-  return [...new Set([...explicit, ...names.map(name => byName.get(name))])];
-}
-
-async function appendLabelIds(linear, input, fieldName, labelFields) {
-  const names = labelFields.flatMap(field => Array.isArray(input[field]) ? input[field] : []).filter(Boolean);
-  if (!names.length) return Array.isArray(input[fieldName]) ? input[fieldName] : [];
-  const labels = await linear.issueLabels();
-  const byName = new Map(labels.nodes.map(l => [l.name, l.id]));
-  const missing = names.filter(name => !byName.has(name));
-  if (missing.length) throw new Error(`Linear label(s) not found: ${missing.join(', ')}`);
-  return [...new Set([...(Array.isArray(input[fieldName]) ? input[fieldName] : []), ...names.map(name => byName.get(name))])];
 }
 
 function resolveLinearObjectNames(input, metadata, pathPrefix, operationType) {
@@ -233,24 +220,25 @@ function normalizeHealth(health) {
   return map[String(health).replace(/[-\s]/g, '_').toLowerCase()] || health;
 }
 
-export async function normalizeInput(linear, op, refs, index, metadata = null) {
+export async function normalizeInput(op, refs, index, metadata = null) {
   const type = normalizeType(op.type);
   const kind = typeToKind(type);
   if (!kind) throw new Error(`Unsupported operation type: ${op.type}`);
 
   let input = applyGenericRefs({ ...(op.input || {}) }, refs);
   const refKey = opRefKey(op, index);
-  if (isCreate(type) && !input.id) input.id = stableUuid(`${op.planIdempotencyKey}:${type}:${refKey}`);
+  if (isCreate(type) && !input.id && type !== 'projectUpdate.create' && type !== 'project.update.create') {
+    input.id = stableUuid(`${op.planIdempotencyKey}:${type}:${refKey}`);
+  }
 
   if (type === 'project.create') {
     const normalized = normalizeProjectDescriptionFields(input);
     input = normalized.input;
     if (metadata) metadata.fieldTransforms.push(...normalized.fieldTransforms);
-    if (!Array.isArray(input.teamIds) || input.teamIds.length === 0) input.teamIds = [await getTeamId(linear, input.teamId || input.teamKey)];
+    if (!Array.isArray(input.teamIds) || input.teamIds.length === 0) {
+      input.teamIds = [teamIdFromManifest(metadata?.workspaceManifest, input.teamId || input.teamKey)];
+    }
     input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
-    const rawIds = metadata?.workspaceManifest ? input.labelIds : await labelIds(linear, input);
-    const ids = Array.isArray(rawIds) ? rawIds : [];
-    if (ids.length) input.labelIds = ids;
     return pick(stripMeta(input), PROJECT_CREATE_FIELDS);
   }
 
@@ -260,26 +248,20 @@ export async function normalizeInput(linear, op, refs, index, metadata = null) {
     if (metadata) metadata.fieldTransforms.push(...normalized.fieldTransforms);
     input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
     input = resolveProjectStatusInput(input, metadata, `$.operations[${index}].input`);
-    const rawIds = metadata?.workspaceManifest ? input.labelIds : await labelIds(linear, input);
-    const ids = Array.isArray(rawIds) ? rawIds : [];
-    if (ids.length) input.labelIds = ids;
     return pick(stripMeta(input), PROJECT_UPDATE_FIELDS);
   }
 
   if (type === 'projectMilestone.create' || type === 'milestone.create' || type === 'project.milestone.create') return pick(stripMeta(input), MILESTONE_CREATE_FIELDS);
   if (type === 'issue.create') {
-    if (!input.teamId) input.teamId = await getTeamId(linear, input.teamKey);
+    if (!input.teamId) input.teamId = teamIdFromManifest(metadata?.workspaceManifest, input.teamKey);
     input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
-    const rawIds = metadata?.workspaceManifest ? input.labelIds : await labelIds(linear, input);
-    const ids = Array.isArray(rawIds) ? rawIds : [];
-    if (ids.length) input.labelIds = ids;
     return pick(stripMeta(input), ISSUE_CREATE_FIELDS);
   }
   if (type === 'issue.update') {
-    if (!input.teamId && input.teamKey) input.teamId = await getTeamId(linear, input.teamKey);
+    if (!input.teamId && input.teamKey) input.teamId = teamIdFromManifest(metadata?.workspaceManifest, input.teamKey);
     input = resolveLinearObjectNames(input, metadata, `$.operations[${index}].input`, type);
-    input.addedLabelIds = metadata?.workspaceManifest ? (input.addedLabelIds || []) : await appendLabelIds(linear, input, 'addedLabelIds', ['labels', 'labelNames', 'addedLabels', 'addedLabelNames']);
-    input.removedLabelIds = metadata?.workspaceManifest ? (input.removedLabelIds || []) : await appendLabelIds(linear, input, 'removedLabelIds', ['removedLabels', 'removedLabelNames']);
+    input.addedLabelIds = input.addedLabelIds || [];
+    input.removedLabelIds = input.removedLabelIds || [];
     return pick(stripMeta(input), ISSUE_UPDATE_FIELDS);
   }
   if (type === 'issueRelation.create' || type === 'issue.relation.create') {
@@ -317,9 +299,9 @@ export async function compileOperations(linear, plan, options) {
       objectFindings: [],
       workspaceManifest: workspaceManifest.manifest,
       workspaceManifestPath: workspaceManifest.manifestPath,
-      issueExactLookup: identifierOrId => options.exactIssueLookup(linear, identifierOrId)
+      issueExactLookup: identifierOrId => options.exactIssueLookup(identifierOrId)
     };
-    const input = await normalizeInput(linear, op, refs, index, metadata);
+    const input = await normalizeInput(op, refs, index, metadata);
     if (isCreate(type) && typeof input.id === 'string') refs[String(refKey)] = { id: input.id, kind: kind || undefined, pending: true };
     compiled.push({
       index,

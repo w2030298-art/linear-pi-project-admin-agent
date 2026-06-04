@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { arg, hash, json, readJson, writeJson } from './utils.mjs';
-import { resolveProjectStatus } from './linear-project-status-resolver.mjs';
+import { resolveProjectStatus } from './linear-mcp-match.mjs';
 
 function clean(value) {
   return String(value || '').trim();

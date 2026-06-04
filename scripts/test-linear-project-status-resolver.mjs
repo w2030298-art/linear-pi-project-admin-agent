@@ -4,7 +4,7 @@ import {
   listProjectStatuses,
   resolveProjectStatusById,
   resolveProjectStatus
-} from './linear-project-status-resolver.mjs';
+} from './linear-mcp-match.mjs';
 
 const baseManifest = {
   evidenceRef: 'state/workspace-object-manifest.json',

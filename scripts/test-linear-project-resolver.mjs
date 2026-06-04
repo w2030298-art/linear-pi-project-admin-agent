@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import {
   linearProjectUrlParts,
   resolveLinearProjectId
-} from './linear-project-resolver.mjs';
+} from './linear-mcp-match.mjs';
 
 const paper2 = {
   id: 'b7d892ab-8aa3-467d-bb6f-809208486376',

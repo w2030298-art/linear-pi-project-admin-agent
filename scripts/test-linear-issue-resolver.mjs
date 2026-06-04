@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   resolveIssueIdentifier,
   resolveIssueRelationIdentifiers
-} from './linear-issue-resolver.mjs';
+} from './linear-mcp-match.mjs';
 
 const wen270 = {
   id: '27000000-0000-4000-8000-000000000270',

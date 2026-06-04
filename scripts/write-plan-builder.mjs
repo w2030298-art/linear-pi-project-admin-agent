@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { arg, ensureDir, json, now, readJson, writeJson } from './utils.mjs';
-import { resolveOperationInput } from './linear-object-resolver.mjs';
+import { resolveOperationInput } from './linear-mcp-match.mjs';
 
 const SUPPORTED_TYPES = new Set([
   'projectUpdate.create',
