@@ -40,6 +40,7 @@ const required = [
   'docs/ADR-002-m6-write-stack-decisions.md',
   'docs/SECURITY.md',
   'docs/OPERATIONS.md',
+  'docs/WRITE_BACKEND_MCP.md',
   'docs/CLAUDE_CODE_FACT_PACK.md'
 ];
 

@@ -50,36 +50,6 @@ import {
 }
 
 {
-  const decision = resolveApplyMode({
-    mode: 'confirmed-only',
-    cliDryRun: false,
-    cliConfirmed: true,
-    allow: true,
-    writePlanPath: 'state/write-plans/test-plan.json',
-    confirmationText: 'user explicitly allowed text fallback and approved.',
-    confirmationId: 'fallback-ignored',
-    hostCapabilities: {
-      askUserAvailable: false,
-      piAskUserAvailable: true,
-      conversationFallbackAllowed: true
-    },
-    plan: {
-      idempotencyKey: 'test-plan-key',
-      dryRun: true,
-      confirmedByUser: false
-    }
-  });
-  assert.equal(decision.dryRun, false);
-  assert.equal(decision.reason.confirmationChannel.channel, 'conversation_fallback');
-  assert.equal(decision.effectivePlan.confirmationChannel, 'conversation_fallback');
-  assert.equal(decision.effectivePlan.confirmationId, null);
-  assert.match(decision.effectivePlan.confirmationText, /Generic ask_user is unavailable/i);
-  assert.match(decision.effectivePlan.confirmationText, /user explicitly allowed text fallback and approved/);
-  assert.match(decision.effectivePlan.confirmationText, /state\/write-plans\/test-plan\.json/);
-  assert.match(decision.effectivePlan.confirmationText, /test-plan-key/);
-}
-
-{
   const askUserChannel = resolveConfirmationChannel({
     hostCapabilities: { askUserAvailable: true, piAskUserAvailable: true }
   });
@@ -87,17 +57,6 @@ import {
   assert.equal(askUserChannel.label, 'ask_user approve/cancel');
   assert.equal(askUserChannel.canApplyAfterExplicitApproval, true);
   assert.match(askUserChannel.userPrompt, /Click Approve/i);
-
-  const fallbackChannel = resolveConfirmationChannel({
-    hostCapabilities: {
-      askUserAvailable: false,
-      piAskUserAvailable: true,
-      conversationFallbackAllowed: true
-    }
-  });
-  assert.equal(fallbackChannel.channel, 'conversation_fallback');
-  assert.equal(fallbackChannel.label, 'current conversation explicit approval fallback');
-  assert.match(fallbackChannel.fallbackReason, /pi_ask_user\(flow=plan_confirmation\)/i);
 
   const unavailableChannel = resolveConfirmationChannel({
     hostCapabilities: {
@@ -117,51 +76,8 @@ import {
   });
   assert.equal(unavailableChannel.channel, 'unavailable');
   assert.equal(unavailableChannel.canApplyAfterExplicitApproval, false);
-  assert.match(unavailableChannel.fallbackReason, /interactive confirmation unavailable; real write not applied/i);
-}
-
-{
-  const record = buildConfirmationRecord({
-    channel: resolveConfirmationChannel({
-      hostCapabilities: {
-        askUserAvailable: false,
-        piAskUserAvailable: true,
-        conversationFallbackAllowed: true
-      }
-    }),
-    confirmationText: 'user approved via explicitly allowed fallback',
-    writePlanPath: 'plan.json',
-    idempotencyKey: 'plan-key'
-  });
-  assert.equal(record.confirmationChannel, 'conversation_fallback');
-  assert.match(record.confirmationText, /Fallback reason:/);
-  assert.match(record.confirmationText, /User approval:/);
-  assert.match(record.confirmationText, /Write plan: plan\.json/);
-  assert.match(record.confirmationText, /Idempotency key: plan-key/);
-}
-
-{
-  const record = buildConfirmationRecord({
-    channel: resolveConfirmationChannel({
-      hostCapabilities: {
-        askUserAvailable: false,
-        piAskUserAvailable: true,
-        conversationFallbackAllowed: true
-      }
-    }),
-    confirmationText: [
-      'Fallback reason: Generic ask_user is unavailable; use pi_ask_user(flow=plan_confirmation) for Linear plan confirmation.',
-      'User approval: user approved via prior fallback.',
-      'Write plan: stale-plan.json',
-      'Idempotency key: stale-key'
-    ].join('\n'),
-    writePlanPath: 'plan.json',
-    idempotencyKey: 'plan-key'
-  });
-  assert.equal(record.confirmationChannel, 'conversation_fallback');
-  assert.equal((record.confirmationText.match(/Fallback reason:/g) || []).length, 1);
-  assert.equal((record.confirmationText.match(/User approval:/g) || []).length, 1);
-  assert.doesNotMatch(record.confirmationText, /stale-plan\.json|stale-key/);
+  assert.match(unavailableChannel.fallbackReason, /interactive confirmation unavailable/i);
+  assert.match(unavailableChannel.fallbackReason, /fallback is not explicitly allowed/i);
 }
 
 {

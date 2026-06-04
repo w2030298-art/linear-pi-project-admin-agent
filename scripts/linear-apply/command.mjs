@@ -67,9 +67,10 @@ export async function applyPlanCommand(planPath, options) {
 
   const writeBackend = resolveWriteBackend(env);
   const linear = options.client();
+  const connectMcp = options.connectLinearMcp || connectLinearMcp;
   let mcpSession = null;
   if (!dryRun) {
-    mcpSession = await connectLinearMcp(env);
+    mcpSession = await connectMcp(env);
   }
   const exactIssueLookupFn = identifierOrId => {
     if (!mcpSession) return null;

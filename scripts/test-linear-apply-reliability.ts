@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { applyPlanCommand } from "./linear-apply/command.mjs";
 
-type Request = { query: string; variables: Record<string, any> };
+type IssueState = Record<string, { id: string; title: string; updatedAt: string }>;
 
 function tempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "linear-apply-reliability-"));
@@ -14,10 +14,10 @@ function writeJson(file: string, value: unknown) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-function options(args: {
-  client: any;
+function applyOptions(args: {
   auditPath: string;
   progressPath: string;
+  connectLinearMcp: () => Promise<any>;
 }) {
   return {
     env: {
@@ -37,19 +37,20 @@ function options(args: {
       "ask_user"
     ],
     cwd: process.cwd(),
-    client: () => args.client,
+    client: () => ({ client: { async rawRequest() { return { data: {} }; } } }),
+    connectLinearMcp: args.connectLinearMcp,
     cachedWorkspaceObjectManifest: async () => ({ manifest: null, manifestPath: "test-manifest.json" })
   };
 }
 
-async function applyWithEnv(planPath: string, applyOptions: ReturnType<typeof options>) {
+async function applyWithEnv(planPath: string, options: ReturnType<typeof applyOptions>) {
   const previous: Record<string, string | undefined> = {};
-  for (const [key, value] of Object.entries(applyOptions.env)) {
+  for (const [key, value] of Object.entries(options.env)) {
     previous[key] = process.env[key];
     process.env[key] = value;
   }
   try {
-    return await applyPlanCommand(planPath, applyOptions);
+    return await applyPlanCommand(planPath, options);
   } finally {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
@@ -58,9 +59,50 @@ async function applyWithEnv(planPath: string, applyOptions: ReturnType<typeof op
   }
 }
 
-function issueReadback(id: string, state: Record<string, any>) {
-  const entity = state[id];
-  return entity ? { id, identifier: entity.identifier || "WEN-1", title: entity.title || "Issue", updatedAt: entity.updatedAt || "t0" } : null;
+function createMcpMock(config: {
+  state: IssueState;
+  failReadbackAfterCreate?: boolean;
+  failSecondCreate?: { active: boolean };
+  counters?: { create: number; update: number };
+  saveIssueCounter?: { saveIssue: number };
+}) {
+  const counters = config.counters || { create: 0, update: 0 };
+  return async () => ({
+    backend: "mcp",
+    mock: true,
+    async callTool(name: string, args: Record<string, unknown> = {}) {
+      if (name === "save_issue") {
+        if (config.saveIssueCounter) config.saveIssueCounter.saveIssue += 1;
+        const issueId = String(args.id || "");
+        if (issueId && config.state[issueId]) {
+          counters.update += 1;
+          config.state[issueId] = {
+            ...config.state[issueId],
+            title: String(args.title ?? config.state[issueId].title),
+            updatedAt: `t${counters.update}`
+          };
+          return { issue: config.state[issueId] };
+        }
+        counters.create += 1;
+        if (args.title === "Two" && config.failSecondCreate?.active) {
+          throw new Error("temporary create failure");
+        }
+        const id = issueId || `issue-${counters.create}`;
+        config.state[id] = {
+          id,
+          title: String(args.title || "Issue"),
+          updatedAt: `t${counters.create}`
+        };
+        return { issue: config.state[id] };
+      }
+      if (name === "get_issue") {
+        if (config.failReadbackAfterCreate) return null;
+        return config.state[String(args.id)] || null;
+      }
+      return { ok: true, tool: name, args };
+    },
+    async close() {}
+  });
 }
 
 {
@@ -82,22 +124,14 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "parent", type: "issue.create", input: { teamId: "team-id", title: "Parent" } }
     ]
   });
-  const requests: Request[] = [];
-  const client = {
-    client: {
-      async rawRequest(query: string, variables: Record<string, any>) {
-        requests.push({ query, variables });
-        if (/issueCreate/.test(query)) {
-          return { data: { issueCreate: { success: true, issue: { id: variables.input.id, title: variables.input.title } } } };
-        }
-        if (/issue\(id:\$id\)/.test(query)) return { data: { issue: null } };
-        return { data: {} };
-      }
-    }
-  };
+  const state: IssueState = {};
 
   await assert.rejects(
-    () => applyWithEnv(planPath, options({ client, auditPath, progressPath })),
+    () => applyWithEnv(planPath, applyOptions({
+      auditPath,
+      progressPath,
+      connectLinearMcp: createMcpMock({ state, failReadbackAfterCreate: true })
+    })),
     /Readback failed/
   );
   const progress = JSON.parse(fs.readFileSync(progressPath, "utf8"));
@@ -124,25 +158,13 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "rename", type: "issue.update", input: { issueId: "issue-1", title: "After" } }
     ]
   });
-  const state: Record<string, any> = { "issue-1": { id: "issue-1", title: "Before", updatedAt: "t0" } };
-  let updateMutations = 0;
-  const client = {
-    client: {
-      async rawRequest(query: string, variables: Record<string, any>) {
-        if (/issueUpdate/.test(query)) {
-          updateMutations += 1;
-          state[variables.id] = { ...state[variables.id], ...variables.input, updatedAt: `t${updateMutations}` };
-          return { data: { issueUpdate: { success: true, issue: issueReadback(variables.id, state) } } };
-        }
-        if (/issue\(id:\$id\)/.test(query)) return { data: { issue: issueReadback(variables.id, state) } };
-        return { data: {} };
-      }
-    }
-  };
+  const state: IssueState = { "issue-1": { id: "issue-1", title: "Before", updatedAt: "t0" } };
+  const counters = { saveIssue: 0 };
+  const connectLinearMcp = createMcpMock({ state, counters: { create: 0, update: 0 }, saveIssueCounter: counters });
 
-  await applyWithEnv(planPath, options({ client, auditPath, progressPath }));
-  await applyWithEnv(planPath, options({ client, auditPath, progressPath }));
-  assert.equal(updateMutations, 1, "completed update replay should be skipped instead of resent");
+  await applyWithEnv(planPath, applyOptions({ auditPath, progressPath, connectLinearMcp }));
+  await applyWithEnv(planPath, applyOptions({ auditPath, progressPath, connectLinearMcp }));
+  assert.equal(counters.saveIssue, 1, "completed update replay should be skipped instead of resent");
 
   const progress = JSON.parse(fs.readFileSync(progressPath, "utf8"));
   assert.equal(progress.operations.rename.status, "success");
@@ -171,31 +193,18 @@ function issueReadback(id: string, state: Record<string, any>) {
       { key: "two", type: "issue.create", input: { teamId: "team-id", title: "Two" } }
     ]
   });
-  const state: Record<string, any> = {};
-  let createMutations = 0;
-  let failSecondCreate = true;
-  const client = {
-    client: {
-      async rawRequest(query: string, variables: Record<string, any>) {
-        if (/issueCreate/.test(query)) {
-          createMutations += 1;
-          if (variables.input.title === "Two" && failSecondCreate) throw new Error("temporary create failure");
-          state[variables.input.id] = { id: variables.input.id, title: variables.input.title, updatedAt: `t${createMutations}` };
-          return { data: { issueCreate: { success: true, issue: issueReadback(variables.input.id, state) } } };
-        }
-        if (/issue\(id:\$id\)/.test(query)) return { data: { issue: issueReadback(variables.id, state) } };
-        return { data: {} };
-      }
-    }
-  };
+  const state: IssueState = {};
+  const counters = { create: 0, update: 0 };
+  const failSecondCreate = { active: true };
+  const connectLinearMcp = createMcpMock({ state, counters, failSecondCreate });
 
   await assert.rejects(
-    () => applyWithEnv(planPath, options({ client, auditPath, progressPath })),
+    () => applyWithEnv(planPath, applyOptions({ auditPath, progressPath, connectLinearMcp })),
     /temporary create failure/
   );
-  failSecondCreate = false;
-  await applyWithEnv(planPath, options({ client, auditPath, progressPath }));
-  assert.equal(createMutations, 3, "retry should skip the first successful create and only send the failed create");
+  failSecondCreate.active = false;
+  await applyWithEnv(planPath, applyOptions({ auditPath, progressPath, connectLinearMcp }));
+  assert.equal(counters.create, 3, "retry should skip the first successful create and only send the failed create");
 
   const changedPlanPath = path.join(dir, "changed-plan.json");
   writeJson(changedPlanPath, {
@@ -213,7 +222,7 @@ function issueReadback(id: string, state: Record<string, any>) {
     ]
   });
   await assert.rejects(
-    () => applyWithEnv(changedPlanPath, options({ client, auditPath, progressPath })),
+    () => applyWithEnv(changedPlanPath, applyOptions({ auditPath, progressPath, connectLinearMcp })),
     /plan\/input hash changed/i
   );
 }
