@@ -1,17 +1,20 @@
+---
+description: 生成 Linear Project 状态报告
+argument-hint: "<Project>"
+---
+
 # /project-report
 
-用户输入：
-{{input}}
+用户输入（Pi slash 参数）：$ARGUMENTS
 
-> **输入绑定**：若 `{{input}}` 仍为字面占位符，以 slash 同行文本或当前 user message 为准。
+> **输入绑定**：Pi prompt template 使用 `$ARGUMENTS` 接收 `/project-report ...` 后的同行参数；若为空，先询问目标 Project。
 
-目标：先锚定事实与证据来源，再生成项目状态报告；报告与 Project Update 草案属于收敛输出，不得跳过事实/readback 边界。
+本 prompt 只负责路由，不定义行为协议；调用 skill：`linear-project-report`。
 
-必须读取：
-- Linear Project、Issues、Milestones、Project Updates、Comments。
-- 关联 GitHub PR、commits、Actions。
-- 本地 repo/docs 的最新变更。
+行为来源：`linear-admin-core`、`linear-project-report`、`evidence-based-reporting`。
 
-输出（两段式）：
-- **协作对话段**：事实锚定、证据缺口、待确认项。
-- **收敛计划段**：进展、风险、阻塞、决策、下一步、Project Update 草案、事实依据列表（事实/假设分类与事实锚定一致，不得重复归类）
+目标：基于 Linear Project 当前状态与 evidenceRef 生成项目状态报告，区分事实、假设、风险、阻塞和下阶段计划。
+
+路由要求：
+- 先锚定事实，再生成报告。
+- Project Update 草案只能作为收敛输出。
