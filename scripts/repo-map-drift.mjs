@@ -4,7 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
-import { ensureDir, hash, json, now } from './utils.mjs';
+import { ensureDir, hash, json, now, clean } from './utils.mjs';
 import { mergeRepoMaps, repoMapPaths, validateRepoMap } from './repo-map.mjs';
 
 const DEFAULT_STATE_DIR = 'state';
@@ -27,10 +27,6 @@ const DRIFT_FIELDS = [
   { field: 'linear.projectPrefix', source: 'linear_project' },
   { field: 'localPath', source: 'local_repo' }
 ];
-
-function clean(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
 
 function readYaml(file, fallback = {}) {
   if (!fs.existsSync(file)) return fallback;

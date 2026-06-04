@@ -1,24 +1,16 @@
 // @ts-nocheck
 import path from 'node:path';
-import { readJson } from './utils.mjs';
+import { readJson, asArray, cleanString } from './utils.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISSUE_IDENTIFIER_RE = /^[A-Z][A-Z0-9]+-\d+$/i;
 
-function clean(value) {
-  return String(value || '').trim();
-}
-
 function lower(value) {
-  return clean(value).toLowerCase();
-}
-
-function asArray(value) {
-  return Array.isArray(value) ? value : [];
+  return cleanString(value).toLowerCase();
 }
 
 function normalizedText(value) {
-  return clean(value).normalize('NFKC').toLowerCase().replace(/\s*\|\s*/g, '|').replace(/\s+/g, ' ').trim();
+  return cleanString(value).normalize('NFKC').toLowerCase().replace(/\s*\|\s*/g, '|').replace(/\s+/g, ' ').trim();
 }
 
 function decodeSegment(segment) {
@@ -107,8 +99,8 @@ function objectOk(kind, locator, item, evidenceRef, chain) {
 
 function resolveLabel(manifest, locator, evidenceRef) {
   const team = findTeam(manifest, locator.teamKey, locator.teamId);
-  const name = clean(locator.name);
-  const group = clean(locator.group);
+  const name = cleanString(locator.name);
+  const group = cleanString(locator.group);
   const candidates = labelItems(manifest).filter(label =>
     lower(label.name) === lower(name) &&
     (!group || lower(labelGroup(label)) === lower(group)) &&
@@ -127,8 +119,8 @@ function resolveLabel(manifest, locator, evidenceRef) {
 
 function resolveWorkflowState(manifest, locator, evidenceRef) {
   const team = findTeam(manifest, locator.teamKey, locator.teamId);
-  const name = clean(locator.name);
-  const type = clean(locator.type);
+  const name = cleanString(locator.name);
+  const type = cleanString(locator.type);
   const candidates = workflowStateItems(manifest).filter(state =>
     (!name || lower(state.name) === lower(name)) &&
     (!type || lower(state.type) === lower(type)) &&
@@ -147,8 +139,8 @@ function resolveWorkflowState(manifest, locator, evidenceRef) {
 }
 
 function resolveProjectMilestone(manifest, locator, evidenceRef) {
-  const name = clean(locator.name);
-  const projectId = clean(locator.projectId);
+  const name = cleanString(locator.name);
+  const projectId = cleanString(locator.projectId);
   const candidates = milestoneItems(manifest).filter(milestone =>
     lower(milestone.name) === lower(name) &&
     lower(milestone.projectId || milestone.project?.id) === lower(projectId)
@@ -177,7 +169,7 @@ function finding(code, message, path, extra = {}) {
 }
 
 function namesFrom(input, fields) {
-  return fields.flatMap(field => asArray(input[field]).map(name => ({ field, name }))).filter(item => clean(item.name));
+  return fields.flatMap(field => asArray(input[field]).map(name => ({ field, name }))).filter(item => cleanString(item.name));
 }
 
 function addResolvedIds(input, fieldName, ids) {
@@ -317,11 +309,11 @@ function compactIssue(issue) {
 }
 
 function issueResolutionGap(locator, path, message) {
-  return { ok: false, code: 'linear_issue_identifier_resolution_gap', blocking: true, path, identifier: clean(locator), message };
+  return { ok: false, code: 'linear_issue_identifier_resolution_gap', blocking: true, path, identifier: cleanString(locator), message };
 }
 
 export async function resolveIssueIdentifier(locator, { exactLookup, path = '$.input.issueIdentifier', role = 'issue' } = {}) {
-  const input = clean(locator);
+  const input = cleanString(locator);
   if (!input) return issueResolutionGap(input, path, `Linear ${role} identifier is empty.`);
 
   if (UUID_RE.test(input)) {
@@ -446,7 +438,7 @@ export function resolveProjectStatus(manifest = {}, { intent } = {}) {
 }
 
 export function resolveProjectStatusById(manifest = {}, statusId = '') {
-  const id = clean(statusId);
+  const id = cleanString(statusId);
   const ref = manifestEvidenceRef(manifest, null);
   const statuses = listProjectStatuses(manifest);
   const candidate = statuses.find(status => status.id === id);
@@ -484,7 +476,7 @@ function compactProject(project) {
 }
 
 export function linearProjectUrlParts(locator) {
-  const input = clean(locator);
+  const input = cleanString(locator);
   try {
     const url = new URL(input);
     const host = url.hostname.toLowerCase();
@@ -503,7 +495,7 @@ export function linearProjectUrlParts(locator) {
 }
 
 function normalizedSlug(value) {
-  const input = clean(value);
+  const input = cleanString(value);
   const parts = linearProjectUrlParts(input);
   const slug = parts.slug || input.split(/[?#]/, 1)[0].split('/').filter(Boolean)[0] || '';
   return normalizedText(decodeSegment(slug));
@@ -518,7 +510,7 @@ function projectSlug(project) {
 }
 
 export function matchWorkspaceProjects(locator, projects = []) {
-  const input = clean(locator);
+  const input = cleanString(locator);
   const normalized = lower(input);
   const urlParts = linearProjectUrlParts(input);
   const slug = normalizedSlug(urlParts.slug || input);
@@ -555,10 +547,10 @@ function projectSelectionGap(locator, matches, projects, directError = null) {
   return {
     ok: false,
     type: 'project_selection_gap',
-    locator: clean(locator),
+    locator: cleanString(locator),
     message: hasMatches
-      ? `Linear Project locator matched multiple workspace projects: ${clean(locator)}`
-      : `Linear Project could not be resolved from locator: ${clean(locator)}`,
+      ? `Linear Project locator matched multiple workspace projects: ${cleanString(locator)}`
+      : `Linear Project could not be resolved from locator: ${cleanString(locator)}`,
     directError,
     candidates
   };
@@ -570,7 +562,7 @@ function asProject(value) {
 }
 
 export async function resolveLinearProjectId(locator, options) {
-  const input = clean(locator);
+  const input = cleanString(locator);
   let directError = null;
   if (!input) return projectSelectionGap(input, [], [], null);
 

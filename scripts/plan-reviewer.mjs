@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Check, Errors } from 'typebox/value';
-import { arg, ensureDir, json, now } from './utils.mjs';
+import { arg, asArray, ensureDir, json, now } from './utils.mjs';
 import { PROJECT_DESCRIPTION_MAX_LENGTH, projectDescriptionLimit } from './project-field-normalizer.mjs';
 import { resolveWritePlanObjects } from './linear-mcp-match.mjs';
 import { manifestIsIncomplete } from './linear-workspace-manifest.mjs';
@@ -13,10 +13,6 @@ const DEFAULT_SCHEMA_PATH = 'schemas/project-plan.schema.json';
 
 function isBlank(value) {
   return value === undefined || value === null || String(value).trim() === '';
-}
-
-function asArray(value) {
-  return Array.isArray(value) ? value : [];
 }
 
 function hasTextArray(value) {

@@ -1,14 +1,7 @@
 // @ts-check
 import { appendAudit } from './audit.mjs';
+import { asArray, clean } from '../utils.mjs';
 import { normalizeType, typeToKind } from './schema.mjs';
-
-function clean(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function asArray(value) {
-  return Array.isArray(value) ? value.filter(Boolean) : [];
-}
 
 function labelNames(entity) {
   return asArray(entity?.labels?.nodes).map(node => clean(node?.name)).filter(Boolean).sort();
