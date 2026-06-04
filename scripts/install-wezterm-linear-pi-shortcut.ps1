@@ -140,6 +140,8 @@ $InstallRoot = __INSTALL_ROOT__
 $LogPath = Join-Path $InstallRoot 'launch.log'
 $LocalRepoMapPath = Join-Path $InstallRoot 'repo-map.local.yaml'
 $RuntimeLocalExcludeEntries = @('nul', 'state/linear-apply-progress/')
+$GeneratedStateStashMessage = 'linear-pi-runtime-generated-state-before-launch'
+$CodeDriftStashMessage = 'linear-pi-runtime-code-drift-before-launch'
 
 function Write-LaunchLog([string]$Message) {
   $timestamp = Get-Date -Format o
@@ -242,6 +244,17 @@ function Update-RuntimeLocalExclude([string]$GitRoot) {
   return ($existing -contains 'nul')
 }
 
+function Save-RuntimeDirtyState([string]$DirtyStatus) {
+  if (Test-AllowedRuntimeDirty $DirtyStatus) {
+    Write-LaunchLog "Runtime checkout has allowed local state changes; stashing generated state before update."
+    $message = $GeneratedStateStashMessage
+  } else {
+    Write-LaunchLog "Runtime checkout has code/config changes; stashing them before update. Review with: git -C `"$RuntimeRoot`" stash list"
+    $message = $CodeDriftStashMessage
+  }
+  $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'stash', 'push', '--include-untracked', '-m', $message)
+}
+
 function Invoke-CheckedCommand([string]$Command, [string[]]$Arguments, [string]$WorkingDirectory = '') {
   $process = New-Object System.Diagnostics.Process
   $process.StartInfo.FileName = Resolve-CommandFile $Command
@@ -283,12 +296,7 @@ function Ensure-RuntimeCheckout {
     $null = Update-RuntimeLocalExclude $RuntimeRoot
     $dirty = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'status', '--porcelain')
     if (($dirty | Out-String).Trim()) {
-      if (Test-AllowedRuntimeDirty $dirty) {
-        Write-LaunchLog "Runtime checkout has allowed local state changes; stashing generated state before update."
-        $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'stash', 'push', '--include-untracked', '-m', 'linear-pi-runtime-generated-state-before-launch')
-      } else {
-        throw "Runtime checkout has code/config changes; refusing to overwrite runtime state: $RuntimeRoot"
-      }
+      Save-RuntimeDirtyState $dirty
     }
     $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'fetch', 'origin', $StableBranch)
     $null = Invoke-CheckedCommand 'git' @('-C', $RuntimeRoot, 'checkout', $StableBranch)
@@ -327,11 +335,20 @@ function Ensure-NodeDependencies {
   New-Item -ItemType File -Path $stamp -Force | Out-Null
 }
 
+function Invoke-RuntimeValidation {
+  if (-not (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'package.json'))) {
+    return
+  }
+  Write-LaunchLog 'Running runtime validation: npm run validate'
+  $null = Invoke-CheckedCommand 'npm' @('run', 'validate') $RuntimeRoot
+}
+
 try {
   New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
   Write-LaunchLog "Preparing Linear Project Admin Pi runtime on branch $StableBranch at $RuntimeRoot"
   Ensure-RuntimeCheckout
   Ensure-NodeDependencies
+  Invoke-RuntimeValidation
 
   if ($PrepareOnly) {
     Write-LaunchLog 'PrepareOnly completed'

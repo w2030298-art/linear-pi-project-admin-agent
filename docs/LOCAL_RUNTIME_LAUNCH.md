@@ -88,13 +88,14 @@ The generic repo defaults should derive the runtime root from the current user:
 The shortcut starts PowerShell hidden and runs the installed launcher. The launcher then:
 
 1. Ensures the runtime checkout exists at `%USERPROFILE%\linear-pi-project-admin-agent-runtime`.
-2. Refuses to proceed if the runtime checkout has non-ignored code/config changes.
-3. Checks out `master`.
+2. Stashes generated runtime state if present.
+3. Stashes accidental non-ignored code/config changes with `linear-pi-runtime-code-drift-before-launch` if present.
 4. Runs `git fetch origin master`.
-5. Runs `git pull --ff-only origin master`.
-6. Installs npm dependencies only when needed.
-7. Runs `npm run validate` in the runtime checkout.
-8. Starts WezTerm:
+5. Switches the managed runtime checkout to `master`.
+6. Runs `git pull --ff-only origin master`.
+7. Installs npm dependencies only when needed.
+8. Runs `npm run validate` in the runtime checkout.
+9. Starts WezTerm:
 
 ```powershell
 & "C:\Program Files\WezTerm\wezterm-gui.exe" --config-file "%LOCALAPPDATA%\LinearProjectAdminPi\wezterm-linear-pi.lua" start --always-new-process --cwd "%USERPROFILE%\linear-pi-project-admin-agent-runtime" powershell.exe -NoLogo -NoExit -Command "pi"
@@ -109,9 +110,9 @@ REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml
 
 After Pi is already open, use `/reload-master` to refresh the same runtime checkout from `origin/master`; use `/reload` only for already-present local Pi files.
 
-## Current Startup Blocker Seen Locally
+## Previous Startup Blocker Seen Locally
 
-The latest local `launch.log` showed the launcher refusing to start because the runtime checkout had a code/config change:
+The local `launch.log` showed the old launcher refusing to start because the runtime checkout had a code/config change:
 
 ```text
 M scripts/linear-apply/normalize.mjs
@@ -126,7 +127,7 @@ The runtime checkout diff showed only:
    'title', 'description', 'descriptionData', ...
 ```
 
-This is outside the development checkout and is not an allowed runtime-local state file. The launcher is behaving correctly by blocking startup until the runtime checkout is clean or that change is intentionally committed and merged to `master`.
+This is outside the development checkout and is not an allowed runtime-local state file. The updated launcher no longer blocks startup for this case. It saves the runtime drift with `git stash push --include-untracked -m linear-pi-runtime-code-drift-before-launch`, then continues the normal `master` sync. Recover or inspect preserved runtime edits with `git -C "$env:USERPROFILE\linear-pi-project-admin-agent-runtime" stash list`.
 
 ## Useful Inspection Commands
 
@@ -151,4 +152,10 @@ Check runtime checkout cleanliness:
 
 ```powershell
 git -C "$env:USERPROFILE\linear-pi-project-admin-agent-runtime" status -sb
+```
+
+Inspect quarantined runtime drift:
+
+```powershell
+git -C "$env:USERPROFILE\linear-pi-project-admin-agent-runtime" stash list
 ```

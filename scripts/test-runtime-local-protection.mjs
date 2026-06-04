@@ -80,7 +80,10 @@ assert.equal(installerSelfTest.status, 0, installerSelfTest.stderr || installerS
 const selfTest = JSON.parse(installerSelfTest.stdout);
 assert.equal(selfTest.nulLocalExcludeConfigured, true, 'launcher should ignore accidental root nul files before runtime dirty checks');
 assert.equal(selfTest.linearApplyProgressDirtyAllowed, true, 'launcher should allow generated Linear apply progress state');
-assert.equal(selfTest.codeDirtyAllowed, false, 'launcher should still block source code changes');
+assert.equal(selfTest.codeDirtyAllowed, false, 'launcher should classify source code changes as runtime code drift');
+assert.match(installer, /linear-pi-runtime-code-drift-before-launch/);
+assert.match(reloadExtension, /linear-pi-runtime-code-drift-before-reload/);
+assert.doesNotMatch(installer, /refusing to overwrite runtime state/);
 for (const source of [installer, reloadExtension]) {
   assert.doesNotMatch(source, /git\s+clean/i);
   assert.doesNotMatch(source, /reset\s+--hard/i);
@@ -95,5 +98,6 @@ assert.match(guide, /state\/write-plans\//);
 assert.match(guide, /state\/linear-apply-progress\//);
 assert.match(guide, /git pull --ff-only/);
 assert.match(guide, /does not run `git clean`/i);
+assert.match(guide, /Stashes.*code\/config/i);
 
 console.log('runtime local protection tests passed');
