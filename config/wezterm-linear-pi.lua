@@ -89,7 +89,12 @@ end
 
 config.keys = keys
 
-local runtime_root = os.getenv("LINEAR_PI_RUNTIME_ROOT") or "C:\\Users\\22003\\linear-pi-project-admin-agent-runtime"
+local runtime_root = os.getenv("LINEAR_PI_RUNTIME_ROOT")
+if runtime_root == nil or runtime_root == "" then
+  local userprofile = os.getenv("USERPROFILE")
+    or ((os.getenv("HOMEDRIVE") or "C:") .. (os.getenv("HOMEPATH") or "\\Users\\Public"))
+  runtime_root = userprofile .. "\\linear-pi-project-admin-agent-runtime"
+end
 config.default_cwd = runtime_root:gsub("\\", "/")
 
 return config

@@ -9,7 +9,7 @@ repos:
       projectId: c642b249-cdda-4e85-b7f4-604776cb8cbd
       projectName: linear-pi-project-admin-agent｜Linear 项目管理员 Agent 运行时
       projectPrefix: linear-pi-project-admin-agent
-    localPath: C:/Users/22003/linear-pi-project-admin-agent
+    localPath: C:/Users/admin/dev/linear-pi-project-admin-agent/linear-pi-project-admin-agent
     docs:
       - README.md
       - docs/
@@ -25,10 +25,10 @@ repos:
     linear:
       projectName: linear-bridge
       projectPrefix: linear-bridge
-    localPath: C:/Users/22003/opencodeworkspace/linear-bridge
+    localPath: C:/Users/admin/dev/linear-pi-project-admin-agent/linear-pi-project-admin-agent/services/linear-bridge
     docs:
       - README.md
       - docs/
       - package.json
-      - go.mod
+      - src/
     evidenceWeight: high
