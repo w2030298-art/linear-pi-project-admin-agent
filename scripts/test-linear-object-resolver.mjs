@@ -6,7 +6,7 @@ import path from 'node:path';
 import {
   resolveLinearObject,
   resolveWritePlanObjects
-} from './linear-object-resolver.mjs';
+} from './linear-mcp-match.mjs';
 
 const evidenceRef = 'state/workspace-manifest-cache.json';
 const manifest = {

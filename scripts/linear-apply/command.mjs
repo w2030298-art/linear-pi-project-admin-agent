@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import { json } from '../utils.mjs';
 import { detectHostConfirmationCapabilities, resolveApplyMode } from '../write-plan-execution.mjs';
 import { appendAudit, errorMessage } from './audit.mjs';
-import { compileOperations, normalizeInput, opRefKey } from './normalize.mjs';
-import { exactIssueLookup, mutate, readback, targetIdForUpdate } from './executor.mjs';
+import { compileOperations, normalizeInput, opRefKey, targetIdForUpdate } from './normalize.mjs';
 import {
   connectLinearMcp,
   enrichCompiledOperationsForMcp,
@@ -25,7 +24,7 @@ import {
   progressPathFor,
   saveProgress
 } from './progress.mjs';
-import { isCreate, normalizeType, parseWritePlan, SUPPORTED_WRITE_MODES, typeToKind } from './schema.mjs';
+import { normalizeType, parseWritePlan, SUPPORTED_WRITE_MODES, typeToKind } from './schema.mjs';
 import { freezePlanManifest, validateApplyManifest } from '../linear-workspace-manifest.mjs';
 import { verifyApplyReadback } from './readback-diff.mjs';
 
@@ -69,18 +68,13 @@ export async function applyPlanCommand(planPath, options) {
   const writeBackend = resolveWriteBackend(env);
   const linear = options.client();
   let mcpSession = null;
-  if (writeBackend === 'mcp' && !dryRun) {
+  if (!dryRun) {
     mcpSession = await connectLinearMcp(env);
   }
-  const exactIssueLookupFn = writeBackend === 'mcp' && mcpSession
-    ? identifierOrId => exactIssueLookupMcp(mcpSession, identifierOrId)
-    : identifierOrId => exactIssueLookup(linear, identifierOrId);
-  const mutateFn = writeBackend === 'mcp' && mcpSession
-    ? (op, input, refs) => mutateMcp(mcpSession, op, input, refs)
-    : (op, input, refs) => mutate(linear, op, input, refs);
-  const readbackFn = writeBackend === 'mcp' && mcpSession
-    ? (kind, id) => readbackMcp(mcpSession, kind, id)
-    : (kind, id) => readback(linear, kind, id);
+  const exactIssueLookupFn = identifierOrId => {
+    if (!mcpSession) return null;
+    return exactIssueLookupMcp(mcpSession, identifierOrId);
+  };
 
   const compiled = await compileOperations(linear, effectivePlan, {
     cachedWorkspaceObjectManifest: options.cachedWorkspaceObjectManifest,
@@ -90,9 +84,7 @@ export async function applyPlanCommand(planPath, options) {
 
   if (dryRun) {
     const frozenPlan = freezePlanManifest(planPath, effectivePlan, workspaceManifestInfo.manifest, workspaceManifestInfo.manifestPath, compiled);
-    const operations = writeBackend === 'mcp'
-      ? enrichCompiledOperationsForMcp(compiled)
-      : compiled;
+    const operations = enrichCompiledOperationsForMcp(compiled);
     appendAudit({
       type: 'linear_apply_manifest_compile',
       dryRun: true,
@@ -189,9 +181,9 @@ export async function applyPlanCommand(planPath, options) {
         objectFindings: [],
         workspaceManifest: workspaceManifest.manifest,
         workspaceManifestPath: workspaceManifest.manifestPath,
-        issueExactLookup: identifierOrId => exactIssueLookup(linear, identifierOrId)
+        issueExactLookup: exactIssueLookupFn
       };
-      const input = await normalizeInput(linear, op, refs, index, metadata);
+      const input = await normalizeInput(op, refs, index, metadata);
       const inputHash = operationInputHash(op, input);
       const completed = completedOperation(progress, String(key), inputHash);
       if (completed) {
@@ -220,12 +212,12 @@ export async function applyPlanCommand(planPath, options) {
       let readbackEntity = null;
       try {
         if (type === 'project.update' || type === 'issue.update') {
-          before = await readbackFn(kind, targetIdForUpdate(op, refs));
+          before = await readbackMcp(mcpSession, kind, targetIdForUpdate(op, refs));
           if (!before && effectivePlan.readbackRequired !== false) throw new Error(`Before readback failed for ${type}`);
         }
-        mutationResult = await mutateFn(op, input, refs);
+        mutationResult = await mutateMcp(mcpSession, op, input, refs);
         entity = mutationResult.entity;
-        readbackEntity = entity?.id ? await readbackFn(kind, entity.id) : null;
+        readbackEntity = entity?.id ? await readbackMcp(mcpSession, kind, entity.id) : null;
         if (!readbackEntity && effectivePlan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
       } catch (err) {
         checkpointFailure(progress, String(key), {
@@ -268,7 +260,7 @@ export async function applyPlanCommand(planPath, options) {
       appendAudit({ type: 'linear_apply_operation', idempotencyKey: effectivePlan.idempotencyKey, operation: { index, key, mutationType: type }, replayAction: result.replayAction, result });
     }
     const readbackDiff = await verifyApplyReadback(effectivePlan, results, {
-      linear,
+      readback: (kind, id) => readbackMcp(mcpSession, kind, id),
       writePlanPath: planPath
     });
     appendAudit({ type: 'linear_apply_end', idempotencyKey: effectivePlan.idempotencyKey, success: true, resultCount: results.length, confirmation, readbackDiffOk: readbackDiff.ok });

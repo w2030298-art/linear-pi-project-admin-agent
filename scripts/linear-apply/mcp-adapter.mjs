@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const SUPPORTED_WRITE_BACKENDS = new Set(['sdk', 'mcp']);
+export const SUPPORTED_WRITE_BACKENDS = new Set(['mcp']);
 export const DEFAULT_LINEAR_MCP_URL = 'https://mcp.linear.app/mcp';
 
 const OPERATION_TO_MCP_TOOL = {
@@ -34,7 +34,7 @@ function repoRoot() {
 }
 
 export function resolveWriteBackend(env = process.env) {
-  const value = String(env.LINEAR_WRITE_BACKEND || 'sdk').trim().toLowerCase();
+  const value = String(env.LINEAR_WRITE_BACKEND || 'mcp').trim().toLowerCase();
   if (!SUPPORTED_WRITE_BACKENDS.has(value)) {
     throw new Error(`Unsupported LINEAR_WRITE_BACKEND=${value}. Supported: ${[...SUPPORTED_WRITE_BACKENDS].join(', ')}`);
   }

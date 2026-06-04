@@ -36,6 +36,6 @@ assert.ok(policy.protectedFields.includes('token'));
 assert.ok(policy.protectedFields.includes('secret'));
 assert.ok(policy.protectedFields.includes('apiKey'));
 
-assert.match(envExample, /LINEAR_WRITE_BACKEND=sdk/);
+assert.match(envExample, /LINEAR_WRITE_BACKEND=mcp/);
 
 console.log('test-m6-decisions-wen312: all assertions passed');

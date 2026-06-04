@@ -1,6 +1,5 @@
 // @ts-check
 import { appendAudit } from './audit.mjs';
-import { readback } from './executor.mjs';
 import { normalizeType, typeToKind } from './schema.mjs';
 
 function clean(value) {
@@ -90,7 +89,7 @@ export function diffOperationAgainstReadback(operation, entity) {
 }
 
 export async function verifyApplyReadback(plan, results, options = {}) {
-  const linear = options.linear;
+  const readback = options.readback;
   const audit = options.appendAudit || appendAudit;
   const mismatches = [];
 
@@ -104,9 +103,9 @@ export async function verifyApplyReadback(plan, results, options = {}) {
     if (!kind || !entityId) continue;
 
     let actual = result.readback || null;
-    if (!actual && linear) {
+    if (!actual && readback) {
       try {
-        actual = await readback(linear, kind, entityId);
+        actual = await readback(kind, entityId);
       } catch {
         actual = null;
       }
