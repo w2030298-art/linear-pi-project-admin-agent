@@ -40,6 +40,7 @@ import { compileOperations } from './linear-apply/normalize.mjs';
     health: 'onTrack'
   });
   assert.equal(args.project, 'project-1');
+  assert.equal(args.type, 'project');
   assert.equal(args.body, 'Status body');
   assert.equal(args.health, 'onTrack');
 }

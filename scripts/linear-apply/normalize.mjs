@@ -227,7 +227,9 @@ export async function normalizeInput(op, refs, index, metadata = null) {
 
   let input = applyGenericRefs({ ...(op.input || {}) }, refs);
   const refKey = opRefKey(op, index);
-  if (isCreate(type) && !input.id) input.id = stableUuid(`${op.planIdempotencyKey}:${type}:${refKey}`);
+  if (isCreate(type) && !input.id && type !== 'projectUpdate.create' && type !== 'project.update.create') {
+    input.id = stableUuid(`${op.planIdempotencyKey}:${type}:${refKey}`);
+  }
 
   if (type === 'project.create') {
     const normalized = normalizeProjectDescriptionFields(input);

@@ -65,6 +65,7 @@ export function buildMcpToolArguments(type, input = {}) {
   const normalizedType = String(type || '').trim();
   if (normalizedType === 'projectUpdate.create' || normalizedType === 'project.update.create') {
     const args = {
+      type: 'project',
       project: clean(input.projectId),
       body: clean(input.body)
     };
@@ -134,11 +135,19 @@ export function compareDryRunParity(sdkCompiled, mcpCompiled) {
 function parseToolText(result) {
   const text = result?.content?.find(item => item.type === 'text')?.text;
   if (!text) return result;
+  if (/^MCP error|^Entity not found/i.test(text)) return null;
   try {
     return JSON.parse(text);
   } catch {
-    return text;
+    return /^[\[{]/.test(text.trim()) ? null : text;
   }
+}
+
+function readbackEntity(value) {
+  if (!value || typeof value === 'string') return null;
+  if (value.id && (value.body !== undefined || value.title !== undefined || value.identifier)) return value;
+  if (Array.isArray(value.statusUpdates)) return value.statusUpdates[0] || null;
+  return value.id ? value : null;
 }
 
 export async function connectLinearMcp(env = process.env, options = {}) {
@@ -203,11 +212,23 @@ export async function exactIssueLookupMcp(session, identifierOrId) {
   };
 }
 
+function mutationEntity(payload) {
+  if (!payload || typeof payload === 'string') return null;
+  if (payload.issue?.id) return payload.issue;
+  if (payload.statusUpdate?.id) return payload.statusUpdate;
+  if (payload.projectUpdate?.id) return payload.projectUpdate;
+  if (payload.id && (payload.body !== undefined || payload.title !== undefined || payload.identifier)) {
+    return payload;
+  }
+  return null;
+}
+
 export async function readbackMcp(session, kind, id) {
   const tool = readbackToMcpTool(kind);
   if (!tool) throw new Error(`Unsupported MCP readback kind: ${kind}`);
   if (tool === 'get_status_updates') {
-    return session.callTool(tool, { project: id, limit: 1 });
+    const payload = await session.callTool(tool, { type: 'project', id, limit: 1 });
+    return readbackEntity(payload);
   }
   if (tool === 'list_comments') {
     return session.callTool(tool, { issueId: id, limit: 1 });
@@ -224,13 +245,14 @@ export async function mutateMcp(session, op, input, refs) {
   if (!tool) throw new Error(`Unsupported MCP mutation type: ${type}`);
   const args = buildMcpToolArguments(type, input);
   const payload = await session.callTool(tool, args);
-  const entity = payload?.issue || payload?.projectUpdate || payload?.statusUpdate || payload?.project || payload;
+  const entity = mutationEntity(payload);
   if (!entity?.id && type.endsWith('.update')) {
     throw new Error(`${type} MCP mutation did not return an entity id`);
   }
   if (entity?.id) {
-    const existing = await readbackMcp(session, type.includes('issue') ? 'issue' : 'projectUpdate', entity.id);
-    if (existing) return { success: true, skipped: false, entity: existing };
+    const readbackKind = type.includes('issue') ? 'issue' : 'projectUpdate';
+    const existing = readbackEntity(await readbackMcp(session, readbackKind, entity.id));
+    if (existing?.id) return { success: true, skipped: false, entity: existing };
   }
   return { success: true, skipped: false, entity: entity || { id: /** @type {any} */ (args).id || null } };
 }
