@@ -3,19 +3,18 @@ description: 扩展一个现有 Linear Project
 argument-hint: "<Project> [新增需求]"
 ---
 
-# /extend-project
+**Extend Project Mode**
 
-用户输入（Pi slash 参数）：$ARGUMENTS
+请调用skill： extend-linear-project 围绕一个现有 Linear Project 做五步协作对话，锚定事实后再输出影响分析与收敛计划。
 
-> **输入绑定**：Pi prompt template 使用 `$ARGUMENTS` 接收 `/extend-project ...` 后的同行参数；若为空，先询问目标 Project 和新增需求。
+详细要求信息：$ARGUMENTS
 
-本 prompt 只负责路由，不定义行为协议；调用 skill：`extend-linear-project`。
+行为来源:linear-admin-core、project-planning、extend-linear-project.
 
-行为来源：`linear-admin-core`、`project-planning`、`extend-linear-project`。
-
-目标：围绕一个现有 Linear Project 做五步协作对话，锚定事实后再输出影响分析与收敛计划。
+架构原则：以协作规划为中心；Linear 写入只是收敛后的薄输出适配器。
 
 路由要求：
-- 一次只处理一个 Project。
-- 先输出协作对话与事实锚定，再输出收敛后的追加编排。
-- 不在 prompt 中复制写入、确认或回读协议。
+-一次只处理一个 Project。
+-先做四格逼问与 2-3 个方案权衡，再挑战假设并锚定事实。
+-基于当前 Project baseline 判断新增需求属于范围内增强、MVP 变更、架构变更、建议拆分或 later backlog。
+-收敛后再输出影响分析、Milestone / Issue / dependency 变更和追加编排。

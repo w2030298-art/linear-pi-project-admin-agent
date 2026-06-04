@@ -54,9 +54,10 @@ for (const rel of prompts) {
   const text = read(rel);
   assert.doesNotMatch(text, /^目标：.*可写入 Linear/m, `${rel} should not open with writable-plan-only goal`);
   assert.match(text, /协作对话|四格|锚定事实|收敛|Fact Pack|两段式/s, `${rel} should reference dialogue-first planning`);
-  assert.match(text, /输入绑定/, `${rel} should document prompt input binding`);
+  assert.match(text, /详细要求信息：\$ARGUMENTS/, `${rel} should pass slash input through a user-facing detail field`);
   assert.match(text, /\$ARGUMENTS/, `${rel} should use Pi-supported slash arguments`);
   assert.doesNotMatch(text, /\{\{input\}\}/, `${rel} should not use unsupported template placeholders`);
+  assert.doesNotMatch(text, /用户输入|Pi slash 参数|输入绑定|prompt template/i, `${rel} should not expose template mechanics`);
 }
 
 assert.match(read('.pi/prompts/create-project.md'), /五步协作循环/);

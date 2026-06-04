@@ -23,30 +23,51 @@ assert.deepEqual(piSettings.prompts, ['prompts']);
 assert.deepEqual(piSettings.skills, ['../.agents/skills']);
 
 const promptSkillMap = {
-  'create-project.md': 'create-linear-project',
-  'extend-project.md': 'extend-linear-project',
-  'fact-pack.md': 'fact-ingestion',
-  'issue-dispatch.md': 'issue-orchestration',
-  'portfolio-review.md': 'linear-portfolio-review',
-  'project-report.md': 'linear-project-report',
-  'workspace-sync.md': 'workspace-sync'
+  'create-project.md': { skill: 'create-linear-project', mode: 'Create Project Mode' },
+  'extend-project.md': { skill: 'extend-linear-project', mode: 'Extend Project Mode' },
+  'fact-pack.md': { skill: 'fact-ingestion', mode: 'Fact Pack Mode' },
+  'issue-dispatch.md': { skill: 'issue-orchestration', mode: 'Issue Dispatch Mode' },
+  'portfolio-review.md': { skill: 'linear-portfolio-review', mode: 'Portfolio Review Mode' },
+  'project-report.md': { skill: 'linear-project-report', mode: 'Report Mode' },
+  'workspace-sync.md': { skill: 'workspace-sync', mode: 'Workspace Sync Mode' }
 };
 
 const activePromptFiles = fs.readdirSync(path.join(root, '.pi/prompts')).filter(file => file.endsWith('.md')).sort();
 assert.deepEqual(activePromptFiles, Object.keys(promptSkillMap).sort(), 'Active Pi prompts should be the single slash interface');
 
-for (const [file, skillName] of Object.entries(promptSkillMap)) {
+for (const [file, { skill, mode }] of Object.entries(promptSkillMap)) {
   const text = read(`.pi/prompts/${file}`);
-  assert.ok(text.split('\n').length <= 30, `${file} should stay a thin routing prompt`);
+  assert.ok(text.split('\n').length <= 42, `${file} should stay a thin routing prompt`);
   assert.doesNotMatch(text, /\{\{input\}\}/, `${file} should not use unsupported {{input}} placeholders`);
   assert.match(text, /\$ARGUMENTS/, `${file} should bind Pi slash arguments with $ARGUMENTS`);
-  assert.match(text, /本 prompt 只负责路由/, `${file} should declare that behavior lives in skills`);
-  assert.match(text, new RegExp(`调用 skill：\`${skillName}\``), `${file} should route to ${skillName}`);
+  assert.match(text, new RegExp(`\\*\\*${mode}\\*\\*`), `${file} should start with a reader-facing mode label`);
+  assert.match(text, new RegExp(`请调用skill：\\s*${skill}`), `${file} should route to ${skill}`);
+  assert.match(text, /详细要求信息：\$ARGUMENTS/, `${file} should place slash input in a detail field`);
+  assert.match(text, /行为来源:/, `${file} should list behavior source skills`);
+  assert.match(text, /以协作规划为中心/, `${file} should reflect the document's planning-centered architecture`);
+  assert.match(text, /写入只是.*薄输出适配器/, `${file} should keep Linear writes as a thin output adapter`);
+  assert.doesNotMatch(text, /用户输入|Pi slash 参数|输入绑定|本 prompt 只负责路由|prompt template/i, `${file} should not expose template mechanics to the agent`);
   assert.doesNotMatch(
     text,
     /ask_user|confirmedByUser|linear_apply_write_plan|write_confirmation|plan_confirmation|Prompt 模板|模板变量|Cursor Agent|请严格按以下阶段|阶段 \d/i,
     `${file} should not carry duplicate execution or confirmation protocols`
   );
+}
+
+for (const file of ['create-project.md', 'extend-project.md']) {
+  const text = read(`.pi/prompts/${file}`);
+  assert.match(text, /四格逼问/, `${file} should require four-grid clarification`);
+  assert.match(text, /2-3 个.*方案权衡/, `${file} should require alternatives with tradeoffs`);
+  assert.match(text, /挑战假设/, `${file} should require assumption challenge`);
+  assert.match(text, /锚定事实/, `${file} should require fact anchoring`);
+  assert.match(text, /收敛后/, `${file} should defer plans until convergence`);
+}
+
+for (const file of ['fact-pack.md', 'portfolio-review.md', 'project-report.md', 'workspace-sync.md', 'issue-dispatch.md']) {
+  const text = read(`.pi/prompts/${file}`);
+  assert.match(text, /事实/, `${file} should separate facts`);
+  assert.match(text, /假设|待确认/, `${file} should separate assumptions or confirmations`);
+  assert.match(text, /证据缺口|evidenceRef/, `${file} should expose evidence gaps or references`);
 }
 
 const issueOrchestrationSkill = read('.agents/skills/40-issue-orchestration/SKILL.md');
