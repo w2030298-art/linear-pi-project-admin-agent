@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const STABLE_BRANCH = 'master';
+const CODE_DRIFT_STASH_MESSAGE = 'linear-pi-runtime-code-drift-before-acceptance';
 const RUNTIME_CHECKS = [
   ['npm', ['run', 'test:runtime-reload-master']],
   ['npm', ['run', 'test:runtime-local-protection']],
@@ -84,7 +85,7 @@ function read(command, args, cwd) {
   return (result.stdout || '').trim();
 }
 
-function ensureCleanRuntimeRoot(runtimeRoot) {
+function ensureRuntimeRoot(runtimeRoot) {
   if (!fs.existsSync(runtimeRoot)) {
     throw new Error(`Runtime root does not exist: ${runtimeRoot}`);
   }
@@ -96,11 +97,24 @@ function ensureCleanRuntimeRoot(runtimeRoot) {
   if (branch !== STABLE_BRANCH) {
     throw new Error(`Runtime root is on ${branch || '(detached)'}, not ${STABLE_BRANCH}`);
   }
+}
 
+function runtimeStatus(runtimeRoot) {
+  return read('git', ['status', '--porcelain'], runtimeRoot);
+}
+
+function quarantineRuntimeChanges(runtimeRoot) {
   const status = read('git', ['status', '--porcelain'], runtimeRoot);
-  if (status) {
-    throw new Error(`Runtime root has non-ignored local changes:\n${status}`);
+  if (!status) return false;
+
+  console.log(`runtime checkout has local changes; stashing before acceptance sync:\n${status}`);
+  run('git', ['stash', 'push', '--include-untracked', '-m', CODE_DRIFT_STASH_MESSAGE], runtimeRoot);
+
+  const remaining = runtimeStatus(runtimeRoot);
+  if (remaining) {
+    throw new Error(`Runtime root still has local changes after stash:\n${remaining}`);
   }
+  return true;
 }
 
 function ensureSameRemote(source, runtimeRoot) {
@@ -137,10 +151,12 @@ function runCiAcceptance(root) {
 }
 
 function runLocalRuntimeAcceptance(root, options) {
-  ensureCleanRuntimeRoot(options.runtimeRoot);
+  ensureRuntimeRoot(options.runtimeRoot);
+  quarantineRuntimeChanges(options.runtimeRoot);
   ensureSameRemote(root, options.runtimeRoot);
   if (options.sync) syncRuntime(options.runtimeRoot);
-  ensureCleanRuntimeRoot(options.runtimeRoot);
+  ensureRuntimeRoot(options.runtimeRoot);
+  quarantineRuntimeChanges(options.runtimeRoot);
   installDependencies(options.runtimeRoot);
   runRuntimeChecks(options.runtimeRoot);
   const head = read('git', ['rev-parse', '--short', 'HEAD'], options.runtimeRoot);

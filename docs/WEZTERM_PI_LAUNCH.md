@@ -18,6 +18,8 @@ The launcher maintains a separate runtime checkout:
 
 The runtime checkout tracks the stable branch `master`. On each launch it runs a fast-forward-only sync (`git pull --ff-only origin master`). Feature branch changes do not automatically sync to `master`; they only reach runtime after a PR/merge updates `master`.
 
+This checkout exists by design. Treat it as a managed runtime copy, not as the normal development workspace. Its purpose is to keep taskbar/start-menu Pi startup on stable `master` while the development repo can stay on feature branches, with uncommitted edits, or inside PR conflict resolution.
+
 ## Install Or Repair
 
 Run from a checked-out source repo:
@@ -63,11 +65,14 @@ Shortcut arguments:
 The shortcut runs the external launcher. The launcher:
 
 1. Ensures `%USERPROFILE%\linear-pi-project-admin-agent-runtime` exists as a clone of the GitHub repo.
-2. Stashes allowed generated runtime state if present, while still blocking code/config dirty changes.
-3. Checks out `master`.
-4. Runs `git pull --ff-only origin master`.
-5. Runs `npm ci` only when dependencies are missing or package manifests changed.
-6. Starts WezTerm:
+2. Stashes generated runtime state if present.
+3. Stashes accidental code/config dirty state with `linear-pi-runtime-code-drift-before-launch` if present, so startup can continue without deleting local changes.
+4. Runs `git fetch origin master`.
+5. Switches the managed runtime checkout to `master`.
+6. Runs `git pull --ff-only origin master`.
+7. Runs `npm ci` only when dependencies are missing or package manifests changed.
+8. Runs `npm run validate` in the runtime checkout.
+9. Starts WezTerm:
 
 ```powershell
 & "C:\Program Files\WezTerm\wezterm-gui.exe" --config-file "%LOCALAPPDATA%\LinearProjectAdminPi\wezterm-linear-pi.lua" start --always-new-process --cwd "%USERPROFILE%\linear-pi-project-admin-agent-runtime" powershell.exe -NoLogo -NoExit -Command "pi"
@@ -141,7 +146,7 @@ Runtime updates should be accepted before they reach the stable launcher path:
 npm run runtime:acceptance -- --sync
 ```
 
-The local acceptance command verifies that `%USERPROFILE%\linear-pi-project-admin-agent-runtime` is a clean `master` checkout with the same `origin` remote as the source repo, fast-forwards it with `git pull --ff-only origin master`, refreshes dependencies, and runs the runtime reload, local protection, instruction boundary, and WezTerm launch tests inside the runtime checkout.
+The local acceptance command verifies that `%USERPROFILE%\linear-pi-project-admin-agent-runtime` is a `master` checkout with the same `origin` remote as the source repo, stashes any local runtime drift before sync with `linear-pi-runtime-code-drift-before-acceptance`, fast-forwards it with `git pull --ff-only origin master`, refreshes dependencies, and runs the runtime reload, local protection, instruction boundary, and WezTerm launch tests inside the runtime checkout.
 
 ## Refresh While Running
 
@@ -151,12 +156,13 @@ Use the project command `/reload-master` when the WezTerm runtime is already ope
 
 1. Refuses to run outside a git worktree.
 2. Refuses to run unless the current branch is `master`.
-3. Stashes allowed generated runtime state if present, while still blocking code/config dirty changes.
-4. Runs `git fetch origin master`.
-5. Runs `git pull --ff-only origin master`.
-6. Runs `npm ci` when dependency files are missing or stale, or `npm install` if no lockfile exists.
-7. If dependency installation fails, reports the failure and keeps using the currently running runtime without calling reload.
-8. Calls `ctx.reload()` only after dependency installation succeeds.
+3. Stashes generated runtime state if present.
+4. Stashes accidental code/config dirty state with `linear-pi-runtime-code-drift-before-reload` if present, so refresh can continue without deleting local changes.
+5. Runs `git fetch origin master`.
+6. Runs `git pull --ff-only origin master`.
+7. Runs `npm ci` when dependency files are missing or stale, or `npm install` if no lockfile exists.
+8. If dependency installation fails, reports the failure and keeps using the currently running runtime without calling reload.
+9. Calls `ctx.reload()` only after dependency installation succeeds.
 
 This gives the running Pi session the same stable-branch refresh behavior as a fresh shortcut launch without switching a development repo away from its feature branch.
 
@@ -177,7 +183,7 @@ The runtime checkout may contain machine-local files that are not owned by `mast
 
 For the installed WezTerm runtime, the launcher exports `REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml` before starting Pi. This keeps durable machine-local repo mappings outside the runtime checkout, so startup sync and `/reload-master` do not see them as local Git changes.
 
-The launcher and `/reload-master` use `git pull --ff-only`. This path does not run `git clean`, `git reset --hard`, or recursive deletion of the runtime root. If a local non-ignored file would be overwritten, the clean-checkout guard or Git itself blocks the sync instead of deleting the file.
+The launcher and `/reload-master` use `git pull --ff-only`. This path does not run `git clean`, `git reset --hard`, or recursive deletion of the runtime root. If local non-ignored code/config changes appear in the managed runtime checkout, they are quarantined in Git stash before sync. If stash, branch validation, dependency installation, or fast-forward pull fails, the launcher reports the failure instead of deleting files.
 
 ## Runtime Instruction Maintenance
 
@@ -199,7 +205,7 @@ Automated checks cover:
 - The launcher script name and runtime root are documented.
 - The shortcut uses `powershell.exe` to run `launch-linear-pi-runtime.ps1`.
 - The runtime branch is `master` and uses `git pull --ff-only`.
-- The `/reload-master` command pulls `origin/master` only from a clean master runtime checkout before reload.
+- The launcher, local acceptance, and `/reload-master` stash runtime code/config drift before pulling `origin/master`.
 - Runtime-local files such as `.env`, sessions, logs, repo-map drafts/local overlays, write plans, and audit reports are ignored or stored outside the checkout and not cleaned by the launcher.
 - Root `AGENTS.md` is absent so development agents are not steered by the Linear Project Admin runtime persona.
 - The WezTerm config includes copy and paste shortcut bindings.

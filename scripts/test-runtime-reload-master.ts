@@ -8,6 +8,7 @@ import registerRuntimeMasterReload, {
   ensureRuntimeLocalExclude,
   isAllowedRuntimeDirtyStatus,
   reloadMasterPreflight,
+  runtimeDirtyAction,
   runtimeGitArgs,
   runtimeNpmExec,
   runtimeNpmArgs,
@@ -17,22 +18,23 @@ import registerRuntimeMasterReload, {
 {
   const clean = reloadMasterPreflight({
     insideWorkTree: true,
-    branch: 'master',
-    dirtyStatus: ''
+    branch: 'master'
   });
   assert.equal(clean.ok, true);
 }
 
 {
-  const generatedDirty = reloadMasterPreflight({
+  const masterPreflight = reloadMasterPreflight({
     insideWorkTree: true,
-    branch: 'master',
-    dirtyStatus: ' M state/portfolio-review/portfolio-snapshot-2026-05-28.json'
+    branch: 'master'
   });
-  assert.equal(generatedDirty.ok, true);
+  assert.equal(masterPreflight.ok, true);
 }
 
 {
+  assert.equal(runtimeDirtyAction(''), 'none');
+  assert.equal(runtimeDirtyAction(' M state/portfolio-review/portfolio-snapshot-2026-05-28.json'), 'stash-generated-state');
+  assert.equal(runtimeDirtyAction(' M scripts/linear-cli.mjs'), 'stash-runtime-dirty-state');
   assert.equal(isAllowedRuntimeDirtyStatus(' M state/fact-packs/evidence/fact-1/local-repo.json'), true);
   assert.equal(isAllowedRuntimeDirtyStatus(' M .pi/sessions/session.jsonl'), true);
   assert.equal(isAllowedRuntimeDirtyStatus('?? state/linear-apply-progress/'), true);
@@ -57,20 +59,17 @@ import registerRuntimeMasterReload, {
 }
 
 {
-  const sourceDirty = reloadMasterPreflight({
+  const sourceDriftPreflight = reloadMasterPreflight({
     insideWorkTree: true,
-    branch: 'master',
-    dirtyStatus: ' M docs/OPERATIONS.md'
+    branch: 'master'
   });
-  assert.equal(sourceDirty.ok, false);
-  assert.match(sourceDirty.reason, /dirty/i);
+  assert.equal(sourceDriftPreflight.ok, true);
 }
 
 {
   const feature = reloadMasterPreflight({
     insideWorkTree: true,
-    branch: 'feature/test',
-    dirtyStatus: ''
+    branch: 'feature/test'
   });
   assert.equal(feature.ok, false);
   assert.match(feature.reason, /master/i);
@@ -87,6 +86,15 @@ import registerRuntimeMasterReload, {
     '--include-untracked',
     '-m',
     'linear-pi-runtime-generated-state-before-reload'
+  ]);
+  assert.deepEqual(runtimeGitArgs('C:\\runtime', 'stash-runtime-dirty-state'), [
+    '-C',
+    'C:\\runtime',
+    'stash',
+    'push',
+    '--include-untracked',
+    '-m',
+    'linear-pi-runtime-code-drift-before-reload'
   ]);
   assert.deepEqual(runtimeNpmArgs(true), ['ci']);
   assert.deepEqual(runtimeNpmArgs(false), ['install']);
@@ -190,6 +198,45 @@ import registerRuntimeMasterReload, {
 }
 
 {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-command-code-drift-'));
+  const notifications: Array<{ message: string; level: string }> = [];
+  const execCalls: Array<{ command: string; args: string[] }> = [];
+  let handler: any;
+  let reloadCalled = false;
+  const pi = {
+    registerCommand: (_name: string, command: any) => {
+      handler = command.handler;
+    },
+    exec: async (command: string, args: string[]) => {
+      execCalls.push({ command, args });
+      if (command === 'git' && args.includes('--is-inside-work-tree')) return { code: 0, stdout: 'true\n', stderr: '' };
+      if (command === 'git' && args.includes('--show-current')) return { code: 0, stdout: 'master\n', stderr: '' };
+      if (command === 'git' && args.includes('--porcelain')) return { code: 0, stdout: ' M docs/OPERATIONS.md\n', stderr: '' };
+      return { code: 0, stdout: '', stderr: '' };
+    }
+  };
+
+  registerRuntimeMasterReload(pi as any);
+  await handler([], {
+    cwd: tempDir,
+    hasUI: true,
+    ui: {
+      notify: (message: string, level: string) => notifications.push({ message, level })
+    },
+    reload: async () => {
+      reloadCalled = true;
+    }
+  });
+
+  assert.equal(reloadCalled, true);
+  assert.ok(execCalls.some(call => call.command === 'git' && call.args.includes('stash') && call.args.includes('linear-pi-runtime-code-drift-before-reload')));
+  assert.ok(execCalls.some(call => call.command === 'git' && call.args.includes('fetch')));
+  assert.ok(execCalls.some(call => call.command === 'git' && call.args.includes('pull')));
+  assert.ok(notifications.some(item => item.level === 'info' && /code\/config changes/i.test(item.message)));
+  fs.rmSync(tempDir, { recursive: true, force: true });
+}
+
+{
   const settings = fs.readFileSync('.pi/settings.json', 'utf8');
   assert.match(settings, /extensions\/runtime-master-reload\.ts/);
 
@@ -210,7 +257,7 @@ import registerRuntimeMasterReload, {
   assert.match(launchGuide, /pull.*origin\/master/i);
   assert.match(launchGuide, /npm ci/);
   assert.match(launchGuide, /currently running runtime/i);
-  assert.match(launchGuide, /clean.*master/i);
+  assert.match(launchGuide, /Stashes.*code\/config/i);
   assert.match(smokeReport, /\/reload-master/);
   assert.match(smokeReport, /npm dependencies/i);
 }

@@ -61,7 +61,8 @@ assert.match(localLaunch, /TargetPath:/);
 assert.match(localLaunch, /WorkingDirectory:/);
 assert.match(localLaunch, /IconLocation:/);
 assert.match(localLaunch, /launch\.log/);
-assert.match(localLaunch, /Current Startup Blocker Seen Locally/);
+assert.match(localLaunch, /Previous Startup Blocker Seen Locally/);
+assert.match(localLaunch, /linear-pi-runtime-code-drift-before-launch/);
 assert.match(localLaunch, /M scripts\/linear-apply\/normalize\.mjs/);
 
 assert.match(config, /require\(["']wezterm["']\)/);
@@ -86,6 +87,7 @@ assert.match(installer, /StableBranch/);
 assert.match(installer, /git clone/i);
 assert.match(installer, /stash.+push/s);
 assert.match(installer, /generated state before update/i);
+assert.match(installer, /linear-pi-runtime-code-drift-before-launch/);
 assert.match(installer, /pull --ff-only/i);
 assert.match(installer, /Resolve-CommandFile/);
 assert.match(installer, /\$Command\.cmd/);
