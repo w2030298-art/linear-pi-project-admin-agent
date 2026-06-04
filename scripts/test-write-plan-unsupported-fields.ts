@@ -65,7 +65,7 @@ import { reviewWritePlan } from './plan-reviewer.mjs';
 
   const result = spawnSync(process.execPath, ['scripts/linear-cli.mjs', 'apply', planPath, '--dry-run'], {
     cwd: process.cwd(),
-    env: { ...process.env, LINEAR_API_KEY: 'dummy' },
+    env: { ...process.env, LINEAR_API_KEY: 'dummy', LINEAR_WRITE_BACKEND: 'mcp' },
     encoding: 'utf8'
   });
   assert.equal(result.status, 1);

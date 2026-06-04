@@ -17,7 +17,7 @@ import {
   });
   assert.equal(decision.dryRun, true);
   assert.equal(decision.reason.confirmationChannel.channel, 'unavailable');
-  assert.equal(decision.confirmationSelfCheck.canApproveAfterDryRun, false);
+  assert.equal(decision.confirmationSelfCheck.canApproveAfterValidation, false);
   assert.match(decision.confirmationSelfCheck.nextAction, /pi_ask_user\(flow=plan_confirmation\)/i);
 }
 
@@ -93,7 +93,7 @@ import {
   assert.equal(record.confirmationChannel, 'ask_user');
   assert.equal(record.confirmationId, 'ask-user-confirmation-1');
   assert.doesNotMatch(record.confirmationText, /Fallback reason|conversation fallback/i);
-  assert.match(record.confirmationText, /ask_user approved the exact dry-run write plan/i);
+  assert.match(record.confirmationText, /ask_user approved the exact final-validated write plan/i);
 }
 
 {

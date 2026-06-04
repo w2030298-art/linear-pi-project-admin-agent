@@ -46,7 +46,7 @@ export function loadProgress(file) {
 export function initProgress(existing, { idempotencyKey, planHash, writePlanPath }) {
   if (existing) {
     if (existing.planHash !== planHash) {
-      throw new Error('plan/input hash changed; run a new dry-run and approval before applying this write plan.');
+      throw new Error('plan/input hash changed; run a new final validation and approval before applying this write plan.');
     }
     return existing;
   }
@@ -72,7 +72,7 @@ export function completedOperation(progress, key, inputHash) {
   const record = progress.operations?.[key];
   if (!record || record.status !== 'success') return null;
   if (record.inputHash !== inputHash) {
-    throw new Error(`plan/input hash changed for operation ${key}; run a new dry-run and approval before replay.`);
+    throw new Error(`plan/input hash changed for operation ${key}; run a new final validation and approval before replay.`);
   }
   return record;
 }

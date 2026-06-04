@@ -230,7 +230,7 @@ function reviewProjectFieldLimits(operations) {
     if (!limit) return;
     findings.push(makeFinding(
       'write_plan_project_description_too_long',
-      `Project.description is ${limit.originalLength} characters; Linear limit is ${PROJECT_DESCRIPTION_MAX_LENGTH}. Dry-run/apply will write a short summary to description and preserve the full text in content.`,
+      `Project.description is ${limit.originalLength} characters; Linear limit is ${PROJECT_DESCRIPTION_MAX_LENGTH}. Final validation/apply will write a short summary to description and preserve the full text in content.`,
       {
         path: `$.operations[${index}].input.description`,
         severity: 'warning',

@@ -260,7 +260,7 @@ export function buildPlanConfirmationMessage(input: PlanConfirmationViewInput) {
     ...SECTION("计划结构"),
     ...buildOperationStructureTree(plan, input.operationsSummary),
     ...SECTION("风险说明"),
-    ...formatStructuredBullets(input.risksSummary, "未列出额外风险；仍受 quality review / dry-run / audit 约束。"),
+    ...formatStructuredBullets(input.risksSummary, "未列出额外风险；仍受 final validation / audit 约束。"),
     ...SECTION("不会变更"),
     ...formatStructuredBullets(
       input.nonChangesSummary,
@@ -276,7 +276,7 @@ export function buildPlanConfirmationMessage(input: PlanConfirmationViewInput) {
     ...SECTION("下一步"),
     "  - Yes: confirm current writePlanPath / idempotencyKey and continue to real apply",
     "  · 选择 No：取消，不执行 Linear 写入",
-    "  · 选择 调整意见：返回修改建议，Agent 需重算 write plan 并重新 dry-run + 确认"
+    "  · 选择 调整意见：返回修改建议，Agent 需重算 write plan 并重新 final validation + 确认"
   ];
   return sections.join("\n");
 }

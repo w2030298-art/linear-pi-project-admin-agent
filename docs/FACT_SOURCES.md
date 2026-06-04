@@ -13,9 +13,9 @@
 - Labels resolve by `teamKey` or team ID plus exact label name and optional group. Duplicate matches or mutually exclusive label-group conflicts are blocking findings.
 - Workflow states resolve only inside the requested team; cross-team fallback is not allowed.
 - Project Milestones resolve by exact `projectId` plus milestone name; workspace-level milestone-name matching is not allowed.
-- Dry-run output includes each name-to-ID `resolutions` entry with the workspace manifest `evidenceRef`. Missing or ambiguous resolutions block real apply.
+- Final validation output includes each name-to-ID `resolutions` entry with the workspace manifest `evidenceRef`. Missing or ambiguous resolutions block real apply.
 - Workspace object manifest reads use cursor pagination for teams, labels, workflow states, Project statuses, Projects, and Project Milestones. The manifest records `completeness` and `truncated`; incomplete manifests block real apply.
-- Dry-run freezes the approved resolver facts by writing a manifest snapshot, `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` back into the write plan without recomputing any plan hash. Real apply recomputes the current manifest hash and resolution diff before consuming the approval artifact; mismatch requires a new dry-run and approval. After mutations, apply compares planned vs actual state via readback diff.
+- Final validation freezes the approved resolver facts by writing a manifest snapshot, `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` back into the write plan without recomputing any plan hash. Real apply reuses that frozen validation snapshot when present. After mutations, apply compares planned vs actual state via readback diff.
 - The cached manifest defaults to `state/workspace-object-manifest.json` and can be redirected with `LINEAR_WORKSPACE_OBJECT_MANIFEST_PATH`.
 
 ## Issue Relation Exact Resolver
@@ -23,13 +23,13 @@
 - `issueRelation.create` and `issue.relation.create` may use `issueIdentifier` and `relatedIssueIdentifier` for exact issue targets.
 - WEN-style identifiers use exact `issue(id: "...")` lookup semantics only; full-text issue search is not a fallback.
 - UUID values are accepted directly. `$opRef` remains supported through `issueRef` / `relatedIssueRef`, and also works after generic `$ref` expansion into identifier fields.
-- Dry-run output includes identifier-to-ID `resolutions` with `identifier`, issue title, URL, and `evidenceRef`. Lookup failure blocks apply before any mutation.
+- Final validation output includes identifier-to-ID `resolutions` with `identifier`, issue title, URL, and `evidenceRef`. Lookup failure blocks apply before any mutation.
 
 ## Write Plan Review Calibration
 
 - Write plan reviewer gates milestone evidence by operation type. Issue state changes and Project Update creation do not require unrelated milestone readback.
 - Issue creation and issue milestone changes still require a Project Milestone target or verified milestone readback.
-- Pass `--workspace-manifest <path>` to `scripts/plan-reviewer.mjs` when quality review must preflight label names against Linear label groups.
+- Use `linear_validate_write_plan` for the normal write flow; pass `--workspace-manifest <path>` to `scripts/plan-reviewer.mjs` only for standalone local reviewer diagnostics.
 - Labels with the same Linear parent group are treated as mutually exclusive unless the manifest explicitly sets that group to `exactlyOne: false` or `mutuallyExclusive: false`.
 
 Fact Pack 的目标是保持项目理解充分，同时避免把大块原始数据塞进模型上下文。

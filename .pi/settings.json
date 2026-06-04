@@ -10,7 +10,6 @@
     "extensions/web-research.ts",
     "extensions/pi-ask-user.ts",
     "extensions/linear-write-guard.ts",
-    "extensions/linear-plan-reviewer.ts",
     "extensions/workspace-sync.ts",
     "extensions/runtime-master-reload.ts",
     "extensions/observability.ts"

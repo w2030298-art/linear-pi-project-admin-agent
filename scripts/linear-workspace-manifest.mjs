@@ -125,6 +125,22 @@ export function freezePlanManifest(planPath, plan, manifest, manifestPath, compi
   return nextPlan;
 }
 
+export function freezePlanFinalValidation(planPath, plan, manifest, manifestPath, compiled, finalValidation) {
+  const basePlan = freezePlanManifest(planPath, plan, manifest, manifestPath, compiled);
+  const nextPlan = {
+    ...basePlan,
+    finalValidation: {
+      ...finalValidation,
+      manifestHash: basePlan.manifestHash || null,
+      manifestPath: basePlan.manifestPath || null,
+      manifestCompleteness: basePlan.manifestCompleteness || null,
+      resolutionCount: basePlan.resolutions?.length || 0
+    }
+  };
+  if (planPath) writeJson(planPath, nextPlan);
+  return nextPlan;
+}
+
 function compactResolution(resolution) {
   return {
     kind: resolution.kind || null,
@@ -161,7 +177,7 @@ export function validateApplyManifest(plan, currentManifest, currentResolutions 
     return {
       ok: false,
       reason: 'manifest_incomplete',
-      message: 'workspace manifest is incomplete; rerun workspace manifest pagination and dry-run before real apply.',
+      message: 'workspace manifest is incomplete; rerun workspace manifest pagination and final validation before real apply.',
       approvedManifestHash: plan.manifestHash || null,
       currentManifestHash: currentManifest ? manifestHash(currentManifest) : null,
       resolutionDiff: resolutionDiff(plan.resolutions || [], currentResolutions)
@@ -171,7 +187,7 @@ export function validateApplyManifest(plan, currentManifest, currentResolutions 
     return {
       ok: false,
       reason: 'manifest_hash_missing',
-      message: 'manifestHash missing from approved write plan; rerun dry-run and approval before real apply.',
+      message: 'manifestHash missing from approved write plan; rerun final validation and approval before real apply.',
       approvedManifestHash: null,
       currentManifestHash: currentManifest ? manifestHash(currentManifest) : null,
       resolutionDiff: resolutionDiff(plan.resolutions || [], currentResolutions)
@@ -183,7 +199,7 @@ export function validateApplyManifest(plan, currentManifest, currentResolutions 
     return {
       ok: false,
       reason: 'manifest_hash_mismatch',
-      message: `manifestHash mismatch: approved ${plan.manifestHash}, current ${currentManifestHash}. Rerun dry-run and approval before real apply.`,
+      message: `manifestHash mismatch: approved ${plan.manifestHash}, current ${currentManifestHash}. Rerun final validation and approval before real apply.`,
       approvedManifestHash: plan.manifestHash,
       currentManifestHash,
       resolutionDiff: diff
@@ -193,7 +209,7 @@ export function validateApplyManifest(plan, currentManifest, currentResolutions 
     return {
       ok: false,
       reason: 'resolution_diff',
-      message: 'Linear object resolution changed since approval; rerun dry-run and approval before real apply.',
+      message: 'Linear object resolution changed since approval; rerun final validation and approval before real apply.',
       approvedManifestHash: plan.manifestHash,
       currentManifestHash,
       resolutionDiff: diff

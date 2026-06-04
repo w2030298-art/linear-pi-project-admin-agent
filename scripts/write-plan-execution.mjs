@@ -48,7 +48,7 @@ export function resolveConfirmationChannel({ hostCapabilities = {} } = {}) {
       canApplyAfterExplicitApproval: true,
       fallbackReason: null,
       userPrompt:
-        'Click Approve in the ask_user approve/cancel UI for the exact dry-run write plan; do not type a confirmation phrase.'
+        'Click Approve in the ask_user approve/cancel UI for the exact final-validated write plan; do not type a confirmation phrase.'
     };
   }
 
@@ -104,7 +104,7 @@ export function buildConfirmationRecord({ channel, confirmationText, confirmatio
       confirmationId: id || null,
       confirmationText: [
         'Confirmation channel: ask_user approve/cancel UI.',
-        'User approval: ask_user approved the exact dry-run write plan.',
+        'User approval: ask_user approved the exact final-validated write plan.',
         `Write plan: ${planPath}`,
         `Idempotency key: ${key}`
       ].join('\n')
@@ -130,13 +130,13 @@ function buildConfirmationSelfCheck({ channel, hostCapabilities, dryRun }) {
     phase: dryRun ? 'dry_run' : 'real_apply',
     channel: channel.channel,
     label: channel.label,
-    canApproveAfterDryRun: canUseDirectAskUser,
+    canApproveAfterValidation: canUseDirectAskUser,
     piAskUserPlanConfirmationAvailable: piAskUserAvailable,
     conversationFallbackAllowed: canUseConversationFallback,
     nextAction: canUseDirectAskUser
-      ? 'After dry-run, call pi_ask_user(flow=plan_confirmation) and pass the returned confirmation fields to real apply.'
+      ? 'After final validation, call pi_ask_user(flow=plan_confirmation) and pass the returned confirmation fields to real apply.'
       : piAskUserAvailable
-        ? 'After dry-run, call pi_ask_user(flow=plan_confirmation); dry-run is not user confirmation.'
+        ? 'After final validation, call pi_ask_user(flow=plan_confirmation); validation is not user confirmation.'
         : canUseConversationFallback
           ? 'Pi UI approval is unavailable; ask for explicit permission before using conversation_fallback.'
           : 'Real apply is blocked until pi_ask_user(flow=plan_confirmation) is available or the user explicitly allows conversation_fallback.'

@@ -271,19 +271,24 @@ function collectMilestoneReadback(plan, manifest) {
   }
 }
 
+function buildFinalValidationSummary(writePlanPath, writePlan) {
+  return {
+    writePlanPath,
+    idempotencyKey: writePlan.idempotencyKey,
+    operationCount: writePlan.operations.length,
+    operationTypes: writePlan.operations.map(operation => operation.type),
+    targetProjectId: writePlan.targetProjectId
+  };
+}
+
 function buildLowRiskWorkflowExtras(writePlanPath, writePlan) {
   return {
-    dryRunSummary: {
-      writePlanPath,
-      idempotencyKey: writePlan.idempotencyKey,
-      operationCount: writePlan.operations.length,
-      operationTypes: writePlan.operations.map(operation => operation.type),
-      targetProjectId: writePlan.targetProjectId,
+    finalValidationSummary: {
+      ...buildFinalValidationSummary(writePlanPath, writePlan),
       riskLevel: 'L1/L2 low-risk whitelist'
     },
     workflow: {
-      qualityReviewRequired: true,
-      dryRunRequired: true,
+      finalValidationRequired: true,
       approvalRequired: true,
       readbackRequired: true,
       auditLogRequired: true,
@@ -291,17 +296,10 @@ function buildLowRiskWorkflowExtras(writePlanPath, writePlan) {
       fallbackToFullFactPackWhenEvidenceGap: true
     },
     nextToolCalls: {
-      qualityReview: {
-        name: 'linear_plan_quality_review',
-        params: { planPath: writePlanPath }
-      },
-      dryRun: {
-        name: 'linear_apply_write_plan',
+      finalValidation: {
+        name: 'linear_validate_write_plan',
         params: {
-          writePlanPath,
-          confirmedByUser: false,
-          confirmationText: '',
-          dryRun: true
+          writePlanPath
         }
       },
       approval: {
@@ -333,18 +331,20 @@ function buildLowRiskWorkflowExtras(writePlanPath, writePlan) {
 
 function buildWorkflow(writePlanPath, writePlan, summary) {
   return {
+    finalValidationSummary: buildFinalValidationSummary(writePlanPath, writePlan),
+    workflow: {
+      finalValidationRequired: true,
+      approvalRequired: true,
+      readbackRequired: true,
+      auditLogRequired: true,
+      confirmedOnlyRequired: true,
+      fallbackToFullFactPackWhenEvidenceGap: true
+    },
     nextToolCalls: {
-      qualityReview: {
-        name: 'linear_plan_quality_review',
-        params: { planPath: writePlanPath }
-      },
-      dryRun: {
-        name: 'linear_apply_write_plan',
+      finalValidation: {
+        name: 'linear_validate_write_plan',
         params: {
-          writePlanPath,
-          confirmedByUser: false,
-          confirmationText: '',
-          dryRun: true
+          writePlanPath
         }
       },
       approval: {
@@ -355,8 +355,8 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
           idempotencyKey: writePlan.idempotencyKey,
           targetProjectSummary: summary.targetProjectSummary,
           operationsSummary: summary.operationsSummary,
-          risksSummary: '• 本计划仅由 builder 生成\n• quality review、dry-run、plan confirmation、readback 与 audit 仍为必填步骤',
-          nonChangesSummary: '• builder 本身不执行 Linear mutation\n• repo-map / workspace manifest 除 resolver 冻结字段外不做额外变更'
+          risksSummary: 'Final validation must pass before approval; readback diff and audit remain required after apply.',
+          nonChangesSummary: 'The builder and final validation do not perform Linear mutations.'
         }
       },
       apply: {
@@ -373,7 +373,6 @@ function buildWorkflow(writePlanPath, writePlan, summary) {
     }
   };
 }
-
 
 export function buildWritePlan(input, options = {}) {
   const kind = clean(input?.kind);

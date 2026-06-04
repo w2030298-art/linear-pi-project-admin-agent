@@ -39,7 +39,7 @@ export const writePlanSchema = z.object({
   confirmationText: z.string().optional(),
   confirmationChannel: z.string().optional(),
   confirmationFallbackReason: z.string().nullable().optional(),
-  confirmationId: z.string().optional(),
+  confirmationId: z.string().nullable().optional(),
   readbackRequired: z.boolean().optional(),
   auditLogRequired: z.boolean().optional()
 }).passthrough();

@@ -22,6 +22,6 @@ description: 处理 Linear @mention、delegate issue、Agent:* label trigger 和
 3. 读取 promptContext 和相关 Linear 对象。
 4. 构造 Fact Pack。
 5. 输出 plan 或 ask clarifying question。
-6. 需要写入时发布 dry-run comment。
+6. 需要写入时发布 final validation summary。
 7. 用户 approve 后写入。
 8. 回读并发布 response。

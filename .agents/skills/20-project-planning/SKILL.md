@@ -7,7 +7,7 @@ description: 通过五步协作循环（四格逼问→方案权衡→挑战假�
 
 ## 目的
 
-把模糊需求通过**对话协作**转化为可审查、可 dry-run、可一次最终确认后写入 Linear 的项目方案。规划不是一次性产出 write plan，而是先收敛理解，再出计划。
+把模糊需求通过**对话协作**转化为可审查、可最终校验、可一次最终确认后写入 Linear 的项目方案。规划不是一次性产出 write plan，而是先收敛理解，再出计划。
 
 ## 五步协作循环
 
@@ -74,7 +74,7 @@ description: 通过五步协作循环（四格逼问→方案权衡→挑战假�
 - 成功指标与验收口径
 - Milestones、Issues、Relations（Issue 须独立可执行、带验收标准与 labels）
 - 风险、依赖、待确认项
-- dry-run 写入计划（经 `plan-reviewer` 审查后）
+- write plan 摘要（随后必须经 `linear_validate_write_plan` 一次最终校验）
 
 输出：见 `00-linear-admin-core` **收敛计划** 段格式。
 
@@ -89,7 +89,7 @@ description: 通过五步协作循环（四格逼问→方案权衡→挑战假�
 
 ## 质量门禁
 
-以下任一情况**不得**进入 write plan / dry-run：
+以下任一情况**不得**进入 write plan / final validation：
 
 - 四格有关键格仍为「待确认」且影响范围或架构选型
 - 方案少于 2 个且无用户明确指定唯一路径
@@ -100,4 +100,4 @@ description: 通过五步协作循环（四格逼问→方案权衡→挑战假�
 
 ## 与写入协议的关系
 
-本 skill 只负责**规划对话与计划草案**；真实 Linear 写入仍须：`plan-reviewer` → dry-run → 一次 `plan_confirmation` → apply → readback → audit。本 skill 不替代 write guard。
+本 skill 只负责**规划对话与计划草案**；真实 Linear 写入仍须：`linear_validate_write_plan` 一次最终校验 → 一次 `plan_confirmation` → apply → readback → audit。本 skill 不替代 write guard。

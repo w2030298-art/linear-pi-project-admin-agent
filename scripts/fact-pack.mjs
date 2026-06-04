@@ -302,7 +302,7 @@ if (!pack.facts.some(f => f.sourceType === 'github_remote') && !(pack.scope.repo
 }
 
 pack.planningImplications.push('Project planning must cite Fact Pack facts and label missing data as assumptions.');
-pack.planningImplications.push('Linear writes must remain dry-run until explicit approval.');
+pack.planningImplications.push('Linear writes must pass final validation and remain non-mutating until explicit approval.');
 
 ensureDir('state/fact-packs');
 const out = `state/fact-packs/${pack.id}.json`;

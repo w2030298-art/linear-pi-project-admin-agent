@@ -149,7 +149,7 @@ function manifest(labelId: string, extra: Record<string, unknown> = {}) {
     resolutions: [{ kind: "label", id: "label-before", path: "$.operations[0].input.labelNames" }],
     confirmedByUser: true,
     confirmationChannel: "ask_user",
-    confirmationText: "User approved exact dry-run write plan via Pi UI.",
+    confirmationText: "User approved exact final-validated write plan via Pi UI.",
     confirmationId: "manifest-drift-approval",
     readbackRequired: true,
     auditLogRequired: true,
@@ -188,6 +188,7 @@ function manifest(labelId: string, extra: Record<string, unknown> = {}) {
         argv: ["node", "scripts/linear-cli.mjs", "apply", planPath, "--confirmed", "--confirmation-channel", "ask_user"],
         cwd: process.cwd(),
         client: () => client,
+        connectLinearMcp: async () => ({ async close() {} }),
         cachedWorkspaceObjectManifest: async () => ({ manifest: manifest("label-after"), manifestPath: path.join(dir, "current-manifest.json") })
       })),
     /manifestHash mismatch/

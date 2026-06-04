@@ -5,6 +5,7 @@ import { isIssueIdentifierOrUuid } from './retrieval-utils.mjs';
 import { resolveLinearProjectId, listProjectStatuses } from './linear-mcp-match.mjs';
 import { appendAuditWarning, errorMessage } from './linear-apply/audit.mjs';
 import { applyPlanCommand } from './linear-apply/command.mjs';
+import { validateWritePlanCommand } from './linear-apply/final-validation.mjs';
 import { connectLinearMcp, mcpSmoke, resolveWriteBackend } from './linear-apply/mcp-adapter.mjs';
 import { collectConnectionNodes, manifestCompleteness, manifestHash } from './linear-workspace-manifest.mjs';
 
@@ -347,6 +348,7 @@ try {
   else if (cmd === 'project-statuses') await projectStatuses();
   else if (cmd === 'issue') await issue(process.argv[3]);
   else if (cmd === 'issues') await issues();
+  else if (cmd === 'validate-write-plan') await validateWritePlanCommand(process.argv[3], { client, cachedWorkspaceObjectManifest, env: process.env, argv: process.argv, cwd: process.cwd() });
   else if (cmd === 'apply') await applyPlanCommand(process.argv[3], { client, cachedWorkspaceObjectManifest, env: process.env, argv: process.argv, cwd: process.cwd() });
   else json({ ok: false, error: `unknown command ${cmd}` });
 } catch (err) {

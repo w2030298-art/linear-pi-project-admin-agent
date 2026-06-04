@@ -27,6 +27,7 @@ import {
 import { normalizeType, parseWritePlan, SUPPORTED_WRITE_MODES, typeToKind } from './schema.mjs';
 import { freezePlanManifest, validateApplyManifest } from '../linear-workspace-manifest.mjs';
 import { verifyApplyReadback } from './readback-diff.mjs';
+import { loadFinalValidationWorkspaceManifest } from './final-validation.mjs';
 
 function argValue(argv, name, fallback = '') {
   const index = argv.indexOf(name);
@@ -62,7 +63,7 @@ export async function applyPlanCommand(planPath, options) {
   const currentPlanHash = planInputHash(effectivePlan);
   const existingProgress = !dryRun ? loadProgress(progressPath) : null;
   if (existingProgress && existingProgress.planHash !== currentPlanHash) {
-    throw new Error('plan/input hash changed; run a new dry-run and approval before applying this write plan.');
+    throw new Error('plan/input hash changed; run a new final validation and approval before applying this write plan.');
   }
 
   const writeBackend = resolveWriteBackend(env);
@@ -77,8 +78,11 @@ export async function applyPlanCommand(planPath, options) {
     return exactIssueLookupMcp(mcpSession, identifierOrId);
   };
 
+  const finalValidationManifest = !dryRun ? loadFinalValidationWorkspaceManifest(effectivePlan) : null;
+  const finalValidation = /** @type {any} */ (effectivePlan).finalValidation || null;
   const compiled = await compileOperations(linear, effectivePlan, {
     cachedWorkspaceObjectManifest: options.cachedWorkspaceObjectManifest,
+    workspaceManifestInfo: finalValidationManifest || undefined,
     exactIssueLookup: exactIssueLookupFn
   });
   const workspaceManifestInfo = /** @type {any} */ (compiled).workspaceManifestInfo || { manifest: null, manifestPath: null };
@@ -112,10 +116,19 @@ export async function applyPlanCommand(planPath, options) {
   }
 
   const currentResolutions = compiled.flatMap(operation => operation.resolutions || []);
-  const manifestValidation = validateApplyManifest(effectivePlan, workspaceManifestInfo.manifest, currentResolutions);
+  const manifestValidation = finalValidationManifest
+    ? {
+        ok: true,
+        reason: 'final_validation_snapshot',
+        approvedManifestHash: effectivePlan.manifestHash || finalValidation?.manifestHash || null,
+        currentManifestHash: effectivePlan.manifestHash || finalValidation?.manifestHash || null,
+        resolutionDiff: []
+      }
+    : validateApplyManifest(effectivePlan, workspaceManifestInfo.manifest, currentResolutions);
   appendAudit({
     type: 'linear_apply_manifest_validation',
     ok: manifestValidation.ok,
+    source: finalValidationManifest ? 'final_validation_snapshot' : 'live_manifest_recheck',
     writePlanPath: planPath,
     idempotencyKey: effectivePlan.idempotencyKey || null,
     manifestPath: workspaceManifestInfo.manifestPath || null,
