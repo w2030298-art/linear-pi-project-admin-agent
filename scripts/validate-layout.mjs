@@ -21,6 +21,7 @@ const required = [
   'scripts/repo-map.mjs',
   'scripts/repo-map-drift.mjs',
   'scripts/plan-reviewer.mjs',
+  'scripts/linear-apply/final-validation.mjs',
   'scripts/portfolio-snapshot-utils.mjs',
   'scripts/retrieval-utils.mjs',
   'scripts/test-linear-snapshot.mjs',

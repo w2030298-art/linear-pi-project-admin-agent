@@ -1,6 +1,6 @@
 ---
 name: extend-linear-project
-description: 读取一个现有 Linear Project，围绕新增需求做影响分析、范围调整、Milestone/Issue/依赖更新，并生成一次最终确认后可写入的 dry-run 计划。
+description: 读取一个现有 Linear Project，围绕新增需求做影响分析、范围调整、Milestone/Issue/依赖更新，并生成一次最终确认后可写入且通过最终校验的 write plan。
 ---
 
 # Extend Linear Project
@@ -18,7 +18,7 @@ Extend exactly one Linear Project at a time. Do not load or plan the whole works
 5. Classify the new requirement as in-scope enhancement, MVP change, architecture change, suggested split, or later backlog.
 6. Produce an impact analysis for product scope, architecture, data/API boundaries, issues, dependencies, risks, and docs.
 7. Prefer updating or adding Issues under existing Milestones when appropriate; do not create placeholder Milestones just to satisfy a reviewer.
-8. Compile a dry-run write plan and ask for one final approval before real writes.
+8. Generate a write plan, run `linear_validate_write_plan` once, and ask for one final approval before real writes.
 9. Apply, read back, and summarize changed Linear URLs.
 
 ## Output Requirements

@@ -10,7 +10,7 @@ assert.doesNotMatch(validateLayout, /['"]AGENTS\.md['"]/);
 const system = fs.readFileSync('SYSTEM.md', 'utf8');
 assert.match(system, /Linear Project Admin Runtime/);
 assert.match(system, /Fact Pack/);
-assert.match(system, /dry-run/);
+assert.match(system, /linear_validate_write_plan/);
 assert.match(system, /一.*Project|one.*Project/i);
 
 const readme = fs.readFileSync('README.md', 'utf8');

@@ -113,7 +113,7 @@ if (process.env.LINEAR_API_KEY) {
   const mcpResult = spawnSync(process.execPath, ['scripts/linear-cli.mjs', 'apply', planPath, '--dry-run', '--not-confirmed'], {
     cwd: process.cwd(),
     encoding: 'utf8',
-    env: { ...process.env, LINEAR_WRITE_MODE: 'dry-run' }
+    env: { ...process.env, LINEAR_WRITE_BACKEND: 'mcp', LINEAR_WRITE_MODE: 'dry-run' }
   });
   assert.equal(mcpResult.status, 0, mcpResult.stderr || mcpResult.stdout);
   const mcpOutput = JSON.parse(mcpResult.stdout);
@@ -124,7 +124,7 @@ if (process.env.LINEAR_API_KEY) {
   const smoke = spawnSync(process.execPath, ['scripts/linear-cli.mjs', 'smoke'], {
     cwd: process.cwd(),
     encoding: 'utf8',
-    env: process.env
+    env: { ...process.env, LINEAR_WRITE_BACKEND: 'mcp' }
   });
   assert.equal(smoke.status, 0, smoke.stderr || smoke.stdout);
   const smokePayload = JSON.parse(smoke.stdout);

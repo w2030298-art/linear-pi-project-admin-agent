@@ -1,15 +1,10 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { compileOperations } from './linear-apply/normalize.mjs';
 
 const longDescription = 'Project description length guard. '.repeat(12);
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'linear-project-fields-'));
-const planPath = path.join(tempDir, 'write-plan.json');
 
-fs.writeFileSync(planPath, JSON.stringify({
+const plan = {
   dryRun: true,
   operations: [
     {
@@ -31,32 +26,31 @@ fs.writeFileSync(planPath, JSON.stringify({
       }
     }
   ]
-}, null, 2));
+};
 
-const result = spawnSync(process.execPath, ['scripts/linear-cli.mjs', 'apply', planPath, '--dry-run'], {
-  cwd: process.cwd(),
-  env: {
-    ...process.env,
-    LINEAR_API_KEY: process.env.LINEAR_API_KEY || 'test-key',
-    LINEAR_WRITE_MODE: 'dry-run'
+const operations = await compileOperations({ client: { async rawRequest() { return { data: {} }; } } }, plan, {
+  workspaceManifestInfo: {
+    manifest: {
+      teams: [],
+      labels: [],
+      workflowStates: [],
+      projectMilestones: [],
+      projectStatuses: [],
+      completeness: { complete: true, truncated: false },
+      truncated: false
+    },
+    manifestPath: null
   },
-  encoding: 'utf8'
+  exactIssueLookup: async () => null
 });
 
-assert.equal(result.status, 0, result.stderr || result.stdout);
-const output = JSON.parse(result.stdout);
-assert.equal(output.ok, true);
-assert.equal(output.dryRun, true);
-assert.equal(output.confirmationChannel.channel, 'unavailable');
-assert.equal(output.confirmationChannel.label, 'interactive confirmation unavailable; real write not applied');
-
-const createOp = output.operations.find(op => op.key === 'project-create');
+const createOp = operations.find(op => op.key === 'project-create');
 assert.ok(createOp);
 assert.ok(Array.from(createOp.input.description).length <= 255);
 assert.equal(createOp.input.content, longDescription);
 assert.equal(createOp.fieldTransforms[0].action, 'downgrade_to_content');
 
-const updateOp = output.operations.find(op => op.key === 'project-update');
+const updateOp = operations.find(op => op.key === 'project-update');
 assert.ok(updateOp);
 assert.ok(Array.from(updateOp.input.description).length <= 255);
 assert.match(updateOp.input.content, /Existing project content\./);

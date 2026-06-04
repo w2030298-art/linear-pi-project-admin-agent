@@ -6,7 +6,7 @@
   "description": "A Pi Agent project scaffold for a Linear-native project administrator with GitHub, local repo/docs, and web evidence sources.",
   "scripts": {
     "validate": "node scripts/validate-layout.mjs",
-    "test": "npm run test:config-security && npm run typecheck && npm run test:webhook-signature && npm run test:webhook-prompt-injection && npm run test:unsupported-fields",
+    "test": "npm run test:config-security && npm run typecheck && npm run test:webhook-signature && npm run test:webhook-prompt-injection && npm run test:unsupported-fields && npm run test:write-plan-final-validation",
     "fact:local": "node scripts/local-evidence.mjs --root .",
     "fact:repo": "node scripts/github-evidence.mjs snapshot",
     "fact:web": "node scripts/web-search.mjs",
@@ -40,6 +40,7 @@
     "test:unsupported-fields": "tsx scripts/test-write-plan-unsupported-fields.ts",
     "test:linear-apply-mode": "node scripts/test-linear-apply-mode.mjs",
     "test:linear-apply-reliability": "tsx scripts/test-linear-apply-reliability.ts",
+    "test:write-plan-final-validation": "tsx scripts/test-write-plan-final-validation.ts",
     "test:linear-cli-apply-architecture": "node scripts/test-linear-cli-apply-architecture.mjs",
     "test:linear-manifest-freeze": "tsx scripts/test-linear-manifest-freeze.ts",
     "test:linear-snapshot": "node scripts/test-linear-snapshot.mjs",

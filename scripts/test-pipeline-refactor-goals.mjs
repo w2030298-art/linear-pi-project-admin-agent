@@ -21,6 +21,11 @@ const piSettings = JSON.parse(read('.pi/settings.json'));
 assert.equal(piSettings.enableSkillCommands, false, 'Pi slash commands should be exposed from .pi/prompts only');
 assert.deepEqual(piSettings.prompts, ['prompts']);
 assert.deepEqual(piSettings.skills, ['../.agents/skills']);
+assert.equal(
+  piSettings.extensions.includes('extensions/linear-plan-reviewer.ts'),
+  false,
+  'Pi runtime should not expose the legacy standalone quality review tool'
+);
 
 const promptSkillMap = {
   'create-project.md': { skill: 'create-linear-project', mode: 'Create Project Mode' },

@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 const requiredModules = [
   'scripts/linear-apply/schema.mjs',
   'scripts/linear-apply/normalize.mjs',
+  'scripts/linear-apply/final-validation.mjs',
   'scripts/linear-apply/mcp-adapter.mjs',
   'scripts/linear-apply/readback-diff.mjs',
   'scripts/linear-apply/audit.mjs',
@@ -33,6 +34,7 @@ assert.doesNotMatch(cli, /async function mutate/);
 assert.doesNotMatch(cli, /async function readback/);
 assert.doesNotMatch(cli, /function appendAudit/);
 assert.match(cli, /from '\.\/linear-apply\/command\.mjs'/);
+assert.match(cli, /validate-write-plan/);
 
 const tsconfig = JSON.parse(fs.readFileSync('tsconfig.test.json', 'utf8'));
 assert.ok(tsconfig.include.includes('.pi/extensions/**/*.ts'));

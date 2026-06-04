@@ -74,14 +74,14 @@ npm test
 - 检查 writePlan 是否包含 idempotencyKey。
 - 调用 `linear_apply_write_plan` 时确认 `confirmedByUser=true`，`confirmationText` 记录本次最终 approve。
 
-## Linear Dry-Run / Apply Protocol
+## Linear Final Validation / Apply Protocol
 
-- `linear_apply_write_plan` with `dryRun=true` is allowed without user approval and only compiles the plan.
-- Dry-run writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan, persists the exact workspace manifest snapshot beside the plan, and does **not** recompute any plan hash.
-- Real apply recomputes the current workspace manifest and resolver outputs before mutation. If `manifestHash` or the resolution snapshot differs from the approved dry-run, apply is blocked and audit records `linear_apply_manifest_validation` with `resolutionDiff`.
+- `linear_validate_write_plan` is allowed without user approval and never mutates Linear.
+- Final validation runs deterministic write-plan review, compiles MCP arguments, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan, persists the exact workspace manifest snapshot beside the plan, and does **not** recompute any plan hash.
+- Real apply reuses the frozen final-validation manifest snapshot when present instead of running a second live manifest validation pass. Legacy dry-run plans without `finalValidation` still use the old live manifest drift check.
 - Workspace manifest reads must use cursor pagination and record `completeness` / `truncated`; incomplete manifests are not valid for real apply.
 - Real writes still require `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and `confirmedByUser=true`.
-- In interactive Pi runs, `linear_apply_write_plan` uses `ctx.ui.confirm()` exactly once as the final approve/cancel channel before real Linear writes.
+- In interactive Pi runs, `pi_ask_user(flow=plan_confirmation)` is the single final approve/cancel channel before real Linear writes.
 - If `ctx.hasUI` is false, real writes are blocked with `interactive confirmation unavailable; real write not applied` unless the user explicitly allows current-conversation text fallback and the call passes `allowConversationFallback=true`.
 
 ## Project Freeze / Unfreeze Templates
@@ -97,18 +97,18 @@ npm test
 
 Single planning confirmation flow:
 
-1. Automatically run `linear_plan_quality_review` and `linear_apply_write_plan(dryRun=true)` after generating a write plan. Dry-run is not user confirmation.
+1. Automatically run `linear_validate_write_plan` once after generating a write plan. Final validation is not user confirmation.
 2. Show one planning UI: `pi_ask_user(flow=plan_confirmation)` with structured Chinese sections and `Yes` / `No` / `调整意见` for the exact `writePlanPath`, `idempotencyKey`, and operation summaries.
-3. On `Yes`, immediately call `linear_apply_write_plan(dryRun=false, ...)` with the returned approval artifact (`writePlanPath`, `idempotencyKey`, `confirmationId`, `confirmationText`). On `No`, stop without mutation. On `调整意见`, rewrite the plan, rerun review/dry-run, and ask again. Apply does not pop a second UI; post-mutation integrity is checked via readback diff in audit output.
+3. On `Yes`, immediately call `linear_apply_write_plan(dryRun=false, ...)` with the returned approval artifact (`writePlanPath`, `idempotencyKey`, `confirmationId`, `confirmationText`). On `No`, stop without mutation. On adjustment, rewrite the plan, rerun final validation, and ask again. Apply does not pop a second UI; post-mutation integrity is checked via readback diff in audit output.
 4. `linear-write-guard` only blocks real apply when the artifact is missing, expired, reused, or mismatched.
 
-- Dry-run output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. If it says `channel=unavailable` but `piAskUserWriteConfirmationAvailable=true`, continue by calling `pi_ask_user(flow=plan_confirmation)`; the dry-run has not proven artifact persistence yet.
+- Final validation output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. If it says `piAskUserPlanConfirmationAvailable=true`, continue by calling `pi_ask_user(flow=plan_confirmation)`.
 - Approval output includes `artifactStorage` and `artifactBinding`. Pass the returned `confirmationId`, `confirmationText`, `writePlanPath`, and `idempotencyKey` back to real apply unchanged.
 - If `pi_ask_user plan_confirmation` returns `interactive_confirmation_unavailable`, `cancelled`, or `revision_requested`, real apply stays blocked unless the user explicitly allows conversation fallback.
 - Approval artifacts are persisted outside the repo by default at `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, or can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH`. This makes the artifact visible across Pi tool calls, extension reloads, and runtime/source checkout path differences.
-- Each artifact is bound to `writePlanPath`, `idempotencyKey`, `confirmationId`, exact `confirmationText`, and `approvalKind`. Real apply consumes it once, then validates manifest/resolution drift and surfaces planned-vs-actual readback diff in audit; reused, expired, mismatched, missing, or unreadable artifacts are blocked with a diagnostic error that names the reason, store path when relevant, and next step.
+- Each artifact is bound to `writePlanPath`, `idempotencyKey`, `confirmationId`, exact `confirmationText`, and `approvalKind`. Real apply consumes it once, then uses the frozen final-validation snapshot and surfaces planned-vs-actual readback diff in audit; reused, expired, mismatched, missing, or unreadable artifacts are blocked with a diagnostic error that names the reason, store path when relevant, and next step.
 - Do not downgrade an available `pi_ask_user` approval to `conversation_fallback`. Use fallback only when UI approval is unavailable or cancelled, the user explicitly allows fallback, and the apply call records `confirmationChannel=conversation_fallback`, `allowConversationFallback=true`, and the explicit approval text. Fallback audit text must be one clean record; do not paste a previous formatted fallback record back into `confirmationText`.
-- Run `npm run test:plan-confirmation-ui` and `npm run test:linear-manifest-freeze` after changing this flow.
+- Run `npm run test:plan-confirmation-ui`, `npm run test:write-plan-final-validation`, and `npm run test:linear-manifest-freeze` after changing this flow.
 
 ## Low-Risk Linear Write Wrapper
 
@@ -117,7 +117,7 @@ Use `linear_prepare_low_risk_write` or `node scripts/write-plan-builder.mjs --in
 - `project_update`: one `projectUpdate.create` for an already identified Project.
 - `issue_create`: one `issue.create` under an already identified Project and verified existing Project Milestone.
 
-The wrapper only generates a standard write plan, idempotency key, dry-run summary, and ordered next tool calls. It never performs Linear mutations and it never bypasses `confirmed-only`. After `write_plan_ready`, run the returned steps in order: `linear_plan_quality_review`, `linear_apply_write_plan(dryRun=true)`, `pi_ask_user(flow=plan_confirmation)`, then `linear_apply_write_plan(dryRun=false)` with the approval artifact.
+1. Automatically run `linear_validate_write_plan` once after generating a write plan. Final validation is not user confirmation.
 
 Fallback to full Fact Pack / full planning when any of these are missing or out of scope:
 
