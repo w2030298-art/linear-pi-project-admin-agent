@@ -39,7 +39,7 @@ assert.equal(orchestration.planning.dialogue.requireFactAnchoring, true);
 assert.equal(orchestration.planning.dialogue.outputFormat, 'two_section');
 assert.equal(orchestration.planning.dialogue.prohibitOptionSelectionBeforeSteps3And4, true);
 assert.equal(orchestration.planning.dialogue.requireFactAssumptionConsistencyInConvergedPlan, true);
-assert.equal(orchestration.planning.dialogue.promptInputBinding, 'use_user_message_when_placeholder_unreplaced');
+assert.equal(orchestration.planning.dialogue.promptInputBinding, 'pi_slash_arguments_via_ARGUMENTS');
 
 const prompts = [
   '.pi/prompts/create-project.md',
@@ -55,12 +55,14 @@ for (const rel of prompts) {
   assert.doesNotMatch(text, /^目标：.*可写入 Linear/m, `${rel} should not open with writable-plan-only goal`);
   assert.match(text, /协作对话|四格|锚定事实|收敛|Fact Pack|两段式/s, `${rel} should reference dialogue-first planning`);
   assert.match(text, /输入绑定/, `${rel} should document prompt input binding`);
+  assert.match(text, /\$ARGUMENTS/, `${rel} should use Pi-supported slash arguments`);
+  assert.doesNotMatch(text, /\{\{input\}\}/, `${rel} should not use unsupported template placeholders`);
 }
 
 assert.match(read('.pi/prompts/create-project.md'), /五步协作循环/);
-assert.match(read('.pi/prompts/create-project.md'), /不得要求用户「填入占位符」/);
+assert.match(read('.pi/prompts/create-project.md'), /\$ARGUMENTS/);
 assert.match(read('.pi/prompts/create-project.md'), /禁止在方案对比后直接进入/);
-assert.match(read('.pi/prompts/extend-project.md'), /五步协作对话/);
+assert.match(read('.pi/prompts/extend-project.md'), /五步协作对话|五步协作/);
 assert.match(read('.pi/prompts/fact-pack.md'), /锚定事实/);
 
 console.log('test-planning-dialogue-wen313: all assertions passed');

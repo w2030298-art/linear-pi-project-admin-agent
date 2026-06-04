@@ -39,8 +39,8 @@ flowchart LR
 SYSTEM.md                         # Pi system override
 .pi/settings.json                 # Pi 项目级加载配置
 .pi/extensions/                   # Pi 专用 tools / guard / fact sources
-.pi/prompts/                      # slash prompt templates
-.agents/skills/                   # 原始 + 新增 skills
+.pi/prompts/                      # 唯一可见 slash 命令入口；只做路由和输入绑定
+.agents/skills/                   # 行为协议来源；不直接暴露为 Pi slash 命令
 config/                           # manifest / policies / repo map / MCP config
 services/linear-bridge/           # Linear webhook → Pi queue/runner
 scripts/                          # evidence collection / validation / smoke tests
@@ -75,6 +75,7 @@ npm run bridge:dev
 ## 重要限制
 
 - `config/write-policy.yaml`（v2 solo）已将企业级 L0–L5 写入层级收缩为 solo 单人流程：一次 `pi_ask_user(flow=plan_confirmation)` → Linear MCP 写入 → readback diff → audit；L4/L5 删除/归档/密钥字段仍默认 deny。真实写入还须同时满足 `LINEAR_WRITE_MODE=confirmed-only`、`ALLOW_LINEAR_WRITES=true`、write plan `dryRun=false`、`confirmedByUser=true` 和 CLI `--confirmed`。
+- Pi 中的 slash 命令只保留 `.pi/prompts/` 这一套可见接口；`.agents/skills/` 仍加载为行为协议来源，但 `enableSkillCommands=false`，避免 prompt 与 skill 同名命令重复。
 - v0.1 范围以 `docs/SCOPE_FREEZE.md` 为准：只覆盖本地安装、事实层、Pi 交互、Webhook Bridge、Project Plan reviewer、写入治理和运维文档。
 - GitHub MCP 的配置文件已提供；Pi 是否能直接作为 MCP host 取决于你的 Pi/MCP 插件安装情况。本项目同时提供 GitHub REST fallback。
 - Web search 需要 `TAVILY_API_KEY` 或 `BRAVE_SEARCH_API_KEY`。

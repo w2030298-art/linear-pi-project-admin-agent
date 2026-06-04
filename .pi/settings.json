@@ -15,7 +15,7 @@
     "extensions/runtime-master-reload.ts",
     "extensions/observability.ts"
   ],
-  "enableSkillCommands": true,
+  "enableSkillCommands": false,
   "compaction": {
     "enabled": true,
     "reserveTokens": 24576,
