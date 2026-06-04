@@ -53,6 +53,7 @@
     "test:plan-confirmation-ui": "tsx scripts/test-plan-confirmation-ui.ts",
     "test:readback-diff": "node scripts/test-readback-diff.mjs",
     "test:m6-decisions-wen312": "node scripts/test-m6-decisions-wen312.mjs",
+    "test:write-policy-wen316": "node scripts/test-write-policy-wen316.mjs",
     "test:planning-dialogue-wen313": "node scripts/test-planning-dialogue-wen313.mjs",
     "test:concurrency-stores": "tsx scripts/test-concurrency-stores.ts",
     "test:pipeline-refactor-goals": "tsx scripts/test-pipeline-refactor-goals.mjs"

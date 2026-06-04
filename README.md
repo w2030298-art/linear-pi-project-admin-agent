@@ -29,7 +29,7 @@ flowchart LR
 - **Fact Pack**：所有复杂项目规划前先建立事实包；上下文只加载摘要，原始证据落盘。
 - **Plan Reviewer**：对项目计划做确定性质量检查。
 - **Workspace Sync**：同步 Linear labels、members、workflow states、teams。
-- **Write Guard**：Linear 写入默认 dry-run，确认后执行。
+- **Write Guard**：Linear 写入默认 dry-run；`config/write-policy.yaml` v2 solo 模式下，mutation 经一次 `plan_confirmation` 后执行，并强制 readback diff 与 audit（L4/L5 仍硬 deny）。
 - **Linear-native 唤醒**：通过 Linear webhook、Agent Session、`Agent:*` labels 触发。
 
 ## 目录结构
@@ -73,7 +73,7 @@ npm run bridge:dev
 
 ## 重要限制
 
-- `scripts/linear-cli.mjs apply` 已实现真实写入，但默认仍是 dry-run。真实写入必须同时满足 `LINEAR_WRITE_MODE=confirmed-only`、`ALLOW_LINEAR_WRITES=true`、write plan `dryRun=false`、`confirmedByUser=true` 和 CLI `--confirmed`。在 Pi 交互模式中，`pi_ask_user(flow=plan_confirmation)` 的 `Yes` approval artifact 是最终用户确认来源，不再要求用户手动输入固定确认句或二次确认。
+- `config/write-policy.yaml`（v2 solo）已将企业级 L0–L5 五道闸收缩为 solo 单人流程：一次 `pi_ask_user(flow=plan_confirmation)` → MCP 写入 → readback diff → audit；L4/L5 删除/归档/密钥字段仍默认 deny。真实写入还须同时满足 `LINEAR_WRITE_MODE=confirmed-only`、`ALLOW_LINEAR_WRITES=true`、write plan `dryRun=false`、`confirmedByUser=true` 和 CLI `--confirmed`。
 - v0.1 范围以 `docs/SCOPE_FREEZE.md` 为准：只覆盖本地安装、事实层、Pi 交互、Webhook Bridge、Project Plan reviewer、写入治理和运维文档。
 - GitHub MCP 的配置文件已提供；Pi 是否能直接作为 MCP host 取决于你的 Pi/MCP 插件安装情况。本项目同时提供 GitHub REST fallback。
 - Web search 需要 `TAVILY_API_KEY` 或 `BRAVE_SEARCH_API_KEY`。
