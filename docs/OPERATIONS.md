@@ -158,7 +158,8 @@ Run `npm run test:write-plan-builder` after changing this wrapper.
 ## WezTerm Pi Launch
 
 - The shortcut target should call the installed launcher under `%LOCALAPPDATA%\LinearProjectAdminPi`.
-- The launcher starts WezTerm with `--cwd "C:\Users\22003\linear-pi-project-admin-agent-runtime"`.
+- On this machine, the active taskbar shortcut is `Linear Project Admin Pi (WezTerm) (2).lnk`; see `docs/LOCAL_RUNTIME_LAUNCH.md` for its exact target, arguments, working directory, and launch-log evidence.
+- The launcher starts WezTerm with `--cwd "%USERPROFILE%\linear-pi-project-admin-agent-runtime"`.
 - The launcher exports `REPO_MAP_LOCAL_PATH=%LOCALAPPDATA%\LinearProjectAdminPi\repo-map.local.yaml` before starting Pi.
 - Keep tokens and credential values out of shortcut targets, WezTerm config, and docs.
 - Runtime-local state changes must not make the launcher exit before WezTerm opens.

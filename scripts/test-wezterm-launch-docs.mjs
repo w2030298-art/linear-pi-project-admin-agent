@@ -4,39 +4,40 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 
 const guidePath = 'docs/WEZTERM_PI_LAUNCH.md';
+const localLaunchPath = 'docs/LOCAL_RUNTIME_LAUNCH.md';
 const reportPath = 'docs/reports/wezterm-pi-smoke-2026-05-29.md';
 const configPath = 'config/wezterm-linear-pi.lua';
 const installerPath = 'scripts/install-wezterm-linear-pi-shortcut.ps1';
 const launchScript = 'launch-linear-pi-runtime.ps1';
-const runtimeRoot = 'C:\\Users\\22003\\linear-pi-project-admin-agent-runtime';
 
 assert.equal(fs.existsSync(guidePath), true, `${guidePath} should exist`);
+assert.equal(fs.existsSync(localLaunchPath), true, `${localLaunchPath} should exist`);
 assert.equal(fs.existsSync(reportPath), true, `${reportPath} should exist`);
 assert.equal(fs.existsSync(configPath), true, `${configPath} should exist`);
 assert.equal(fs.existsSync(installerPath), true, `${installerPath} should exist`);
 
 const guide = fs.readFileSync(guidePath, 'utf8');
+const localLaunch = fs.readFileSync(localLaunchPath, 'utf8');
 const report = fs.readFileSync(reportPath, 'utf8');
 const config = fs.readFileSync(configPath, 'utf8');
 const installer = fs.readFileSync(installerPath, 'utf8');
 const launchScriptPattern = new RegExp(launchScript.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-const runtimeRootPattern = new RegExp(runtimeRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
-for (const text of [guide, report]) {
+for (const text of [guide, localLaunch, report]) {
   assert.match(text, /wezterm-gui\.exe/i);
   assert.match(text, launchScriptPattern);
   assert.match(text, /powershell\.exe/i);
   assert.match(text, /runtime checkout|runtime clone|runtime root/i);
   assert.match(text, /master/i);
   assert.match(text, /ff-only/i);
-  assert.match(text, runtimeRootPattern);
+  assert.match(text, /%USERPROFILE%\\linear-pi-project-admin-agent-runtime|C:\\Users\\admin\\linear-pi-project-admin-agent-runtime/);
   assert.match(text, /--config-file/i);
   assert.match(text, /wezterm-linear-pi\.lua/i);
   assert.match(text, /\/reload-master/i);
-  assert.match(text, /C:\\Users\\22003\\linear-pi-project-admin-agent/);
   assert.match(text, /\bpi\b/);
   assert.doesNotMatch(text, /(LINEAR_API_KEY|LINEAR_API_TOKEN|GITHUB_TOKEN|OPENAI_API_KEY)\s*=/i);
   assert.doesNotMatch(text, /sk-[A-Za-z0-9_-]{20,}/);
+  assert.doesNotMatch(text, /C:\\Users\\22003/);
 }
 
 assert.match(guide, /winget install wez\.wezterm/i);
@@ -55,6 +56,14 @@ assert.match(report, /Shortcut/i);
 assert.match(report, /Manual verification/i);
 assert.match(report, /rollback/i);
 
+assert.match(localLaunch, /Linear Project Admin Pi \(WezTerm\) \(2\)\.lnk/);
+assert.match(localLaunch, /TargetPath:/);
+assert.match(localLaunch, /WorkingDirectory:/);
+assert.match(localLaunch, /IconLocation:/);
+assert.match(localLaunch, /launch\.log/);
+assert.match(localLaunch, /Current Startup Blocker Seen Locally/);
+assert.match(localLaunch, /M scripts\/linear-apply\/normalize\.mjs/);
+
 assert.match(config, /require\(["']wezterm["']\)/);
 assert.match(config, /CopyTo\(["']Clipboard["']\)/);
 assert.match(config, /PasteFrom\(["']Clipboard["']\)/);
@@ -65,6 +74,7 @@ assert.match(config, /SendKey/);
 assert.match(config, /ActivateCommandPalette/);
 assert.match(config, /SpawnTab/);
 assert.match(config, /LINEAR_PI_RUNTIME_ROOT/);
+assert.match(config, /USERPROFILE/);
 assert.match(config, /key\s*=\s*["']c["']/);
 assert.match(config, /key\s*=\s*["']C["']/);
 

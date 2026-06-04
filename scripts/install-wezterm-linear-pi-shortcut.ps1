@@ -1,7 +1,7 @@
 param(
   [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
   [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'LinearProjectAdminPi'),
-  [string]$RuntimeRoot = 'C:\Users\22003\linear-pi-project-admin-agent-runtime',
+  [string]$RuntimeRoot = (Join-Path $env:USERPROFILE 'linear-pi-project-admin-agent-runtime'),
   [string]$StableBranch = 'master',
   [string]$WezTermGui = 'C:\Program Files\WezTerm\wezterm-gui.exe',
   [switch]$SkipRuntimeInit,

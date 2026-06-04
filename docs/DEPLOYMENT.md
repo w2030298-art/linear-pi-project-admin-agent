@@ -164,9 +164,13 @@ node scripts/web-search.mjs --query "Linear GraphQL API official docs" --officia
 
 ## 7. 启动 Pi 交互模式
 
-```bash
-pi
+Windows runtime normal startup uses the installed WezTerm shortcut, not direct `pi` from the development checkout:
+
+```text
+Linear Project Admin Pi (WezTerm) (2)
 ```
+
+It runs `%LOCALAPPDATA%\LinearProjectAdminPi\launch-linear-pi-runtime.ps1` and starts Pi from `%USERPROFILE%\linear-pi-project-admin-agent-runtime`. See `docs/LOCAL_RUNTIME_LAUNCH.md` for the exact local shortcut and launcher facts.
 
 项目级 `.pi/settings.json` 会加载：
 

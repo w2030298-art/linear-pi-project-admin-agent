@@ -2,7 +2,7 @@
 
 ## Scope
 
-The `Linear Project Admin Pi (WezTerm)` shortcut now starts an external runtime launcher instead of running Pi directly in the development repo `C:\Users\22003\linear-pi-project-admin-agent`.
+The `Linear Project Admin Pi (WezTerm)` shortcut now starts an external runtime launcher instead of running Pi directly in the development repo. Current machine-specific launch facts are maintained in `docs/LOCAL_RUNTIME_LAUNCH.md`.
 
 ## Environment
 
@@ -10,8 +10,8 @@ The `Linear Project Admin Pi (WezTerm)` shortcut now starts an external runtime 
 OS: Microsoft Windows
 WezTerm version: 20240203-110809-5046fc22
 WezTerm GUI: C:\Program Files\WezTerm\wezterm-gui.exe
-Development repo: C:\Users\22003\linear-pi-project-admin-agent
-Runtime root: C:\Users\22003\linear-pi-project-admin-agent-runtime
+Development repo: <your development checkout>
+Runtime root: %USERPROFILE%\linear-pi-project-admin-agent-runtime
 Stable branch: master
 ```
 
@@ -20,13 +20,14 @@ Stable branch: master
 Start Menu shortcut:
 
 ```text
-C:\Users\22003\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Linear Project Admin Pi (WezTerm).lnk
+%APPDATA%\Microsoft\Windows\Start Menu\Programs\Linear Project Admin Pi (WezTerm).lnk
 ```
 
 Taskbar pinned shortcut file:
 
 ```text
-C:\Users\22003\AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Linear Project Admin Pi (WezTerm).lnk
+%APPDATA%\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Linear Project Admin Pi (WezTerm).lnk
+%APPDATA%\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Linear Project Admin Pi (WezTerm) (2).lnk
 ```
 
 Shortcut target:
@@ -44,7 +45,7 @@ Shortcut arguments:
 The launcher invokes:
 
 ```powershell
-& "C:\Program Files\WezTerm\wezterm-gui.exe" --config-file "%LOCALAPPDATA%\LinearProjectAdminPi\wezterm-linear-pi.lua" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent-runtime" powershell.exe -NoLogo -NoExit -Command "pi"
+& "C:\Program Files\WezTerm\wezterm-gui.exe" --config-file "%LOCALAPPDATA%\LinearProjectAdminPi\wezterm-linear-pi.lua" start --always-new-process --cwd "%USERPROFILE%\linear-pi-project-admin-agent-runtime" powershell.exe -NoLogo -NoExit -Command "pi"
 ```
 
 Security check: shortcut target and arguments contain no token, secret, API key, or credential value.
@@ -81,7 +82,7 @@ Machine-local runtime files such as `.env`, `.env.*`, `.pi/sessions/`, state log
 ## Manual Verification
 
 - [ ] Launch `Linear Project Admin Pi (WezTerm)` from Start Menu or taskbar.
-- [ ] Confirm the visible Pi session opens in `C:\Users\22003\linear-pi-project-admin-agent-runtime`.
+- [ ] Confirm the visible Pi session opens in `%USERPROFILE%\linear-pi-project-admin-agent-runtime`.
 - [ ] Confirm runtime branch is `master`.
 - [ ] Confirm interactive `pi` starts and project `.pi/settings.json`, skills, and extensions are loaded.
 - [ ] Confirm copy and paste work.
@@ -94,12 +95,12 @@ Manual verification should be repeated after installing the new shortcut wrapper
 Manual fallback:
 
 ```powershell
-cd C:\Users\22003\linear-pi-project-admin-agent
+cd <your development checkout>
 pi
 ```
 
 Windows Terminal fallback:
 
 ```powershell
-wt -d C:\Users\22003\linear-pi-project-admin-agent powershell.exe -NoLogo -NoExit -Command "pi"
+wt -d <your development checkout> powershell.exe -NoLogo -NoExit -Command "pi"
 ```

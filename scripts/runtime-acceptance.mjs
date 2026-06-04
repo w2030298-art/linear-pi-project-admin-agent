@@ -43,9 +43,6 @@ function parseArgs(argv) {
 }
 
 function defaultRuntimeRoot() {
-  if (process.platform === 'win32') {
-    return 'C:\\Users\\22003\\linear-pi-project-admin-agent-runtime';
-  }
   return path.join(os.homedir(), 'linear-pi-project-admin-agent-runtime');
 }
 

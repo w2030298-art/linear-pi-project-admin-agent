@@ -58,11 +58,19 @@ npm run linear:smoke
 npm run fact:pack -- --task "审查当前项目规划"
 ```
 
-然后在该目录运行 Pi：
+Windows runtime 启动请使用任务栏固定的快捷方式，而不是在开发仓库里直接运行 `pi`：
 
-```bash
-pi
+```text
+Linear Project Admin Pi (WezTerm) (2)
 ```
+
+该快捷方式实际执行：
+
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%LOCALAPPDATA%\LinearProjectAdminPi\launch-linear-pi-runtime.ps1"
+```
+
+工作目录是 `%LOCALAPPDATA%\LinearProjectAdminPi`，真正运行 Pi 的 runtime checkout 是 `%USERPROFILE%\linear-pi-project-admin-agent-runtime`。在本仓库直接运行 `pi` 仅用于开发调试。完整本机启动事实记录见 `docs/LOCAL_RUNTIME_LAUNCH.md`。
 
 或者启动 Linear bridge：
 

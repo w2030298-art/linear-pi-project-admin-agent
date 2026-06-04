@@ -2,7 +2,7 @@
 
 ## Goal
 
-`Linear Project Admin Pi (WezTerm)` must not start directly inside the development repo `C:\Users\22003\linear-pi-project-admin-agent`. That repo is allowed to sit on feature branches while work is in progress.
+`Linear Project Admin Pi (WezTerm)` must not start directly inside the development repo. That repo is allowed to sit on feature branches while work is in progress.
 
 The shortcut starts an external launcher instead:
 
@@ -13,7 +13,7 @@ The shortcut starts an external launcher instead:
 The launcher maintains a separate runtime checkout:
 
 ```text
-C:\Users\22003\linear-pi-project-admin-agent-runtime
+%USERPROFILE%\linear-pi-project-admin-agent-runtime
 ```
 
 The runtime checkout tracks the stable branch `master`. On each launch it runs a fast-forward-only sync (`git pull --ff-only origin master`). Feature branch changes do not automatically sync to `master`; they only reach runtime after a PR/merge updates `master`.
@@ -23,8 +23,10 @@ The runtime checkout tracks the stable branch `master`. On each launch it runs a
 Run from a checked-out source repo:
 
 ```powershell
-& "C:\Users\22003\linear-pi-project-admin-agent\scripts\install-wezterm-linear-pi-shortcut.ps1"
+& ".\scripts\install-wezterm-linear-pi-shortcut.ps1"
 ```
+
+For this Windows machine's observed shortcut target, arguments, working directory, installed launcher files, and latest launch-log diagnosis, see `docs/LOCAL_RUNTIME_LAUNCH.md`.
 
 The installer writes these user-level runtime files:
 
@@ -35,12 +37,14 @@ The installer writes these user-level runtime files:
 %LOCALAPPDATA%\LinearProjectAdminPi\launch.log
 ```
 
-The installer creates or repairs both shortcuts:
+The installer creates or repairs the standard shortcuts:
 
 ```text
 %APPDATA%\Microsoft\Windows\Start Menu\Programs\Linear Project Admin Pi (WezTerm).lnk
 %APPDATA%\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Linear Project Admin Pi (WezTerm).lnk
 ```
+
+On this machine, Windows also has a duplicate pinned shortcut named `Linear Project Admin Pi (WezTerm) (2).lnk`; it points at the same installed launcher. See `docs/LOCAL_RUNTIME_LAUNCH.md`.
 
 Shortcut target:
 
@@ -58,7 +62,7 @@ Shortcut arguments:
 
 The shortcut runs the external launcher. The launcher:
 
-1. Ensures `C:\Users\22003\linear-pi-project-admin-agent-runtime` exists as a clone of the GitHub repo.
+1. Ensures `%USERPROFILE%\linear-pi-project-admin-agent-runtime` exists as a clone of the GitHub repo.
 2. Stashes allowed generated runtime state if present, while still blocking code/config dirty changes.
 3. Checks out `master`.
 4. Runs `git pull --ff-only origin master`.
@@ -66,7 +70,7 @@ The shortcut runs the external launcher. The launcher:
 6. Starts WezTerm:
 
 ```powershell
-& "C:\Program Files\WezTerm\wezterm-gui.exe" --config-file "%LOCALAPPDATA%\LinearProjectAdminPi\wezterm-linear-pi.lua" start --always-new-process --cwd "C:\Users\22003\linear-pi-project-admin-agent-runtime" powershell.exe -NoLogo -NoExit -Command "pi"
+& "C:\Program Files\WezTerm\wezterm-gui.exe" --config-file "%LOCALAPPDATA%\LinearProjectAdminPi\wezterm-linear-pi.lua" start --always-new-process --cwd "%USERPROFILE%\linear-pi-project-admin-agent-runtime" powershell.exe -NoLogo -NoExit -Command "pi"
 ```
 
 ## WezTerm Config
@@ -88,7 +92,7 @@ Managed shortcut behavior:
 It reads `LINEAR_PI_RUNTIME_ROOT` and uses it as `default_cwd`; if the variable is missing, it falls back to:
 
 ```text
-C:\Users\22003\linear-pi-project-admin-agent-runtime
+%USERPROFILE%\linear-pi-project-admin-agent-runtime
 ```
 
 This keeps WezTerm shortcut behavior deterministic without changing the global `%USERPROFILE%\.wezterm.lua`.
@@ -114,7 +118,7 @@ WezTerm supports `default_cwd`, but this launcher passes the runtime root with `
 The development repo can stay on any feature branch:
 
 ```text
-C:\Users\22003\linear-pi-project-admin-agent
+<your development checkout>
 ```
 
 The runtime launcher does not run Pi in that development repo. It does not merge feature branches. It does not automatically sync feature branch changes into `master`.
@@ -137,7 +141,7 @@ Runtime updates should be accepted before they reach the stable launcher path:
 npm run runtime:acceptance -- --sync
 ```
 
-The local acceptance command verifies that `C:\Users\22003\linear-pi-project-admin-agent-runtime` is a clean `master` checkout with the same `origin` remote as the source repo, fast-forwards it with `git pull --ff-only origin master`, refreshes dependencies, and runs the runtime reload, local protection, instruction boundary, and WezTerm launch tests inside the runtime checkout.
+The local acceptance command verifies that `%USERPROFILE%\linear-pi-project-admin-agent-runtime` is a clean `master` checkout with the same `origin` remote as the source repo, fast-forwards it with `git pull --ff-only origin master`, refreshes dependencies, and runs the runtime reload, local protection, instruction boundary, and WezTerm launch tests inside the runtime checkout.
 
 ## Refresh While Running
 
@@ -204,7 +208,7 @@ Automated checks cover:
 Manual checks:
 
 - Launch from Start Menu or taskbar.
-- Confirm Pi opens in `C:\Users\22003\linear-pi-project-admin-agent-runtime`.
+- Confirm Pi opens in `%USERPROFILE%\linear-pi-project-admin-agent-runtime`.
 - Confirm `git branch --show-current` in the runtime checkout reports `master`.
 - Confirm copy, paste, scrollback, and common shortcut keys work.
 
@@ -213,14 +217,14 @@ Manual checks:
 Manual fallback:
 
 ```powershell
-cd C:\Users\22003\linear-pi-project-admin-agent
+cd <your development checkout>
 pi
 ```
 
 Windows Terminal fallback:
 
 ```powershell
-wt -d C:\Users\22003\linear-pi-project-admin-agent powershell.exe -NoLogo -NoExit -Command "pi"
+wt -d <your development checkout> powershell.exe -NoLogo -NoExit -Command "pi"
 ```
 
 Remove shortcut files:

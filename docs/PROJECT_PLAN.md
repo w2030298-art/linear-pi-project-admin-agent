@@ -16,7 +16,7 @@
 
 ## Phase 2：Pi 交互模式
 
-- 启动 `pi`。
+- Windows runtime 启动 `Linear Project Admin Pi (WezTerm) (2)`；直接 `pi` 仅用于开发调试。
 - 测试 `/fact-pack`、`/create-project`、`/portfolio-review`。
 - 确认 skills 和 extensions 加载。
 - 对 Project Plan / Write Plan 执行确定性 reviewer：
