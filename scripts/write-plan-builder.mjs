@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { arg, ensureDir, json, now, readJson, writeJson } from './utils.mjs';
+import { arg, asArray, clean, ensureDir, hash, json, now, readJson, writeJson } from './utils.mjs';
 import { resolveOperationInput } from './linear-mcp-match.mjs';
 
 const SUPPORTED_TYPES = new Set([
@@ -15,16 +14,8 @@ const SUPPORTED_TYPES = new Set([
 
 export const LOW_RISK_KINDS = new Set(['project_update', 'issue_create']);
 
-function clean(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function asArray(value) {
-  return Array.isArray(value) ? value.filter(Boolean) : [];
-}
-
 function stableSuffix(value) {
-  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 12);
+  return hash(value).slice(0, 12);
 }
 
 function projectFromInput(input) {

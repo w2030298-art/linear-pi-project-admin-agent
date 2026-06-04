@@ -2,16 +2,8 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { arg, hash, json, readJson, writeJson } from './utils.mjs';
+import { arg, asArray, cleanString as clean, hash, json, readJson, writeJson } from './utils.mjs';
 import { resolveProjectStatus } from './linear-mcp-match.mjs';
-
-function clean(value) {
-  return String(value || '').trim();
-}
-
-function asArray(value) {
-  return Array.isArray(value) ? value : [];
-}
 
 function projectFromEvidence(evidence) {
   return evidence?.data?.project || evidence?.project || null;

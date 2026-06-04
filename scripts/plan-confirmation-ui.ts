@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { clean } from "./utils.mjs";
 
 export const PLAN_CONFIRMATION_UI_TITLE_ZH = "确认 Linear 写入计划";
 
@@ -48,11 +49,6 @@ const MUTATION_LABELS: Record<string, string> = {
 
 const DIVIDER = "────────────────────────────────────────";
 const SECTION = (title: string) => [`${DIVIDER}`, `【${title}】`];
-
-function clean(value: string | undefined) {
-  const trimmed = value?.trim();
-  return trimmed || undefined;
-}
 
 function resolvePlanPath(cwd: string, writePlanPath: string) {
   return path.isAbsolute(writePlanPath) ? writePlanPath : path.resolve(cwd, writePlanPath);

@@ -22,6 +22,19 @@ export function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
 export function readJson(file, fallback = null) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } }
 export function writeJson(file, data) { ensureDir(path.dirname(file)); fs.writeFileSync(file, JSON.stringify(data, null, 2)); }
 export function hash(input) { return crypto.createHash('sha256').update(typeof input === 'string' ? input : JSON.stringify(input)).digest('hex'); }
+
+export function clean(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+export function cleanString(value) {
+  return String(value ?? '').trim();
+}
+
+export function asArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
 export function arg(name, fallback = undefined) {
   const idx = process.argv.indexOf(name);
   return idx >= 0 ? process.argv[idx + 1] : fallback;

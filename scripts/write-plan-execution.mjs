@@ -1,7 +1,5 @@
 // @ts-nocheck
-function clean(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : '';
-}
+import { clean } from './utils.mjs';
 
 function extractFallbackApprovalText(value) {
   const text = clean(value);

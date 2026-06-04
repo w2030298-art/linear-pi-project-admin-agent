@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { clean } from '../utils.mjs';
 
 export const SUPPORTED_WRITE_BACKENDS = new Set(['mcp']);
 export const DEFAULT_LINEAR_MCP_URL = 'https://mcp.linear.app/mcp';
@@ -24,10 +25,6 @@ const READBACK_TO_MCP_TOOL = {
   projectUpdate: 'get_status_updates',
   comment: 'list_comments'
 };
-
-function clean(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
 
 function repoRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
