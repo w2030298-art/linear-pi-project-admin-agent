@@ -104,6 +104,26 @@ export function enrichCompiledOperationsForMcp(compiled) {
   }));
 }
 
+export function mcpOperationSemanticFindings(operation, index = 0) {
+  const findings = [];
+  const type = String(operation?.type || '').trim();
+  const args = operation?.mcpArguments || {};
+  const path = `$.operations[${index}]`;
+
+  if (type === 'issue.update' && !clean(args.id)) {
+    findings.push(`${path}: issue.update MCP arguments must include id (from issueId).`);
+  }
+  if (type === 'issueRelation.create' || type === 'issue.relation.create') {
+    if (!clean(args.id)) {
+      findings.push(`${path}: issueRelation.create MCP arguments must include id (source issue).`);
+    }
+    if (!Array.isArray(args.relatedTo) || !args.relatedTo.length) {
+      findings.push(`${path}: issueRelation.create MCP arguments must include relatedTo.`);
+    }
+  }
+  return findings;
+}
+
 function stableJson(value) {
   return JSON.stringify(value);
 }

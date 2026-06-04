@@ -46,6 +46,16 @@ import { compileOperations } from './linear-apply/normalize.mjs';
 }
 
 {
+  const updateArgs = buildMcpToolArguments('issue.update', {
+    issueId: '94c98c47-0000-4000-8000-000000000001',
+    stateId: '1946dca1-0000-4000-8000-000000000002',
+    title: 'WEN-301: Cancel - example'
+  });
+  assert.equal(updateArgs.id, '94c98c47-0000-4000-8000-000000000001');
+  assert.equal(updateArgs.state, '1946dca1-0000-4000-8000-000000000002');
+}
+
+{
   const workspaceManifest = {
     teams: [{ id: 'team-1', key: 'WEN', name: 'Wen Team' }],
     labels: [{ id: 'label-1', name: 'Backend', teamKey: 'WEN', group: 'Area' }],
@@ -68,6 +78,35 @@ import { compileOperations } from './linear-apply/normalize.mjs';
   const mcpCompiled = enrichCompiledOperationsForMcp(compiled);
   assert.equal(mcpCompiled[0].mcpTool, 'save_status_update');
   assert.ok(mcpCompiled[0].mcpArguments?.project);
+}
+
+{
+  const workspaceManifest = {
+    teams: [{ id: 'team-1', key: 'WEN', name: 'Wen Team' }],
+    projectMilestones: [{ id: 'milestone-1', name: 'M1', projectId: 'project-1' }]
+  };
+  const plan = {
+    idempotencyKey: 'mcp-issue-update-compile',
+    targetProjectId: 'project-1',
+    operations: [{
+      key: 'cancel-issue',
+      type: 'issue.update',
+      input: {
+        issueId: 'issue-1',
+        stateId: 'state-done',
+        title: 'WEN-301: Cancel'
+      }
+    }]
+  };
+  const linear = { client: { rawRequest: async () => ({ data: {} }) } };
+  const compiled = await compileOperations(linear, plan, {
+    workspaceManifestInfo: { manifest: workspaceManifest, manifestPath: null },
+    exactIssueLookup: async () => null
+  });
+  const mcpCompiled = enrichCompiledOperationsForMcp(compiled);
+  assert.equal(mcpCompiled[0].mcpTool, 'save_issue');
+  assert.equal(mcpCompiled[0].mcpArguments.id, 'issue-1');
+  assert.equal(mcpCompiled[0].input.issueId, 'issue-1');
 }
 
 {

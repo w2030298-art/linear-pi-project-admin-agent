@@ -337,6 +337,33 @@ function baseProjectPlan() {
 
 {
   const writePlan = {
+    idempotencyKey: 'issue-create-milestone-name-manifest-only',
+    dryRun: true,
+    confirmedByUser: false,
+    targetProjectId: 'project-admin',
+    dependencyValidation: 'Single issue attaches to an existing milestone resolved from manifest.',
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        type: 'issue.create',
+        input: {
+          title: 'Track write pipeline regression',
+          teamKey: 'WEN',
+          projectId: 'project-admin',
+          milestoneName: 'M0',
+          labels: ['Backend', 'Medium-difficulty']
+        }
+      }
+    ]
+  };
+  const report = reviewWritePlan(writePlan, { workspaceManifest: resolverManifest });
+  assert.equal(report.status, 'pass');
+  assert.ok(report.resolutions.some(resolution => resolution.kind === 'projectMilestone' && resolution.id === 'milestone-m0'));
+}
+
+{
+  const writePlan = {
     idempotencyKey: 'resolver-review',
     dryRun: true,
     confirmedByUser: false,

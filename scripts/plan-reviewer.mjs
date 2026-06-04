@@ -165,7 +165,13 @@ function issueMilestoneRefs(operations) {
   return operations
     .filter(isIssueMutation)
     .map(operation => operation.input || {})
-    .map(input => firstText(input.projectMilestoneId, input.projectMilestoneRef, input.milestoneRef))
+    .map(input => firstText(
+      input.projectMilestoneId,
+      input.projectMilestoneRef,
+      input.milestoneRef,
+      input.milestoneName,
+      input.projectMilestoneName
+    ))
     .filter(Boolean);
 }
 
@@ -222,6 +228,26 @@ function hasVerifiedExistingMilestone(plan, operations) {
   return isBlank(projectId) || readback.projectId === projectId;
 }
 
+function milestoneResolutionMatchesProject(resolution, projectId) {
+  if (!resolution?.ok || resolution.kind !== 'projectMilestone') return false;
+  const locatorProjectId = resolution.locator?.projectId || resolution.object?.projectId || null;
+  return isBlank(projectId) || locatorProjectId === projectId;
+}
+
+function hasManifestResolvedIssueMilestones(operations, resolutions, plan) {
+  const issueCreates = operations.filter(isIssueCreate);
+  if (!issueCreates.length) return false;
+  const projectId = targetProjectId(plan);
+  const milestoneResolutions = asArray(resolutions).filter(resolution => milestoneResolutionMatchesProject(resolution, projectId));
+  if (!milestoneResolutions.length) return false;
+
+  return issueCreates.every(operation => {
+    const milestoneId = firstText((operation.input || {}).projectMilestoneId);
+    if (isBlank(milestoneId)) return false;
+    return milestoneResolutions.some(resolution => resolution.id === milestoneId);
+  });
+}
+
 function reviewProjectFieldLimits(operations) {
   const findings = [];
   operations.forEach((operation, index) => {
@@ -258,8 +284,22 @@ function reviewUnsupportedIssueFields(operations) {
 
 export function reviewWritePlan(plan, options = {}) {
   const findings = [];
-  const operations = asArray(plan.operations);
+  let reviewPlan = plan;
+  let operations = asArray(plan.operations);
   const resolutions = [];
+
+  if (options.workspaceManifest || options.workspaceManifestPath) {
+    const resolved = resolveWritePlanObjects(plan, {
+      manifest: options.workspaceManifest || null,
+      manifestPath: options.workspaceManifestPath || null
+    });
+    findings.push(...resolved.findings);
+    resolutions.push(...resolved.resolutions);
+    if (resolved.ok) {
+      reviewPlan = resolved.plan;
+      operations = asArray(resolved.plan.operations);
+    }
+  }
 
   if (isBlank(plan.idempotencyKey)) {
     findings.push(makeFinding(
@@ -275,9 +315,10 @@ export function reviewWritePlan(plan, options = {}) {
       { path: '$.operations' }
     ));
   }
-  const hasTargetProject = hasOp(operations, /^project\.(create|update)$/) || !isBlank(targetProjectId(plan));
+  const hasTargetProject = hasOp(operations, /^project\.(create|update)$/) || !isBlank(targetProjectId(reviewPlan));
   const hasMilestoneTarget = hasOp(operations, /^(projectMilestone|milestone|project\.milestone)\.create$/) ||
-    hasVerifiedExistingMilestone(plan, operations);
+    hasVerifiedExistingMilestone(reviewPlan, operations) ||
+    hasManifestResolvedIssueMilestones(operations, resolutions, reviewPlan);
   const mustHaveMilestoneTarget = requiresMilestoneTarget(operations);
 
   if (!hasTargetProject) {
@@ -348,12 +389,6 @@ export function reviewWritePlan(plan, options = {}) {
         { path: '$.workspaceManifest' }
       ));
     }
-    const resolved = resolveWritePlanObjects(plan, {
-      manifest: options.workspaceManifest || null,
-      manifestPath: options.workspaceManifestPath || null
-    });
-    findings.push(...resolved.findings);
-    resolutions.push(...resolved.resolutions);
   }
 
   return finish('write_plan', options.target || null, findings, { resolutions });

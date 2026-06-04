@@ -1,7 +1,12 @@
 // @ts-check
 import fs from 'node:fs';
 import { appendAudit, errorMessage } from './audit.mjs';
-import { buildMcpToolArguments, operationToMcpTool, resolveWriteBackend } from './mcp-adapter.mjs';
+import {
+  buildMcpToolArguments,
+  mcpOperationSemanticFindings,
+  operationToMcpTool,
+  resolveWriteBackend
+} from './mcp-adapter.mjs';
 import { compileOperations } from './normalize.mjs';
 import { parseWritePlan } from './schema.mjs';
 import { freezePlanFinalValidation, manifestHash } from '../linear-workspace-manifest.mjs';
@@ -96,6 +101,13 @@ function mcpMappingFindings(operations) {
         'write_plan_mcp_arguments_invalid',
         `operations[${index}] type ${operation.type} failed MCP argument compile: ${operation.mcpArgumentError}`,
         { path: `$.operations[${index}].input` }
+      ));
+    }
+    for (const message of mcpOperationSemanticFindings(operation, index)) {
+      findings.push(finding(
+        'write_plan_mcp_arguments_semantic',
+        message,
+        { path: `$.operations[${index}].mcpArguments` }
       ));
     }
   });

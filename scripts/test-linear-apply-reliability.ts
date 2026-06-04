@@ -160,9 +160,19 @@ function createMcpMock(config: {
   });
   const state: IssueState = { "issue-1": { id: "issue-1", title: "Before", updatedAt: "t0" } };
   const counters = { saveIssue: 0 };
-  const connectLinearMcp = createMcpMock({ state, counters: { create: 0, update: 0 }, saveIssueCounter: counters });
+  let lastSaveIssueArgs: Record<string, unknown> | null = null;
+  const connectLinearMcp = async () => {
+    const session = await createMcpMock({ state, counters: { create: 0, update: 0 }, saveIssueCounter: counters })();
+    const callTool = session.callTool.bind(session);
+    session.callTool = async (name: string, args: Record<string, unknown> = {}) => {
+      if (name === "save_issue") lastSaveIssueArgs = args;
+      return callTool(name, args);
+    };
+    return session;
+  };
 
   await applyWithEnv(planPath, applyOptions({ auditPath, progressPath, connectLinearMcp }));
+  assert.equal(lastSaveIssueArgs?.id, "issue-1", "issue.update must compile issueId into MCP id");
   await applyWithEnv(planPath, applyOptions({ auditPath, progressPath, connectLinearMcp }));
   assert.equal(counters.saveIssue, 1, "completed update replay should be skipped instead of resent");
 

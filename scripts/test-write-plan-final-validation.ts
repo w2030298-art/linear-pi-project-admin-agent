@@ -195,4 +195,41 @@ function manifest(labelId: string, manifestPath: string) {
   );
 }
 
+{
+  const dir = tempDir();
+  const planPath = path.join(dir, "issue-update-missing-id.json");
+  const manifestPath = path.join(dir, "manifest.json");
+  writeJson(planPath, {
+    dryRun: true,
+    idempotencyKey: "issue-update-missing-id",
+    targetProjectId: "project-1",
+    dependencyValidation: "Single issue state transition.",
+    readbackRequired: true,
+    auditLogRequired: true,
+    operations: [
+      {
+        key: "broken-update",
+        type: "issue.update",
+        input: {
+          stateId: "state-done",
+          title: "Missing issueId"
+        }
+      }
+    ]
+  });
+
+  const validation: any = await validateWritePlanCommand(planPath, {
+    env: {},
+    emitJson: false,
+    client: () => ({ client: { async rawRequest() { return { data: {} }; } } }),
+    cachedWorkspaceObjectManifest: async () => ({ manifest: manifest("label-1", manifestPath), manifestPath })
+  });
+
+  assert.equal(validation.ok, false);
+  assert.ok(
+    validation.findings.some((finding: any) => finding.code === "write_plan_mcp_arguments_semantic"),
+    "final validation should reject issue.update MCP args without id"
+  );
+}
+
 console.log("write plan final validation tests passed");
