@@ -30,8 +30,11 @@ assert.match(scope, /已解冻/);
 assert.match(scope, /WEN-312/);
 assert.match(scope, /ADR-002/);
 
+assert.equal(policy.version, 2);
+assert.equal(policy.mode, 'solo');
 assert.equal(policy.levels.L4.default, 'deny');
 assert.equal(policy.levels.L5.default, 'deny');
+assert.ok(!policy.levels.L3, 'enterprise L3 requireImpactReport tier should be removed in solo policy');
 assert.ok(policy.protectedFields.includes('token'));
 assert.ok(policy.protectedFields.includes('secret'));
 assert.ok(policy.protectedFields.includes('apiKey'));
