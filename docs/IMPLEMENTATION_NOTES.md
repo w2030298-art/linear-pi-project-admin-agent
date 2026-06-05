@@ -35,13 +35,13 @@ For `repo_map`:
 
 ## Linear apply
 
-Normal Linear writes use one orchestration tool: `linear_validate_and_apply_write_plan`.
+Normal structured Linear writes use one orchestration tool: `linear_build_write_plan`.
 
-- The tool is called once after write plan generation.
-- It runs deterministic final validation, compiles MCP arguments, freezes the workspace manifest/resolutions into the same write plan, and records final-validation audit evidence.
+- The tool builds and persists the write plan, then immediately runs deterministic final validation, compiles MCP arguments, freezes the workspace manifest/resolutions into the same write plan, and records final-validation audit evidence.
 - It then shows one `pi_ask_user(flow=plan_confirmation)` UI for the exact `writePlanPath`, `idempotencyKey`, and operation summaries.
 - On `Yes`, the same tool immediately applies via MCP, reusing the frozen validation snapshot, then performs readback diff and audit.
 - On `No`, `revision_requested`, or unavailable UI, it stops without mutation unless the user explicitly allows conversation fallback.
+- `linear_validate_and_apply_write_plan` remains the same gate for callers that already have a write plan file.
 - `linear_validate_write_plan` and `linear_apply_write_plan` remain compatibility/diagnostic surfaces. Normal agent writes must not manually chain them.
 - `project_select` and `repo_map` remain clarification-only flows and must not be reused for Linear write confirmation.
 - `scripts/write-plan-execution.mjs` still computes compatibility apply mode. If the source write-plan file is `dryRun=true` but the compatibility CLI call is `dryRun=false` with `--confirmed`, the CLI uses an in-memory effective plan with `dryRun=false` / `confirmedByUser=true` and records `reason.cliConfirmedOverride=true`.
@@ -53,11 +53,11 @@ Normal Linear writes use one orchestration tool: `linear_validate_and_apply_writ
 - `project_update`: one `projectUpdate.create`.
 - `issue_create`: one `issue.create` with existing Project Milestone readback.
 
-The wrapper accepts current session facts or a compact Project baseline, then generates a normal write plan with `idempotencyKey`, `readbackRequired=true`, `auditLogRequired=true`, `dryRun=true`, `confirmedByUser=false`, and a final validation summary. It returns one next tool call: `linear_validate_and_apply_write_plan`. These are orchestration hints, not permissions; final validation, approval, readback, and audit gates remain mandatory inside the single tool.
+The wrapper accepts current session facts or a compact Project baseline, then generates a normal write plan with `idempotencyKey`, `readbackRequired=true`, `auditLogRequired=true`, `dryRun=true`, `confirmedByUser=false`, and a final validation summary. The Pi tool immediately runs the same final validation, approval, readback, and audit gate instead of returning a second tool call for the Agent to invoke.
 
 When required evidence is missing, the wrapper returns `status=evidence_gap` with open questions. It does not infer target Project, milestone, team, labels, or acceptance criteria. Requests outside the whitelist must use the full Fact Pack and planning path.
 
-`linear-cli.mjs apply` supports real writes, but normal Pi runtime writes should reach it through `linear_validate_and_apply_write_plan`.
+`linear-cli.mjs apply` supports real writes, but normal Pi runtime writes should reach it through `linear_build_write_plan` or, for existing write plan files, `linear_validate_and_apply_write_plan`.
 
 Supported operation types:
 
@@ -74,30 +74,30 @@ Write conditions:
 - `LINEAR_WRITE_MODE=confirmed-only`
 - `ALLOW_LINEAR_WRITES=true`
 - write plan has `dryRun=false` at apply time
-- approved `plan_confirmation` from the same `linear_validate_and_apply_write_plan` call
+- approved `plan_confirmation` from the same write gate call
 
 ### Pi write confirmation flow
 
-Responsibilities are consolidated into one runtime tool:
+Responsibilities are consolidated into one runtime gate:
 
-1. **`linear_validate_and_apply_write_plan`** validates and freezes the write plan.
+1. **`linear_build_write_plan`** builds the write plan, then validates and freezes it. Existing write plan files may enter at **`linear_validate_and_apply_write_plan`**.
 2. **`pi_ask_user(flow=plan_confirmation)`** is invoked internally and shows `Yes` / `No` / `调整意见` for the exact plan.
 3. **Approved apply** runs immediately inside the same tool and never pops a second confirmation UI.
 4. **`linear-write-guard`** remains a compatibility guard for direct legacy apply calls.
 
 Approval authority is `writePlanPath` + `idempotencyKey` only. The single tool passes `confirmationChannel`, `confirmationText`, and `confirmationId` to the apply path internally. Successful real apply records audit/readback output and marks the operation complete.
 
-Final validation freezes Linear object resolver inputs. `linear_validate_and_apply_write_plan` persists the current workspace manifest snapshot, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan without recomputing any plan hash, and records `linear_write_plan_final_validation` in audit. Apply reuses that frozen snapshot. After mutations, apply compares planned vs actual state via readback diff and surfaces drift in audit output.
+Final validation freezes Linear object resolver inputs. The write gate persists the current workspace manifest snapshot, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan without recomputing any plan hash, and records `linear_write_plan_final_validation` in audit. Apply reuses that frozen snapshot. After mutations, apply compares planned vs actual state via readback diff and surfaces drift in audit output.
 
-Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it. If UI approval is available, do not downgrade to `conversation_fallback`; call `linear_validate_and_apply_write_plan` again after revising the plan.
+Conversation fallback remains blocked unless Pi UI is unavailable and the user explicitly allows it. If UI approval is available, do not downgrade to `conversation_fallback`; call the same write gate again after revising the operation input or write plan.
 
 ### Resolved structural issue: write confirmation binding (WEN-308/WEN-317)
 
 The write protocol promises one final plan confirmation per write intent. Approval authority is `writePlanPath` + `idempotencyKey` only; no pre-apply plan hash chain participates in approval binding.
 
-1. **Builder** (`write-plan-builder.mjs`) generates the write plan file and returns one workflow placeholder for `linear_validate_and_apply_write_plan`.
-2. **Final validation** (`freezePlanFinalValidation`) mutates the same write plan file, adds manifest/resolution/finalValidation fields, and persists the workspace manifest snapshot without recomputing any plan hash.
-3. **Plan confirmation** is shown inside `linear_validate_and_apply_write_plan` for the exact `writePlanPath` and `idempotencyKey`.
+1. **Builder** (`write-plan-builder.mjs`) generates the write plan file.
+2. **Final validation** (`freezePlanFinalValidation`) runs inside the same Pi gate, mutates the same write plan file, adds manifest/resolution/finalValidation fields, and persists the workspace manifest snapshot without recomputing any plan hash.
+3. **Plan confirmation** is shown inside the same Pi gate for the exact `writePlanPath` and `idempotencyKey`.
 4. **Apply** consumes that approval immediately, uses the frozen final-validation snapshot, executes mutations via Linear MCP, then compares planned vs actual state via readback diff in audit output.
 
 WEN-317 removes the historical digest chain entirely; integrity after mutation is enforced by readback diff and manifest/resolution drift checks, not pre-apply hash comparison. Regression coverage lives in `scripts/test-readback-diff.mjs`, `scripts/test-linear-apply-reliability.ts`, and `scripts/test-write-backend-wen319.mjs`.
@@ -158,4 +158,4 @@ Write confirmation approval artifacts also include source metadata for the artif
 
 ## Pi Write Confirmation UI
 
-The default Linear write confirmation path is `linear_validate_and_apply_write_plan`: after plan generation, the Agent calls this tool once; it runs final validation, invokes `pi_ask_user(flow=plan_confirmation)`, applies immediately only after approval, and never shows a second confirmation UI. `linear-write-guard` only gates legacy direct apply against a valid approval. Current-conversation text fallback is used only when Pi UI is unavailable and the user explicitly allowed that fallback.
+The default Linear write confirmation path is `linear_build_write_plan`: the Agent calls this tool once with structured operations; it builds the plan, runs final validation, invokes `pi_ask_user(flow=plan_confirmation)`, applies immediately only after approval, and never shows a second confirmation UI. Existing write plan files may use `linear_validate_and_apply_write_plan` for the same gate. `linear-write-guard` only gates legacy direct apply against a valid approval. Current-conversation text fallback is used only when Pi UI is unavailable and the user explicitly allowed that fallback.

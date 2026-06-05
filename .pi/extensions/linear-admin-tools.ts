@@ -78,31 +78,17 @@ export default function (pi: ExtensionAPI) {
     return parsed;
   };
 
-  const runLowRiskWritePlan = async (signal: AbortSignal | undefined, params: any) => {
-    const inputPath = path.join("state", "sessions", `low-risk-write-${Date.now()}.json`);
+  const runWritePlanBuilderCli = async (signal: AbortSignal | undefined, params: any, prefix: string) => {
+    const inputPath = path.join("state", "sessions", `${prefix}-${Date.now()}.json`);
     fs.mkdirSync(path.dirname(inputPath), { recursive: true });
     fs.writeFileSync(inputPath, JSON.stringify(params, null, 2));
     const args = ["scripts/write-plan-builder.mjs", "--input", inputPath];
     if (params.writePlanPath) args.push("--out", params.writePlanPath);
     const result = await pi.exec("node", args, { signal, timeout: 120000 });
     try {
-      return text(JSON.parse(result.stdout));
+      return { parsed: JSON.parse(result.stdout), response: null };
     } catch {
-      return text(result.stdout || result.stderr || { code: result.code });
-    }
-  };
-
-  const runStructuredWritePlanBuilder = async (signal: AbortSignal | undefined, params: any) => {
-    const inputPath = path.join("state", "sessions", `write-plan-builder-${Date.now()}.json`);
-    fs.mkdirSync(path.dirname(inputPath), { recursive: true });
-    fs.writeFileSync(inputPath, JSON.stringify(params, null, 2));
-    const args = ["scripts/write-plan-builder.mjs", "--input", inputPath];
-    if (params.writePlanPath) args.push("--out", params.writePlanPath);
-    const result = await pi.exec("node", args, { signal, timeout: 120000 });
-    try {
-      return text(JSON.parse(result.stdout));
-    } catch {
-      return text(result.stdout || result.stderr || { code: result.code });
+      return { parsed: null, response: text(result.stdout || result.stderr || { code: result.code }) };
     }
   };
 
@@ -118,7 +104,7 @@ export default function (pi: ExtensionAPI) {
         writesPerformed: false,
         writePlanPath,
         finalValidation: validation,
-        nextAction: "Revise the write plan or refresh evidence, then call linear_validate_and_apply_write_plan again."
+        nextAction: "Revise the operation input or write plan, refresh evidence if needed, then rerun the same write gate."
       });
     }
 
@@ -176,10 +162,52 @@ export default function (pi: ExtensionAPI) {
     });
   };
 
+  const runBuildValidateAndApplyWritePlan = async (
+    signal: AbortSignal | undefined,
+    params: any,
+    ctx: any,
+    prefix: string
+  ) => {
+    const builder = await runWritePlanBuilderCli(signal, params, prefix);
+    if (builder.response) return builder.response;
+
+    const writePlanBuilder = builder.parsed;
+    if (writePlanBuilder?.ok !== true) return text(writePlanBuilder);
+
+    const validateAndApplyParams = {
+      ...(writePlanBuilder.nextToolCalls?.validateAndApply?.params || {}),
+      writePlanPath: writePlanBuilder.writePlanPath,
+      idempotencyKey: writePlanBuilder.idempotencyKey,
+      targetProjectSummary:
+        writePlanBuilder.nextToolCalls?.validateAndApply?.params?.targetProjectSummary ||
+        writePlanBuilder.summary?.targetProjectSummary,
+      operationsSummary:
+        writePlanBuilder.nextToolCalls?.validateAndApply?.params?.operationsSummary ||
+        writePlanBuilder.summary?.operationsSummary,
+      dryRun: false
+    };
+    const validatedApply = await runValidateAndApplyWritePlan(signal, validateAndApplyParams, ctx);
+    const validatedApplyDetails = validatedApply.details && typeof validatedApply.details === "object"
+      ? validatedApply.details as Record<string, unknown>
+      : { ok: false, status: "unexpected_validate_apply_response", raw: validatedApply.details };
+    return text({
+      ...validatedApplyDetails,
+      writePlanBuilder
+    });
+  };
+
+  const runLowRiskWritePlan = async (signal: AbortSignal | undefined, params: any, ctx: any) => {
+    return runBuildValidateAndApplyWritePlan(signal, params, ctx, "low-risk-write");
+  };
+
+  const runStructuredWritePlanBuilder = async (signal: AbortSignal | undefined, params: any, ctx: any) => {
+    return runBuildValidateAndApplyWritePlan(signal, params, ctx, "write-plan-builder");
+  };
+
   pi.registerTool({
     name: "linear_prepare_low_risk_write",
     label: "Prepare Low-Risk Linear Write",
-    description: "Generate a standard write plan for whitelisted L1/L2 Linear writes, then return the required final validation+apply step. Never performs mutations. issue_create fields may be nested under issue or passed top-level.",
+    description: "Build a whitelisted L1/L2 write plan, run final validation, ask one plan_confirmation, and apply immediately only if approved. issue_create fields may be nested under issue or passed top-level.",
     parameters: Type.Object({
       kind: Type.String({ description: "Whitelist kind: project_update or issue_create." }),
       projectBaseline: Type.Optional(Type.Any()),
@@ -190,23 +218,23 @@ export default function (pi: ExtensionAPI) {
       writePlanPath: Type.Optional(Type.String()),
       idempotencyKey: Type.Optional(Type.String())
     }),
-    promptSnippet: "linear_prepare_low_risk_write: creates whitelisted single-operation write plans; still requires one final validation+apply call.",
+    promptSnippet: "linear_prepare_low_risk_write: one low-risk write gate that builds, final-validates, asks plan_confirmation, and applies only if approved.",
     promptGuidelines: [
       "Use only for low-risk single Project Update or single Issue create in one Project.",
       "For kind=issue_create, pass issue.title, issue.description, issue.teamKey/teamId, issue.labels/labelNames, issue.projectMilestoneId, and issue.projectMilestoneReadback. Top-level aliases are accepted but nested issue is clearer.",
       "If the tool returns evidence_gap, stop and build or refresh a full Fact Pack instead of guessing.",
-      "After it returns write_plan_ready, call linear_validate_and_apply_write_plan once. That tool runs final validation, shows pi_ask_user(plan_confirmation), and applies immediately only if the user approves.",
+      "Do not call linear_validate_and_apply_write_plan after this tool for the same write plan; this tool already runs final validation, shows pi_ask_user(plan_confirmation), and applies immediately only if the user approves.",
       "Do not use this for cross-Project writes, batch writes, repo-map changes, project structure changes, or relation-heavy planning."
     ],
-    async execute(_id, params, signal) {
-      return runLowRiskWritePlan(signal, params);
+    async execute(_id, params, signal, _onUpdate, ctx) {
+      return runLowRiskWritePlan(signal, params, ctx);
     }
   });
 
   pi.registerTool({
     name: "linear_build_write_plan",
     label: "Build Linear Write Plan",
-    description: "Run the structured write plan builder for operations[].type values projectUpdate.create, issue.create, issue.update, and issueRelation.create. operations[].kind is accepted as an input alias, but generated plans always use type. Never performs mutations.",
+    description: "Build a structured write plan, run final validation, ask one plan_confirmation, and apply immediately only if approved. operations[].kind is accepted as an input alias, but generated plans always use type.",
     parameters: Type.Object({
       targetProjectId: Type.Optional(Type.String()),
       targetProjectName: Type.Optional(Type.String()),
@@ -219,16 +247,16 @@ export default function (pi: ExtensionAPI) {
       writePlanPath: Type.Optional(Type.String()),
       idempotencyKey: Type.Optional(Type.String())
     }),
-    promptSnippet: "linear_build_write_plan: structured write plan builder that generates idempotencyKey, operation keys, summaries, and the single final validation+apply step.",
+    promptSnippet: "linear_build_write_plan: one write gate that builds the plan, final-validates it, asks plan_confirmation, and applies only if approved.",
     promptGuidelines: [
       "Use this to build standard write plans for projectUpdate.create, issue.create, issue.update, or issueRelation.create instead of hand-writing JSON. Put the operation discriminator at operations[].type; operations[].kind is accepted as an input alias only.",
       "Pass a workspaceManifest or workspaceManifestPath when resolving team, label, workflow state, or Project Milestone names.",
       "If the tool returns evidence_gap, stop and refresh the missing target, team, label, state, or milestone evidence instead of guessing.",
-      "After it returns write_plan_ready, call linear_validate_and_apply_write_plan once. Do not manually chain linear_validate_write_plan, pi_ask_user, and linear_apply_write_plan.",
-      "The builder only creates a write plan for approval UI binding; it does not replace final validation, risk judgment, readback diff, or audit inside linear_validate_and_apply_write_plan."
+      "Do not call linear_validate_and_apply_write_plan after this tool for the same write plan; this tool already runs final validation, shows pi_ask_user(plan_confirmation), and applies immediately only if the user approves.",
+      "If final validation fails, revise the operation input or refresh evidence before trying again; do not ask the user for approval first."
     ],
-    async execute(_id, params, signal) {
-      return runStructuredWritePlanBuilder(signal, params);
+    async execute(_id, params, signal, _onUpdate, ctx) {
+      return runStructuredWritePlanBuilder(signal, params, ctx);
     }
   });
 
@@ -290,7 +318,7 @@ export default function (pi: ExtensionAPI) {
       nonChangesSummary: Type.Optional(Type.String()),
       dryRun: Type.Optional(Type.Boolean({ default: false }))
     }),
-    promptSnippet: "linear_validate_and_apply_write_plan: the normal Linear write interface after a write plan is ready; validates, asks plan_confirmation, then writes immediately on approval.",
+    promptSnippet: "linear_validate_and_apply_write_plan: write gate for existing write plan files; validates, asks plan_confirmation, then writes immediately on approval.",
     promptGuidelines: [
       "Use this once after a write plan is generated. Do not manually call linear_validate_write_plan, pi_ask_user, then linear_apply_write_plan for normal writes.",
       "If final validation fails, revise the write plan or refresh evidence before trying again.",
@@ -306,13 +334,13 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_validate_write_plan",
     label: "Validate Linear Write Plan",
-    description: "Diagnostic compatibility tool: run final validation without mutation. Normal writes should use linear_validate_and_apply_write_plan instead.",
+    description: "Diagnostic compatibility tool: run final validation without mutation. Normal structured writes should use linear_build_write_plan instead.",
     parameters: Type.Object({
       writePlanPath: Type.String()
     }),
-    promptSnippet: "linear_validate_write_plan: diagnostic-only non-mutating validation; normal writes use linear_validate_and_apply_write_plan.",
+    promptSnippet: "linear_validate_write_plan: diagnostic-only non-mutating validation; normal structured writes use linear_build_write_plan.",
     promptGuidelines: [
-      "Use only for diagnostics or tests; normal agent writes call linear_validate_and_apply_write_plan once after write plan generation.",
+      "Use only for diagnostics or tests; normal structured writes use linear_build_write_plan, and existing write plan files use linear_validate_and_apply_write_plan.",
       "If validation returns needs_revision, revise the write plan or refresh evidence; do not ask for approval.",
       "If validation passes, do not manually route through approval/apply unless debugging a tool failure.",
       "This is not the normal agent write route."
@@ -325,7 +353,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "linear_apply_write_plan",
     label: "Apply Linear Write Plan",
-    description: "Compatibility tool: apply only with an existing plan_confirmation result. Normal writes should use linear_validate_and_apply_write_plan.",
+    description: "Compatibility tool: apply only with an existing plan_confirmation result. Normal structured writes should use linear_build_write_plan.",
     parameters: Type.Object({
       writePlanPath: Type.String(),
       confirmedByUser: Type.Boolean(),
@@ -336,9 +364,9 @@ export default function (pi: ExtensionAPI) {
       allowConversationFallback: Type.Optional(Type.Boolean({ default: false })),
       dryRun: Type.Optional(Type.Boolean({ default: true }))
     }),
-    promptSnippet: "linear_apply_write_plan: compatibility apply endpoint; normal writes use linear_validate_and_apply_write_plan.",
+    promptSnippet: "linear_apply_write_plan: compatibility apply endpoint; normal structured writes use linear_build_write_plan.",
     promptGuidelines: [
-      "Do not use this for normal writes; call linear_validate_and_apply_write_plan once after generating a write plan.",
+      "Do not use this for normal writes; call linear_build_write_plan for structured operations, or linear_validate_and_apply_write_plan for an existing write plan file.",
       "Use this only for compatibility/debugging when a valid plan_confirmation result already exists.",
       "linear_apply_write_plan never pops its own confirmation UI; it only accepts the confirmation result produced by pi_ask_user(plan_confirmation).",
       "If pi_ask_user plan_confirmation is unavailable and conversation fallback was not explicitly allowed, real write is blocked with: interactive confirmation unavailable; real write not applied.",

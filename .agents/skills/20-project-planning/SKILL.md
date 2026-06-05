@@ -68,7 +68,7 @@ description: 通过五步协作循环（四格追问 -> 方案权衡 -> 挑战�
 - 成功指标与验收口径。
 - Milestones、Issues、Relations。Issue 必须独立可执行，带验收标准和 labels。
 - 风险、依赖、待确认项。
-- write plan 摘要。真实写入随后必须调用 `linear_validate_and_apply_write_plan`。
+- write plan 摘要。真实结构化写入随后必须调用 `linear_build_write_plan`；已有 write plan 文件才使用 `linear_validate_and_apply_write_plan`。
 
 ## 收敛计划事实一致性
 
@@ -95,7 +95,7 @@ description: 通过五步协作循环（四格追问 -> 方案权衡 -> 挑战�
 本 skill 只负责规划对话与计划草案；真实 Linear 写入必须走：
 
 ```text
-write plan -> linear_validate_and_apply_write_plan -> final validation -> plan_confirmation -> approved apply -> readback -> audit
+linear_build_write_plan -> write plan -> final validation -> plan_confirmation -> approved apply -> readback -> audit
 ```
 
 本 skill 不替代 write guard。

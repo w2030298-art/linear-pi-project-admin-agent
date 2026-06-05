@@ -11,7 +11,7 @@ Detailed requirements: $ARGUMENTS
 
 Behavior sources:linear-admin-core, linear-project-report, evidence-based-reporting.
 
-Write interface: if real Linear writes are needed, use only `linear_validate_and_apply_write_plan`; do not split back into the old three-step flow.
+Write interface: if real Linear writes are needed, use `linear_build_write_plan` when constructing operations; use `linear_validate_and_apply_write_plan` only for an existing write plan file. Do not split back into legacy validation/approval/apply calls.
 
 Architecture principle: collaboration-first planning; Linear writes are only the thin output adapter after convergence.
 

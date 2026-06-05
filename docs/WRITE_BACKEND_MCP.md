@@ -5,7 +5,8 @@ WEN-320 removed the hand-rolled `@linear/sdk` executor and four resolver modules
 ## Architecture
 
 ```text
-linear_validate_and_apply_write_plan
+linear_build_write_plan
+  -> build and persist write plan
   -> deterministic write-plan review
   -> compileOperations + MCP argument check
   -> freeze manifest/resolutions into the write plan
@@ -52,10 +53,10 @@ Unsupported operation types fail at compile or MCP mapping time; there is no SDK
 
 Solo write flow (see `config/write-policy.yaml` v2):
 
-1. One `linear_validate_and_apply_write_plan` call after the write plan is ready.
-2. The tool runs final validation and freezes the manifest/resolution snapshot.
-3. The tool shows one `pi_ask_user(flow=plan_confirmation)` approval UI for the exact final-validated plan.
-4. On approval only, the same tool applies via MCP using the frozen validation snapshot, per-operation readback, checkpoint resume, and final readback diff.
+1. One `linear_build_write_plan` call for structured operations. Existing write plan files may enter through `linear_validate_and_apply_write_plan`.
+2. The gate runs final validation and freezes the manifest/resolution snapshot.
+3. The gate shows one `pi_ask_user(flow=plan_confirmation)` approval UI for the exact final-validated plan.
+4. On approval only, the same gate applies via MCP using the frozen validation snapshot, per-operation readback, checkpoint resume, and final readback diff.
 
 `linear_validate_write_plan` and `linear_apply_write_plan` remain compatibility/diagnostic surfaces. Normal agent writes should not manually chain them. Legacy `write_confirmation` and conversation text fallback are removed from the supported UX path (WEN-318). Real apply requires an interactive planning approval artifact unless tests inject `--confirmation-channel ask_user` on the CLI.
 
