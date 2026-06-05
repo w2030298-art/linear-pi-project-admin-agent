@@ -28,7 +28,7 @@ flowchart LR
 - **本地文档事实依据**：搜索 PRD、ADR、research notes、design docs。
 - **联网搜索能力**：Tavily 或 Brave Search，用于官方文档、依赖库、标准、近期变化。
 - **Fact Pack**：所有复杂项目规划前先建立事实包；上下文只加载摘要，原始证据落盘。
-- **Final Validation + Apply**: `linear_validate_and_apply_write_plan` is the normal write interface. It runs final validation, asks one `plan_confirmation`, applies immediately only after approval, then performs readback and audit.
+- **Build + Final Validation + Apply**: `linear_build_write_plan` is the normal structured write interface. It builds the plan, runs final validation, asks one `plan_confirmation`, applies immediately only after approval, then performs readback and audit. `linear_validate_and_apply_write_plan` remains the entry for existing write plan files.
 - **Workspace Sync**：同步 Linear labels、members、workflow states、teams。
 - **Write Guard**: Linear mutations run only after one final validation and one `plan_confirmation`, then enforce readback diff and audit (L4/L5 remain hard-deny).
 - **Linear-native 唤醒**：通过 Linear webhook、Agent Session、`Agent:*` labels 触发。
@@ -82,7 +82,7 @@ npm run bridge:dev
 
 ## 重要限制
 
-- `config/write-policy.yaml` (v2 solo) keeps real writes behind `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, write plan `dryRun=false`, one `linear_validate_and_apply_write_plan` call, one `plan_confirmation`, approved apply, readback, and audit.
+- `config/write-policy.yaml` (v2 solo) keeps real writes behind `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, write plan `dryRun=false`, one build/final-validation/confirmation call, approved apply, readback, and audit.
 - Pi 中的 slash 命令只保留 `.pi/prompts/` 这一套可见接口；`.agents/skills/` 仍加载为行为协议来源，但 `enableSkillCommands=false`，避免 prompt 与 skill 同名命令重复。
 - v0.1 范围以 `docs/SCOPE_FREEZE.md` 为准：只覆盖本地安装、事实层、Pi 交互、Webhook Bridge、Project Plan reviewer、写入治理和运维文档。
 - GitHub MCP 的配置文件已提供；Pi 是否能直接作为 MCP host 取决于你的 Pi/MCP 插件安装情况。本项目同时提供 GitHub REST fallback。

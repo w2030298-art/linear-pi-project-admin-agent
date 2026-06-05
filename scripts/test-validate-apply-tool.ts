@@ -142,4 +142,109 @@ function registerWithExec(exec: (command: string, args: string[]) => Promise<any
   assert.equal(applied, false, "failed final validation must not run apply");
 }
 
+{
+  const execCalls: Array<{ command: string; args: string[] }> = [];
+  const tools = registerWithExec(async (command, args) => {
+    execCalls.push({ command, args });
+    if (args[0] === "scripts/write-plan-builder.mjs") {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          status: "write_plan_ready",
+          writePlanPath: "state/write-plans/built.json",
+          idempotencyKey: "built-key",
+          summary: {
+            targetProjectSummary: "Built Project",
+            operationsSummary: "- issue.create: Built issue"
+          },
+          nextToolCalls: {
+            validateAndApply: {
+              name: "linear_validate_and_apply_write_plan",
+              params: {
+                writePlanPath: "state/write-plans/built.json",
+                idempotencyKey: "built-key",
+                targetProjectSummary: "Built Project",
+                operationsSummary: "- issue.create: Built issue",
+                dryRun: false
+              }
+            }
+          }
+        }),
+        stderr: ""
+      };
+    }
+    if (args[1] === "validate-write-plan") {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          status: "pass",
+          writePlanPath: "state/write-plans/built.json",
+          idempotencyKey: "built-key",
+          finalValidation: { status: "pass", validationKind: "single_final" },
+          confirmationRequest: {
+            flow: "plan_confirmation",
+            writePlanPath: "state/write-plans/built.json",
+            idempotencyKey: "built-key",
+            targetProjectSummary: "Built Project",
+            operationsSummary: "- issue.create: Built issue",
+            risksSummary: "No special risk.",
+            nonChangesSummary: "No other changes."
+          },
+          findings: []
+        }),
+        stderr: ""
+      };
+    }
+    if (args[1] === "apply") {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          dryRun: false,
+          idempotencyKey: "built-key",
+          results: [{ key: "issue", success: true }],
+          readbackDiff: { ok: true, mismatches: [] }
+        }),
+        stderr: ""
+      };
+    }
+    throw new Error(`unexpected exec: ${command} ${args.join(" ")}`);
+  });
+
+  const tool = tools.get("linear_build_write_plan");
+  assert.ok(tool, "Pi should expose one build+validate+apply Linear write gate");
+
+  const result = await tool.execute("call-3", {
+    targetProjectId: "project-1",
+    operations: [{
+      type: "issue.create",
+      title: "Built issue",
+      description: "Acceptance criteria:\n- It is created",
+      teamKey: "WEN",
+      labelNames: ["Backend"],
+      milestoneName: "M1"
+    }]
+  }, undefined, undefined, {
+    hasUI: true,
+    ui: {
+      select: async () => "Yes",
+      input: async () => ""
+    }
+  });
+
+  assert.equal(result.details.ok, true);
+  assert.equal(result.details.status, "applied");
+  assert.equal(result.details.writesPerformed, true);
+  assert.equal(result.details.writePlanBuilder.ok, true);
+  assert.equal(result.details.finalValidation.ok, true);
+  assert.equal(result.details.confirmation.status, "approved");
+  assert.deepEqual(execCalls.map(call => call.args[0] === "scripts/write-plan-builder.mjs" ? call.args[0] : call.args[1]), [
+    "scripts/write-plan-builder.mjs",
+    "validate-write-plan",
+    "apply"
+  ]);
+}
+
 console.log("validate and apply tool tests passed");

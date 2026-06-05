@@ -14,10 +14,10 @@ description: 定义 Linear Project Admin Runtime 的核心协议：事实先行�
 所有正常 Linear 写入必须遵循：
 
 ```text
-write plan -> linear_validate_and_apply_write_plan -> final validation -> pi_ask_user(plan_confirmation) -> approved apply -> readback -> audit
+linear_build_write_plan -> write plan -> final validation -> pi_ask_user(plan_confirmation) -> approved apply -> readback -> audit
 ```
 
-`linear_validate_and_apply_write_plan` 是唯一正常写入接口。它在工具内部重跑最终校验，展示一次 `plan_confirmation`，并且只在用户批准后立即执行 apply。不要在正常流程中手动串联 `linear_validate_write_plan`、`pi_ask_user` 和 `linear_apply_write_plan`；这些旧工具只用于兼容诊断或测试。
+`linear_build_write_plan` 是正常结构化写入接口：它构建 write plan，重跑最终校验，展示一次 `plan_confirmation`，并且只在用户批准后立即执行 apply。已有 write plan 文件才使用 `linear_validate_and_apply_write_plan`。不要在正常流程中手动串联 `linear_validate_write_plan`、`pi_ask_user` 和 `linear_apply_write_plan`；这些旧工具只用于兼容诊断或测试。
 
 ## 触发
 
@@ -29,7 +29,7 @@ write plan -> linear_validate_and_apply_write_plan -> final validation -> pi_ask
 2. 复杂任务必须先构造 Fact Pack。
 3. 规划类任务（create / extend）先走 `20-project-planning` 五步协作循环，再输出 write plan。
 4. 所有输出区分事实、假设、建议、决策、风险和待确认项。
-5. 所有 Linear 写入在 write plan 就绪后调用一次 `linear_validate_and_apply_write_plan`。用户未批准时不得写入；批准后不得弹第二个确认。
+5. 所有结构化 Linear 写入调用一次 `linear_build_write_plan`；已有 write plan 文件调用一次 `linear_validate_and_apply_write_plan`。用户未批准时不得写入；批准后不得弹第二个确认。
 6. 写入后必须回读并记录 audit。
 
 ## 输出格式（两段式）
@@ -67,7 +67,7 @@ write plan -> linear_validate_and_apply_write_plan -> final validation -> pi_ask
 
 - `协作对话` 段在信息未收敛前可单独输出并等待用户反馈；不得在未完成四格澄清、方案对比、假设挑战、事实锚定四步时填入 `收敛计划`。
 - 方案对比完成后须主动继续假设挑战与事实锚定，不得提前请用户选择方案。
-- `收敛计划` 段在用户确认方向或待确认项已闭合后输出；其中 `Linear 写入计划` 仅包含 write plan 摘要，真实 mutation 仍走 `linear_validate_and_apply_write_plan`。
+- `收敛计划` 段在用户确认方向或待确认项已闭合后输出；其中 `Linear 写入计划` 仅包含 write plan 摘要，真实结构化 mutation 走 `linear_build_write_plan`；已有 write plan 文件才走 `linear_validate_and_apply_write_plan`。
 - 报告/巡检类任务（report / portfolio-review）可省略“方案对比”，但必须保留事实锚定与待确认项。
 
 ## 事实一致性

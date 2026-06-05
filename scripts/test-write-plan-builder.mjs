@@ -267,12 +267,13 @@ function assertReviewPass(writePlan, message) {
 {
   const adminTools = fs.readFileSync('.pi/extensions/linear-admin-tools.ts', 'utf8');
   assert.match(adminTools, /linear_build_write_plan/);
-  assert.match(adminTools, /structured write plan builder/i);
+  assert.match(adminTools, /one write gate/i);
   assert.match(adminTools, /linear_validate_and_apply_write_plan/);
   assert.match(adminTools, /readback diff/i);
   assert.match(adminTools, /linear_prepare_low_risk_write/);
   assert.match(adminTools, /final validation[\s\S]*plan_confirmation[\s\S]*apply/);
-  assert.match(adminTools, /Never performs mutations/);
+  assert.match(adminTools, /apply immediately only if approved/i);
+  assert.doesNotMatch(adminTools, /After it returns write_plan_ready, call linear_validate_and_apply_write_plan once/i);
 }
 
 const lowRiskProjectBaseline = {

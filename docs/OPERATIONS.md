@@ -71,17 +71,17 @@ npm test
 
 - Check `ALLOW_LINEAR_WRITES`.
 - Check that the write plan contains `idempotencyKey`.
-- For normal writes, retry through `linear_validate_and_apply_write_plan`; it will perform final validation, show `plan_confirmation`, and apply only after approval.
+- For normal structured writes, retry through `linear_build_write_plan`; it will build the plan, perform final validation, show `plan_confirmation`, and apply only after approval. Use `linear_validate_and_apply_write_plan` when retrying an already persisted write plan file.
 - Do not ask for a fixed confirmation phrase or trigger a second confirmation.
 
 ## Linear Final Validation / Apply Protocol
 
-- Normal writes use `linear_validate_and_apply_write_plan` once after the write plan is ready.
-- The tool runs deterministic write-plan review, compiles MCP arguments, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan, persists the exact workspace manifest snapshot beside the plan, and does **not** recompute any plan hash.
+- Normal structured writes use `linear_build_write_plan` once. Existing write plan files may enter through `linear_validate_and_apply_write_plan`.
+- The gate runs deterministic write-plan review, compiles MCP arguments, writes `manifestHash`, `manifestPath`, `manifestCompleteness`, and object `resolutions` into the write plan, persists the exact workspace manifest snapshot beside the plan, and does **not** recompute any plan hash.
 - After approval, apply reuses the frozen final-validation manifest snapshot instead of running a second live manifest validation pass. Legacy dry-run plans without `finalValidation` still use the old live manifest drift check.
 - Workspace manifest reads must use cursor pagination and record `completeness` / `truncated`; incomplete manifests are not valid for real apply.
 - Real writes still require `LINEAR_WRITE_MODE=confirmed-only`, `ALLOW_LINEAR_WRITES=true`, and approval from `plan_confirmation`.
-- In interactive Pi runs, `linear_validate_and_apply_write_plan` invokes `pi_ask_user(flow=plan_confirmation)` internally as the single final approve/cancel channel before real Linear writes.
+- In interactive Pi runs, `linear_build_write_plan` invokes `pi_ask_user(flow=plan_confirmation)` internally as the single final approve/cancel channel before real Linear writes. `linear_validate_and_apply_write_plan` does the same for existing write plan files.
 - If `ctx.hasUI` is false, real writes are blocked with `interactive confirmation unavailable; real write not applied` unless the user explicitly allows current-conversation text fallback and the call passes `allowConversationFallback=true`.
 
 ## Project Freeze / Unfreeze Templates
@@ -97,12 +97,12 @@ npm test
 
 Single planning confirmation flow:
 
-1. After generating a write plan, call `linear_validate_and_apply_write_plan` once.
+1. Call `linear_build_write_plan` once with the structured operations. If a write plan file already exists, call `linear_validate_and_apply_write_plan` once for that file.
 2. The tool runs final validation, then shows one planning UI: `pi_ask_user(flow=plan_confirmation)` with structured Chinese sections and `Yes` / `No` / `调整意见` for the exact `writePlanPath`, `idempotencyKey`, and operation summaries.
-3. On `Yes`, the same tool immediately applies the write plan. On `No`, it stops without mutation. On adjustment, rewrite the plan and call `linear_validate_and_apply_write_plan` again.
+3. On `Yes`, the same gate immediately applies the write plan. On `No`, it stops without mutation. On adjustment, rewrite the operation input or write plan and call the same gate again.
 4. `linear-write-guard` remains a compatibility apply guard when legacy apply is called directly.
 
-- Final validation output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. Normal writes continue by calling `linear_validate_and_apply_write_plan`, not by manually chaining legacy tools.
+- Final validation output includes `confirmationSelfCheck`. Treat it as diagnostics, not approval. Normal writes continue inside `linear_build_write_plan` or `linear_validate_and_apply_write_plan`, not by manually chaining legacy tools.
 - Approval output includes `writePlanPath`, `idempotencyKey`, and `confirmationText`; the single tool passes those fields to apply internally.
 - If `plan_confirmation` returns `interactive_confirmation_unavailable`, `cancelled`, or `revision_requested`, real apply stays blocked unless the user explicitly allows conversation fallback.
 - Approval artifacts are persisted outside the repo by default at `%LOCALAPPDATA%\LinearProjectAdminPi\write-confirmation-artifacts.json` on Windows, or can be overridden with `WRITE_CONFIRMATION_ARTIFACT_STORE_PATH`. This makes the artifact visible across Pi tool calls, extension reloads, and runtime/source clone path differences.
@@ -117,7 +117,7 @@ Use `linear_prepare_low_risk_write` or `node scripts/write-plan-builder.mjs --in
 - `project_update`: one `projectUpdate.create` for an already identified Project.
 - `issue_create`: one `issue.create` under an already identified Project and verified existing Project Milestone.
 
-1. Automatically call `linear_validate_and_apply_write_plan` once after generating a write plan. The tool handles final validation, `plan_confirmation`, approved apply, readback, and audit.
+1. `linear_prepare_low_risk_write` builds the whitelisted write plan and immediately runs the same final validation, `plan_confirmation`, approved apply, readback, and audit gate. Do not call a second write tool for the same plan.
 
 Fallback to full Fact Pack / full planning when any of these are missing or out of scope:
 
