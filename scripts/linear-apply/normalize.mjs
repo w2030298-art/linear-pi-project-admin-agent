@@ -44,7 +44,7 @@ const ISSUE_CREATE_FIELDS = [
   'releaseIds', 'inheritsSharedAccess'
 ];
 const ISSUE_UPDATE_FIELDS = [
-  'title', 'description', 'descriptionData', 'assigneeId', 'delegateId', 'parentId',
+  'issueId', 'id', 'title', 'description', 'descriptionData', 'assigneeId', 'delegateId', 'parentId',
   'priority', 'estimate', 'subscriberIds', 'labelIds', 'addedLabelIds', 'removedLabelIds',
   'releaseIds', 'addedReleaseIds', 'removedReleaseIds', 'teamId', 'projectId',
   'projectMilestoneId', 'lastAppliedTemplateId', 'stateId', 'sortOrder', 'prioritySortOrder',

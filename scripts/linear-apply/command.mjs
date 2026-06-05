@@ -234,6 +234,19 @@ export async function applyPlanCommand(planPath, options) {
         readbackEntity = entity?.id ? await readbackMcp(mcpSession, kind, entity.id) : null;
         if (!readbackEntity && effectivePlan.readbackRequired !== false) throw new Error(`Readback failed for ${type} (${entity?.id || 'no-id'})`);
       } catch (err) {
+        const failedResult = {
+          index,
+          key,
+          type,
+          kind,
+          success: false,
+          skipped: false,
+          replayAction: 'failed',
+          error: errorMessage(err),
+          before,
+          fieldTransforms: metadata.fieldTransforms,
+          resolutions: metadata.objectResolutions
+        };
         checkpointFailure(progress, String(key), {
           index,
           key,
@@ -246,6 +259,13 @@ export async function applyPlanCommand(planPath, options) {
           resolutions: metadata.objectResolutions
         });
         saveProgress(progressPath, progress);
+        appendAudit({
+          type: 'linear_apply_operation',
+          idempotencyKey: effectivePlan.idempotencyKey,
+          operation: { index, key, mutationType: type },
+          replayAction: 'failed',
+          result: failedResult
+        });
         throw err;
       }
 
